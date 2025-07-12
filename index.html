@@ -131,7 +131,9 @@
 
     <template id="dashboard-template">
       <h1 class="text-3xl font-bold text-gray-800 mb-6">Dashboard</h1>
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+      <h2 class="text-xl font-semibold text-gray-700 mb-4">Statistik Aset</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div class="p-6 bg-white rounded-lg shadow-md">
           <h3 class="text-gray-500">Total Aset</h3>
           <p id="total-aset" class="text-3xl font-bold">0</p>
@@ -141,12 +143,26 @@
           <p id="aset-dipinjam" class="text-3xl font-bold">0</p>
         </div>
         <div class="p-6 bg-white rounded-lg shadow-md">
-          <h3 class="text-gray-500">Reservasi Pending</h3>
-          <p id="reservasi-pending" class="text-3xl font-bold">0</p>
+          <h3 class="text-gray-500">Dalam Perbaikan</h3>
+          <p id="aset-perbaikan" class="text-3xl font-bold">0</p>
         </div>
+      </div>
+
+      <h2 class="text-xl font-semibold text-gray-700 mb-4">
+        Statistik Ruangan
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="p-6 bg-white rounded-lg shadow-md">
           <h3 class="text-gray-500">Total Ruangan</h3>
           <p id="total-ruangan" class="text-3xl font-bold">0</p>
+        </div>
+        <div class="p-6 bg-white rounded-lg shadow-md">
+          <h3 class="text-gray-500">Reservasi Disetujui</h3>
+          <p id="reservasi-disetujui" class="text-3xl font-bold">0</p>
+        </div>
+        <div class="p-6 bg-white rounded-lg shadow-md">
+          <h3 class="text-gray-500">Menunggu Persetujuan</h3>
+          <p id="reservasi-pending" class="text-3xl font-bold">0</p>
         </div>
       </div>
     </template>
@@ -554,14 +570,22 @@
           .content.cloneNode(true);
         contentArea.appendChild(template);
 
+        // Panggil API yang sudah kita perbarui
         const stats = await api.get("/api/dashboard-stats");
 
+        // Isi statistik aset
         document.getElementById("total-aset").textContent = stats.totalAssets;
         document.getElementById("aset-dipinjam").textContent =
           stats.borrowedAssets;
+        document.getElementById("aset-perbaikan").textContent =
+          stats.maintenanceAssets;
+
+        // Isi statistik ruangan
+        document.getElementById("total-ruangan").textContent = stats.totalRooms;
+        document.getElementById("reservasi-disetujui").textContent =
+          stats.approvedReservations;
         document.getElementById("reservasi-pending").textContent =
           stats.pendingReservations;
-        document.getElementById("total-ruangan").textContent = stats.totalRooms;
       }
 
       async function loadInventarisPage() {
