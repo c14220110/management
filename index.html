@@ -449,7 +449,7 @@
 
         try {
           const data = await api.login(email, password);
-          localStorage.setItem("authToken", data.access_token);
+          localStorage.setItem("authToken", data.session.access_token);
           localStorage.setItem(
             "userRole",
             data.user.user_metadata.role || "member"
