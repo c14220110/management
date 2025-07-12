@@ -151,6 +151,17 @@
       <h2 class="text-xl font-semibold text-gray-700 mb-4">
         Statistik Ruangan
       </h2>
+      <div class="mt-8">
+        <h2 class="text-xl font-semibold text-gray-700 mb-4">
+          Persetujuan Reservasi Tertunda
+        </h2>
+        <div
+          id="pending-reservations-list"
+          class="bg-white p-4 rounded-lg shadow-md space-y-4"
+        >
+          <p class="text-gray-500">Memuat data...</p>
+        </div>
+      </div>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div class="p-6 bg-white rounded-lg shadow-md">
           <h3 class="text-gray-500">Total Ruangan</h3>
@@ -502,20 +513,23 @@
         try {
           const data = await api.login(email, password);
           localStorage.setItem("authToken", data.session.access_token);
-          localStorage.setItem(
-            "userRole",
-            data.user.user_metadata.role || "member"
-          );
+
+          const userRole = data.user.user_metadata.role || "member";
+          localStorage.setItem("userRole", userRole);
 
           loginScreen.classList.add("hidden");
           appLayout.classList.remove("hidden");
 
-          if (data.user.user_metadata.role === "management") {
+          if (userRole === "management") {
             managementLink.classList.remove("hidden");
+            // Jika management, arahkan ke dashboard
+            window.location.hash = "#dashboard";
+          } else {
+            // Jika member, langsung arahkan ke halaman inventaris
+            window.location.hash = "#inventaris";
           }
 
-          window.location.hash = "#dashboard";
-          router();
+          router(); // Panggil router untuk memuat halaman yang sesuai
         } catch (error) {
           feedback.textContent = error.message;
         }
@@ -565,27 +579,69 @@
       }
 
       async function loadDashboard() {
+        // Bagian ini tidak berubah, hanya memuat template dan statistik KPI
         const template = document
           .getElementById("dashboard-template")
           .content.cloneNode(true);
         contentArea.appendChild(template);
-
-        // Panggil API yang sudah kita perbarui
         const stats = await api.get("/api/dashboard-stats");
-
-        // Isi statistik aset
         document.getElementById("total-aset").textContent = stats.totalAssets;
         document.getElementById("aset-dipinjam").textContent =
           stats.borrowedAssets;
         document.getElementById("aset-perbaikan").textContent =
           stats.maintenanceAssets;
-
-        // Isi statistik ruangan
         document.getElementById("total-ruangan").textContent = stats.totalRooms;
         document.getElementById("reservasi-disetujui").textContent =
           stats.approvedReservations;
         document.getElementById("reservasi-pending").textContent =
           stats.pendingReservations;
+
+        // --- BAGIAN BARU: Memuat dan Menampilkan Daftar Tugas ---
+        const listContainer = document.getElementById(
+          "pending-reservations-list"
+        );
+        try {
+          const pendingList = await api.get(
+            "/api/management/pending-reservations"
+          );
+
+          if (pendingList.length === 0) {
+            listContainer.innerHTML =
+              '<p class="text-gray-500 p-4 text-center">Tidak ada permintaan reservasi baru.</p>';
+            return;
+          }
+
+          listContainer.innerHTML = ""; // Kosongkan kontainer
+          pendingList.forEach((item) => {
+            const itemDiv = document.createElement("div");
+            itemDiv.className =
+              "flex items-center justify-between p-4 border rounded-md";
+            itemDiv.innerHTML = `
+        <div>
+          <p class="font-semibold">${item.event_name} (${item.room_name})</p>
+          <p class="text-sm text-gray-600">Oleh: ${
+            item.requester_name
+          } | Waktu: ${new Date(item.start_time).toLocaleString("id-ID")}</p>
+        </div>
+        <div class="flex space-x-2">
+          <button data-id="${
+            item.id
+          }" data-action="Disetujui" class="action-btn bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-3 rounded">Setujui</button>
+          <button data-id="${
+            item.id
+          }" data-action="Ditolak" class="action-btn bg-red-500 hover:bg-red-600 text-white font-bold py-1 px-3 rounded">Tolak</button>
+        </div>
+      `;
+            listContainer.appendChild(itemDiv);
+          });
+
+          // Tambahkan event listener untuk semua tombol aksi
+          document.querySelectorAll(".action-btn").forEach((button) => {
+            button.addEventListener("click", handleReservationAction);
+          });
+        } catch (error) {
+          listContainer.innerHTML = `<p class="text-red-500">${error.message}</p>`;
+        }
       }
 
       async function loadInventarisPage() {
@@ -719,6 +775,48 @@
             },
           });
           calendar.render();
+        }
+      }
+      // Fungsi untuk menangani klik pada tombol Setujui/Tolak di dashboard
+
+      async function handleReservationAction(e) {
+        // Dapatkan tombol yang di-klik
+        const button = e.target;
+        // Ambil data dari atribut `data-*` pada tombol
+        const id = button.dataset.id;
+        const action = button.dataset.action;
+
+        // Nonaktifkan tombol sementara untuk mencegah klik ganda
+        button.disabled = true;
+        button.textContent = "Memproses...";
+
+        // Tampilkan konfirmasi kepada user
+        if (
+          !confirm(
+            `Apakah Anda yakin ingin mengubah status reservasi ini menjadi "${action}"?`
+          )
+        ) {
+          // Jika user membatalkan, kembalikan teks tombol dan aktifkan kembali
+          button.disabled = false;
+          button.textContent = action;
+          return;
+        }
+
+        try {
+          // Panggil API untuk memperbarui status
+          await api.post("/api/management/update-reservation-status", {
+            reservationId: id,
+            newStatus: action,
+          });
+
+          // Jika berhasil, muat ulang seluruh data di dashboard untuk memperbarui tampilan
+          // Termasuk angka statistik dan daftar tugas.
+          loadDashboard();
+        } catch (error) {
+          // Jika gagal, tampilkan pesan error dan aktifkan kembali tombol
+          alert(`Gagal memperbarui status: ${error.message}`);
+          button.disabled = false;
+          button.textContent = action;
         }
       }
 
