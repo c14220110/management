@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard GKI Kutisari</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .modal {
+        transition: opacity 0.25s ease;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100">
+    <div id="login-screen" class="flex items-center justify-center h-screen">
+      <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+        <h2 class="text-2xl font-bold text-center text-gray-800">
+          Login ke Dashboard GKI Kutisari
+        </h2>
+        <form id="login-form">
+          <div class="space-y-4">
+            <div>
+              <label for="email" class="text-sm font-medium text-gray-700"
+                >Email</label
+              >
+              <input
+                id="email"
+                type="email"
+                required
+                class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                value="member@gereja.com"
+              />
+            </div>
+            <div>
+              <label for="password" class="text-sm font-medium text-gray-700"
+                >Password</label
+              >
+              <input
+                id="password"
+                type="password"
+                required
+                class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                value="password123"
+              />
+            </div>
+          </div>
+          <button
+            type="submit"
+            class="w-full px-4 py-2 mt-6 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700"
+          >
+            Login
+          </button>
+          <p
+            id="login-feedback"
+            class="mt-2 text-sm text-center text-red-600"
+          ></p>
+        </form>
+      </div>
+    </div>
+
+    <div id="app-layout" class="hidden">
+      <div class="flex h-screen bg-gray-200">
+        <div class="w-64 bg-gray-800 text-white flex flex-col">
+          <div class="px-8 py-6 text-2xl font-bold">GKI Kutisari</div>
+          <nav class="flex-1 px-4 py-4 space-y-2">
+            <a
+              href="#dashboard"
+              class="nav-link flex items-center px-4 py-2 rounded-md bg-gray-700"
+              ><i class="fas fa-tachometer-alt w-6"></i> Dashboard</a
+            >
+            <a
+              href="#inventaris"
+              class="nav-link flex items-center px-4 py-2 rounded-md hover:bg-gray-700"
+              ><i class="fas fa-boxes w-6"></i> Inventaris (SIMA)</a
+            >
+            <a
+              href="#reservasi"
+              class="nav-link flex items-center px-4 py-2 rounded-md hover:bg-gray-700"
+              ><i class="fas fa-calendar-alt w-6"></i> Reservasi (SIRENA)</a
+            >
+            <a
+              href="#manajemen"
+              id="management-link"
+              class="nav-link flex items-center px-4 py-2 rounded-md hover:bg-gray-700 hidden"
+              ><i class="fas fa-cogs w-6"></i> Manajemen</a
+            >
+          </nav>
+          <div class="px-4 py-4">
+            <a
+              href="#"
+              id="logout-button"
+              class="flex items-center w-full px-4 py-2 text-left rounded-md hover:bg-gray-700"
+              ><i class="fas fa-sign-out-alt w-6"></i> Logout</a
+            >
+          </div>
+        </div>
+        <main class="flex-1 p-10 overflow-y-auto">
+          <div id="content-area"></div>
+        </main>
+      </div>
+    </div>
+
+    <template id="dashboard-template">
+      <h1 class="text-3xl font-bold text-gray-800 mb-6">Dashboard</h1>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="p-6 bg-white rounded-lg shadow-md">
+          <h3 class="text-gray-500">Total Aset</h3>
+          <p id="total-aset" class="text-3xl font-bold">0</p>
+        </div>
+        <div class="p-6 bg-white rounded-lg shadow-md">
+          <h3 class="text-gray-500">Aset Dipinjam</h3>
+          <p id="aset-dipinjam" class="text-3xl font-bold">0</p>
+        </div>
+        <div class="p-6 bg-white rounded-lg shadow-md">
+          <h3 class="text-gray-500">Reservasi Pending</h3>
+          <p id="reservasi-pending" class="text-3xl font-bold">0</p>
+        </div>
+        <div class="p-6 bg-white rounded-lg shadow-md">
+          <h3 class="text-gray-500">Total Ruangan</h3>
+          <p id="total-ruangan" class="text-3xl font-bold">0</p>
+        </div>
+      </div>
+    </template>
+
+    <template id="inventaris-template">
+      <h1 class="text-3xl font-bold text-gray-800 mb-2">
+        Inventaris Aset (SIMA)
+      </h1>
+      <p class="text-gray-600 mb-6">
+        Lihat daftar aset gereja dan ajukan peminjaman.
+      </p>
+      <div
+        id="asset-list"
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12"
+      >
+        <div class="bg-white p-4 rounded-lg shadow animate-pulse">
+          <div class="h-40 bg-gray-200 rounded-md mb-4"></div>
+          <div class="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+          <div class="h-4 bg-gray-200 rounded w-1/2"></div>
+        </div>
+      </div>
+      <div class="bg-white p-8 rounded-lg shadow-md">
+        <h2 class="text-2xl font-semibold text-gray-700 mb-4">
+          Formulir Peminjaman Aset
+        </h2>
+        <form id="borrow-form">
+          <div class="mb-4">
+            <label
+              for="borrow-asset-id"
+              class="block text-gray-700 font-medium mb-2"
+              >Pilih Aset</label
+            >
+            <select
+              id="borrow-asset-id"
+              class="w-full p-2 border border-gray-300 rounded-md"
+              required
+            >
+              <option value="">Memuat aset yang tersedia...</option>
+            </select>
+          </div>
+          <div class="mb-4">
+            <label
+              for="borrower-name"
+              class="block text-gray-700 font-medium mb-2"
+              >Nama Peminjam</label
+            >
+            <input
+              type="text"
+              id="borrower-name"
+              class="w-full p-2 border border-gray-300 rounded-md"
+              required
+            />
+          </div>
+          <div class="mb-4">
+            <label
+              for="return-date"
+              class="block text-gray-700 font-medium mb-2"
+              >Tanggal Pengembalian</label
+            >
+            <input
+              type="date"
+              id="return-date"
+              class="w-full p-2 border border-gray-300 rounded-md"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700"
+          >
+            Ajukan Peminjaman
+          </button>
+          <p id="borrow-feedback" class="mt-4 text-center font-semibold"></p>
+        </form>
+      </div>
+    </template>
+
+    <template id="reservasi-template">
+      <h1 class="text-3xl font-bold text-gray-800 mb-2">
+        Reservasi Ruangan (SIRENA)
+      </h1>
+      <p class="text-gray-600 mb-6">
+        Lihat jadwal dan ajukan reservasi ruangan gereja.
+      </p>
+      <div class="bg-white p-6 rounded-lg shadow-md mb-12">
+        <div class="flex items-center space-x-4 mb-4">
+          <div class="flex items-center">
+            <span class="w-4 h-4 bg-blue-500 rounded-full mr-2"></span>Disetujui
+          </div>
+          <div class="flex items-center">
+            <span class="w-4 h-4 bg-orange-400 rounded-full mr-2"></span
+            >Menunggu Persetujuan
+          </div>
+        </div>
+        <div id="calendar"></div>
+      </div>
+      <div class="bg-white p-8 rounded-lg shadow-md">
+        <h2 class="text-2xl font-semibold text-gray-700 mb-4">
+          Formulir Permintaan Reservasi
+        </h2>
+        <form id="reservation-form">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label
+                for="requester_name"
+                class="block text-gray-700 font-medium mb-2"
+                >Nama Penanggung Jawab</label
+              ><input
+                type="text"
+                id="requester_name"
+                class="w-full p-2 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
+            <div>
+              <label
+                for="event_name"
+                class="block text-gray-700 font-medium mb-2"
+                >Nama Kegiatan</label
+              ><input
+                type="text"
+                id="event_name"
+                class="w-full p-2 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
+            <div>
+              <label
+                for="room_name"
+                class="block text-gray-700 font-medium mb-2"
+                >Pilih Ruangan</label
+              ><select
+                id="room_name"
+                class="w-full p-2 border border-gray-300 rounded-md"
+                required
+              ></select>
+            </div>
+            <div>
+              <label
+                for="start_time"
+                class="block text-gray-700 font-medium mb-2"
+                >Waktu Mulai</label
+              ><input
+                type="datetime-local"
+                id="start_time"
+                class="w-full p-2 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
+            <div>
+              <label for="end_time" class="block text-gray-700 font-medium mb-2"
+                >Waktu Selesai</label
+              ><input
+                type="datetime-local"
+                id="end_time"
+                class="w-full p-2 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
+          </div>
+          <button
+            type="submit"
+            class="mt-6 w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700"
+          >
+            Kirim Permintaan
+          </button>
+          <p
+            id="reservation-feedback"
+            class="mt-4 text-center font-semibold"
+          ></p>
+        </form>
+      </div>
+    </template>
+
+    <template id="manajemen-template">
+      <h1 class="text-3xl font-bold text-gray-800 mb-6">Panel Manajemen</h1>
+      <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+        <h2 class="text-xl font-semibold mb-4">Daftar Peminjaman Aktif</h2>
+        <div class="overflow-x-auto">
+          <table class="min-w-full bg-white">
+            <thead class="bg-gray-200">
+              <tr>
+                <th class="py-2 px-4">Tipe</th>
+                <th class="py-2 px-4">Nama Item/Ruangan</th>
+                <th class="py-2 px-4">Peminjam</th>
+                <th class="py-2 px-4">Deadline/Waktu</th>
+              </tr>
+            </thead>
+            <tbody id="all-loans-table"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+        <h2 class="text-xl font-semibold mb-4">Manajemen Aset (Barang)</h2>
+      </div>
+      <div class="bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-xl font-semibold mb-4">Manajemen Ruangan</h2>
+      </div>
+      <div class="bg-white p-6 rounded-lg shadow-md mt-8">
+        <h2 class="text-xl font-semibold mb-4">
+          Tambah Pengguna Baru (Member)
+        </h2>
+        <form id="add-user-form">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label
+                for="new-user-fullname"
+                class="block text-gray-700 font-medium mb-2"
+                >Nama Lengkap</label
+              ><input
+                type="text"
+                id="new-user-fullname"
+                class="w-full p-2 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
+            <div>
+              <label
+                for="new-user-email"
+                class="block text-gray-700 font-medium mb-2"
+                >Email</label
+              ><input
+                type="email"
+                id="new-user-email"
+                class="w-full p-2 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
+            <div class="md:col-span-2">
+              <label
+                for="new-user-password"
+                class="block text-gray-700 font-medium mb-2"
+                >Password Sementara</label
+              ><input
+                type="password"
+                id="new-user-password"
+                class="w-full p-2 border border-gray-300 rounded-md"
+                required
+              />
+            </div>
+          </div>
+          <button
+            type="submit"
+            class="mt-6 w-full bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700"
+          >
+            Buat Akun Member
+          </button>
+          <p id="add-user-feedback" class="mt-4 text-center font-semibold"></p>
+        </form>
+      </div>
+    </template>
+
+    <script>
+      const contentArea = document.getElementById("content-area");
+      const loginScreen = document.getElementById("login-screen");
+      const appLayout = document.getElementById("app-layout");
+      const managementLink = document.getElementById("management-link");
+      let calendar;
+
+      const api = {
+        async _fetch(endpoint, method = "GET", body = null) {
+          const token = localStorage.getItem("authToken");
+          const options = {
+            method,
+            headers: { Authorization: `Bearer ${token}` },
+          };
+          if (body) {
+            options.headers["Content-Type"] = "application/json";
+            options.body = JSON.stringify(body);
+          }
+          const response = await fetch(endpoint, options);
+          if (response.status === 401) {
+            logout();
+            return;
+          }
+          if (response.status === 204) {
+            return null;
+          }
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || "Terjadi kesalahan pada server.");
+          }
+          return data;
+        },
+        get(endpoint) {
+          return this._fetch(endpoint, "GET");
+        },
+        post(endpoint, body) {
+          return this._fetch(endpoint, "POST", body);
+        },
+        put(endpoint, body) {
+          return this._fetch(endpoint, "PUT", body);
+        },
+        delete(endpoint) {
+          return this._fetch(endpoint, "DELETE");
+        },
+        async login(email, password) {
+          const response = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          });
+          if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error);
+          }
+          return response.json();
+        },
+      };
+
+      function logout() {
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("userRole");
+        appLayout.classList.add("hidden");
+        loginScreen.classList.remove("hidden");
+        window.location.hash = "";
+      }
+
+      async function handleLogin(e) {
+        e.preventDefault();
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+        const feedback = document.getElementById("login-feedback");
+
+        try {
+          const data = await api.login(email, password);
+          localStorage.setItem("authToken", data.access_token);
+          localStorage.setItem(
+            "userRole",
+            data.user.user_metadata.role || "member"
+          );
+
+          loginScreen.classList.add("hidden");
+          appLayout.classList.remove("hidden");
+
+          if (data.user.user_metadata.role === "management") {
+            managementLink.classList.remove("hidden");
+          }
+
+          window.location.hash = "#dashboard";
+          router();
+        } catch (error) {
+          feedback.textContent = error.message;
+        }
+      }
+
+      function router() {
+        const hash = window.location.hash || "#dashboard";
+        const navLinks = document.querySelectorAll(".nav-link");
+
+        navLinks.forEach((link) => {
+          if (link.getAttribute("href") === hash) {
+            link.classList.add("bg-gray-700");
+          } else {
+            link.classList.remove("bg-gray-700");
+          }
+        });
+
+        contentArea.innerHTML = "";
+        switch (hash) {
+          case "#dashboard":
+            loadDashboard();
+            break;
+          case "#inventaris":
+            loadInventarisPage();
+            break;
+          case "#reservasi":
+            loadReservasiPage();
+            break;
+          case "#manajemen":
+            if (localStorage.getItem("userRole") === "management") {
+              contentArea.innerHTML =
+                document.getElementById("manajemen-template").innerHTML;
+              loadManagementData();
+            } else {
+              contentArea.innerHTML = `<h1 class="text-2xl text-red-600">Akses Ditolak</h1>`;
+            }
+            break;
+          default:
+            loadDashboard();
+        }
+      }
+
+      async function loadDashboard() {
+        const template = document
+          .getElementById("dashboard-template")
+          .content.cloneNode(true);
+        contentArea.appendChild(template);
+
+        const stats = await api.get("/api/dashboard-stats");
+
+        document.getElementById("total-aset").textContent = stats.totalAssets;
+        document.getElementById("aset-dipinjam").textContent =
+          stats.borrowedAssets;
+        document.getElementById("reservasi-pending").textContent =
+          stats.pendingReservations;
+        document.getElementById("total-ruangan").textContent = stats.totalRooms;
+      }
+
+      async function loadInventarisPage() {
+        contentArea.innerHTML = document.getElementById(
+          "inventaris-template"
+        ).innerHTML;
+        const assetListContainer = document.getElementById("asset-list");
+        const assetSelect = document.getElementById("borrow-asset-id");
+        const borrowForm = document.getElementById("borrow-form");
+        const feedbackDiv = document.getElementById("borrow-feedback");
+
+        try {
+          const assets = await api.get("/api/get-assets");
+          assetListContainer.innerHTML = "";
+          assetSelect.innerHTML = '<option value="">Pilih Aset</option>';
+
+          assets.forEach((asset) => {
+            const assetCard = `<div class="bg-white p-6 rounded-lg shadow-md"><img src="${
+              asset.photo_url || "https://via.placeholder.com/300"
+            }" alt="${
+              asset.asset_name
+            }" class="w-full h-48 object-cover rounded-md mb-4"><h3 class="text-xl font-bold text-gray-800">${
+              asset.asset_name
+            }</h3><p class="text-sm text-gray-500 mb-4">Lokasi: ${
+              asset.location
+            }</p><span class="px-3 py-1 text-sm font-semibold rounded-full ${
+              asset.status === "Tersedia"
+                ? "bg-green-200 text-green-800"
+                : "bg-yellow-200 text-yellow-800"
+            }">${asset.status}</span></div>`;
+            assetListContainer.innerHTML += assetCard;
+
+            if (asset.status === "Tersedia") {
+              assetSelect.innerHTML += `<option value="${asset.id}">${asset.asset_name}</option>`;
+            }
+          });
+        } catch (error) {
+          assetListContainer.innerHTML = `<p class="text-red-500 col-span-full">${error.message}</p>`;
+        }
+
+        borrowForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          feedbackDiv.textContent = "Mengirim permintaan...";
+          feedbackDiv.className =
+            "mt-4 text-center font-semibold text-blue-600";
+          try {
+            const result = await api.post("/api/request-borrow", {
+              asset_id: document.getElementById("borrow-asset-id").value,
+              borrower_name: document.getElementById("borrower-name").value,
+              return_date: document.getElementById("return-date").value,
+            });
+            feedbackDiv.textContent = result.message;
+            feedbackDiv.className =
+              "mt-4 text-center font-semibold text-green-600";
+            borrowForm.reset();
+            loadInventarisPage();
+          } catch (error) {
+            feedbackDiv.textContent = `Gagal: ${error.message}`;
+            feedbackDiv.className =
+              "mt-4 text-center font-semibold text-red-600";
+          }
+        });
+      }
+
+      async function loadReservasiPage() {
+        contentArea.innerHTML =
+          document.getElementById("reservasi-template").innerHTML;
+        const roomSelect = document.getElementById("room_name");
+        const reservationForm = document.getElementById("reservation-form");
+        const feedbackDiv = document.getElementById("reservation-feedback");
+
+        try {
+          const rooms = await api.get("/api/get-rooms");
+          roomSelect.innerHTML = '<option value="">Pilih Ruangan</option>';
+          rooms.forEach((room) => {
+            roomSelect.innerHTML += `<option value="${room.name}">${room.name}</option>`;
+          });
+        } catch (error) {
+          roomSelect.innerHTML = `<option value="">Gagal memuat ruangan</option>`;
+        }
+
+        initializeCalendar();
+
+        reservationForm.addEventListener("submit", async (e) => {
+          e.preventDefault();
+          feedbackDiv.textContent = "Mengirim permintaan...";
+          feedbackDiv.className =
+            "mt-4 text-center font-semibold text-blue-600";
+          try {
+            const result = await api.post("/api/request-room", {
+              room_name: document.getElementById("room_name").value,
+              event_name: document.getElementById("event_name").value,
+              requester_name: document.getElementById("requester_name").value,
+              start_time: document.getElementById("start_time").value,
+              end_time: document.getElementById("end_time").value,
+            });
+            feedbackDiv.textContent = result.message;
+            feedbackDiv.className =
+              "mt-4 text-center font-semibold text-green-600";
+            reservationForm.reset();
+            calendar.refetchEvents();
+          } catch (error) {
+            feedbackDiv.textContent = `Gagal: ${error.message}`;
+            feedbackDiv.className =
+              "mt-4 text-center font-semibold text-red-600";
+          }
+        });
+      }
+
+      function initializeCalendar() {
+        const calendarEl = document.querySelector("#content-area #calendar");
+        if (calendarEl && !calendar) {
+          calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: "dayGridMonth",
+            headerToolbar: {
+              left: "prev,next today",
+              center: "title",
+              right: "dayGridMonth,timeGridWeek",
+            },
+            locale: "id",
+            events: {
+              url: "/api/get-reservations",
+              method: "GET",
+              extraParams: {},
+              failure: function () {
+                alert("Gagal memuat data reservasi!");
+              },
+              headers: {
+                Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+              },
+            },
+          });
+          calendar.render();
+        }
+      }
+
+      async function loadManagementData() {
+        const loans = await api.get("/api/management/all-loans");
+        const tableBody = document.getElementById("all-loans-table");
+        tableBody.innerHTML = "";
+        loans.forEach((loan) => {
+          const row = `
+            <tr>
+              <td class="border px-4 py-2">${loan.type}</td>
+              <td class="border px-4 py-2">${loan.name}</td>
+              <td class="border px-4 py-2">${loan.borrower}</td>
+              <td class="border px-4 py-2">${new Date(
+                loan.deadline
+              ).toLocaleString("id-ID")}</td>
+            </tr>
+          `;
+          tableBody.innerHTML += row;
+        });
+        const addUserForm = document.getElementById("add-user-form");
+        if (addUserForm) {
+          addUserForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const feedback = document.getElementById("add-user-feedback");
+            feedback.textContent = "Memproses...";
+            feedback.className = "mt-4 text-center font-semibold text-blue-600";
+
+            const fullName = document.getElementById("new-user-fullname").value;
+            const email = document.getElementById("new-user-email").value;
+            const password = document.getElementById("new-user-password").value;
+
+            try {
+              const result = await api.post("/api/management/create-user", {
+                fullName,
+                email,
+                password,
+              });
+              feedback.textContent = result.message;
+              feedback.className =
+                "mt-4 text-center font-semibold text-green-600";
+              addUserForm.reset();
+            } catch (error) {
+              feedback.textContent = `Error: ${error.message}`;
+              feedback.className =
+                "mt-4 text-center font-semibold text-red-600";
+            }
+          });
+        }
+      }
+
+      document
+        .getElementById("login-form")
+        .addEventListener("submit", handleLogin);
+      document
+        .getElementById("logout-button")
+        .addEventListener("click", logout);
+      window.addEventListener("hashchange", router);
+
+      document.addEventListener("DOMContentLoaded", () => {
+        if (localStorage.getItem("authToken")) {
+          loginScreen.classList.add("hidden");
+          appLayout.classList.remove("hidden");
+          if (localStorage.getItem("userRole") === "management") {
+            managementLink.classList.remove("hidden");
+          }
+          router();
+        }
+      });
+    </script>
+  </body>
+</html>
