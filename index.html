@@ -401,7 +401,19 @@
       const loginScreen = document.getElementById("login-screen");
       const appLayout = document.getElementById("app-layout");
       const managementLink = document.getElementById("management-link");
+      // BARU: Fungsi untuk buka/tutup sidebar
+      function toggleSidebar() {
+        sidebar.classList.toggle("-translate-x-full");
+        sidebarOverlay.classList.toggle("hidden");
+      }
       let calendar;
+      // BARU: Deklarasi elemen untuk sidebar responsif
+      const sidebar = document.getElementById("sidebar");
+      const hamburgerButton = document.getElementById("hamburger-button");
+      const closeSidebarButton = document.getElementById(
+        "close-sidebar-button"
+      );
+      const sidebarOverlay = document.getElementById("sidebar-overlay");
 
       const api = {
         async _fetch(endpoint, method = "GET", body = null) {
@@ -491,6 +503,12 @@
       }
 
       function router() {
+        // BARU: Menutup sidebar di mobile saat link navigasi diklik
+        if (window.innerWidth < 768) {
+          // 768px adalah breakpoint default 'md' di Tailwind
+          sidebar.classList.add("-translate-x-full");
+          sidebarOverlay.classList.add("hidden");
+        }
         const hash = window.location.hash || "#dashboard";
         const navLinks = document.querySelectorAll(".nav-link");
 
@@ -742,6 +760,10 @@
           }
           router();
         }
+        // BARU: Event listener untuk tombol dan overlay
+        hamburgerButton.addEventListener("click", toggleSidebar);
+        closeSidebarButton.addEventListener("click", toggleSidebar);
+        sidebarOverlay.addEventListener("click", toggleSidebar);
       });
     </script>
   </body>
