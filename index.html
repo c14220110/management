@@ -290,6 +290,7 @@
 
       // === ROUTER UTAMA (DIPERBARUI) ===
       function router() {
+        updateUserGreeting(); // <-- TAMBAHKAN BARIS INI DI SINI
         if (window.innerWidth < 768) {
           sidebar.classList.add("-translate-x-full");
           sidebarOverlay.classList.add("hidden");
