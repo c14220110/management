@@ -1,4 +1,4 @@
-// File: /api/management.js (Versi Final & Lengkap)
+// File: /api/management.js (Versi Final dengan Penanganan Error yang Lebih Baik)
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -108,21 +108,21 @@ export default async function handler(req, res) {
           message: `Reservasi berhasil diubah menjadi ${newReservationStatus}`,
         });
 
-      // BARU: Aksi untuk Manajemen Pengguna
+      // Aksi untuk Manajemen Pengguna
       case "getUsers":
         const {
           data: { users },
           error: listError,
         } = await supabase.auth.admin.listUsers();
         if (listError) throw listError;
-        // Ambil profil untuk digabungkan
+
         const { data: profiles } = await supabase.from("profiles").select("*");
         const usersWithProfiles = users
           .map((user) => {
             const profile = profiles.find((p) => p.id === user.id);
             return { ...user, ...profile };
           })
-          .filter((user) => user.role === "member"); // Hanya tampilkan member
+          .filter((user) => user.role === "member");
         return res.status(200).json(usersWithProfiles);
 
       case "createUser":
@@ -144,7 +144,6 @@ export default async function handler(req, res) {
 
       case "updateUser":
         const { userId, ...updateData } = payload;
-        // Pisahkan data untuk auth dan profile
         const authUpdate = {};
         if (updateData.email) authUpdate.email = updateData.email;
         if (updateData.password) authUpdate.password = updateData.password;
@@ -180,6 +179,22 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Aksi tidak dikenal" });
     }
   } catch (error) {
+    // ===== PERBAIKAN UTAMA ADA DI BLOK CATCH INI =====
+    // Cek secara spesifik jika error adalah karena user sudah ada
+    if (
+      error.message &&
+      (error.message.includes("User already registered") ||
+        error.message.includes(
+          "duplicate key value violates unique constraint"
+        ))
+    ) {
+      // Kirim status 409 Conflict dengan pesan yang lebih ramah
+      return res
+        .status(409)
+        .json({ error: "Email ini sudah terpakai oleh pengguna lain." });
+    }
+
+    // Jika error lain, kirim pesan error server umum
     return res.status(500).json({
       error: "Terjadi kesalahan di server manajemen.",
       details: error.message,

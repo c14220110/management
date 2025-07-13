@@ -69,9 +69,13 @@
           id="sidebar"
           class="fixed inset-y-0 left-0 w-64 bg-gray-800 text-white flex flex-col transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out z-30"
         >
-          <div class="flex items-center px-8 py-6">
-            <img src="logo.png" alt="Logo GKI Kutisari" class="h-8 w-8 mr-2" />
-            <span class="text-xl font-bold">GKI Kutisari</span>
+          <div class="flex items-center px-6 py-6">
+            <img
+              src="logo.png"
+              alt="Logo GKI Kutisari"
+              class="h-10 w-10 mr-3"
+            />
+            <span id="user-greeting" class="text-gray-300"></span>
           </div>
           <nav class="flex-1 px-4 py-4 space-y-2">
             <a
@@ -230,6 +234,15 @@
       };
 
       // === FUNGSI UTAMA (AUTH & NAVIGASI) ===
+      // BARU: Fungsi untuk menampilkan sapaan kepada user
+      function updateUserGreeting() {
+        const greetingElement = document.getElementById("user-greeting");
+        const userName = localStorage.getItem("userFullName");
+        if (greetingElement && userName) {
+          // Menggunakan styling yang Anda minta (Nama di-bold)
+          greetingElement.innerHTML = `Hi, <strong class="font-bold text-white">${userName}</strong>!`;
+        }
+      }
       function logout() {
         localStorage.removeItem("authToken");
         localStorage.removeItem("userRole");
@@ -250,6 +263,10 @@
           localStorage.setItem("authToken", data.session.access_token);
           const userRole = data.user.user_metadata.role || "member";
           localStorage.setItem("userRole", userRole);
+          localStorage.setItem(
+            "userFullName",
+            data.user.full_name || data.user.email
+          );
 
           loginScreen.classList.add("hidden");
           appLayout.classList.remove("hidden");
@@ -976,7 +993,27 @@
       //          FUNGSI UNTUK HALAMAN USER MANAGEMENT
       // =====================================================================
 
-      // Fungsi utama untuk memuat halaman
+      // =====================================================================
+      //          FUNGSI UNTUK HALAMAN USER MANAGEMENT (VERSI BENAR)
+      // =====================================================================
+
+      // BARU: Fungsi kecil ini hanya bertugas mengambil data terbaru dan mengisi tabel.
+      async function refreshUserTable() {
+        const tableBody = document.getElementById("user-table-body");
+        if (!tableBody) return; // Pengaman jika user sudah pindah halaman
+
+        tableBody.innerHTML = `<tr><td colspan="3" class="p-4 text-center">Memuat ulang data...</td></tr>`;
+        try {
+          const users = await api.post("/api/management", {
+            action: "getUsers",
+          });
+          renderUserTable(users);
+        } catch (error) {
+          tableBody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500">${error.message}</td></tr>`;
+        }
+      }
+
+      // Fungsi ini sekarang hanya membangun kerangka halaman satu kali.
       async function loadUserManagementPage() {
         const template = document
           .getElementById("user-management-template")
@@ -1002,24 +1039,13 @@
           </tr>
         </thead>
         <tbody id="user-table-body">
-          <tr><td colspan="3" class="p-4 text-center">Memuat data pengguna...</td></tr>
-        </tbody>
+          </tbody>
       </table>
     </div>
   `;
 
-        try {
-          const users = await api.post("/api/management", {
-            action: "getUsers",
-          });
-          renderUserTable(users);
-        } catch (error) {
-          document.getElementById(
-            "user-table-body"
-          ).innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500">${error.message}</td></tr>`;
-        }
+        refreshUserTable(); // Panggil untuk mengisi data pertama kali
 
-        // Event listener untuk tombol Tambah User
         document
           .getElementById("add-user-btn")
           .addEventListener("click", () => {
@@ -1136,6 +1162,7 @@
           if (localStorage.getItem("userRole") === "management") {
             managementLink.classList.remove("hidden");
           }
+          updateUserGreeting();
           router();
         }
         hamburgerButton.addEventListener("click", toggleSidebar);

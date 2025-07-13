@@ -1,3 +1,4 @@
+// File: /api/auth/login.js (Versi yang sudah diperbarui)
 import { createClient } from "@supabase/supabase-js";
 
 export default async function handler(req, res) {
@@ -22,9 +23,10 @@ export default async function handler(req, res) {
       throw new Error(loginError.message || "Email atau password salah.");
     }
 
+    // PERUBAHAN DI SINI: Ambil role dan full_name
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, full_name") // <-- Minta full_name juga
       .eq("id", sessionData.user.id)
       .single();
 
@@ -32,11 +34,16 @@ export default async function handler(req, res) {
       throw new Error("Gagal mengambil data profil pengguna.");
     }
 
+    // Gabungkan data ke dalam user object untuk dikirim ke frontend
     const userRole = profileData ? profileData.role : "member";
+    const userFullName = profileData ? profileData.full_name : email; // Jika nama kosong, pakai email
+
     sessionData.user.user_metadata = {
       ...sessionData.user.user_metadata,
       role: userRole,
     };
+    // Tambahkan full_name langsung ke objek user
+    sessionData.user.full_name = userFullName;
 
     res.status(200).json(sessionData);
   } catch (error) {
