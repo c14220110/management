@@ -1,7 +1,6 @@
-// File: /api/management/pending-reservations.js
 import { createClient } from "@supabase/supabase-js";
 
-// Helper untuk verifikasi role management
+// Helper untuk verifikasi role management (bisa diekstrak ke file terpisah)
 async function verifyManagement(req) {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return { error: "No token" };
@@ -35,18 +34,22 @@ export default async function handler(req, res) {
   );
 
   try {
-    const { data, error } = await supabase
+    const { data: pendingAssetLoans } = await supabase
+      .from("asset_loans")
+      .select("*, assets(asset_name), profiles(full_name)")
+      .eq("status", "Menunggu Persetujuan")
+      .order("loan_date", { ascending: true });
+
+    const { data: pendingRoomReservations } = await supabase
       .from("room_reservations")
       .select("*")
       .eq("status", "Menunggu Persetujuan")
-      .order("created_at", { ascending: true }); // Tampilkan yang paling lama dulu
+      .order("start_time", { ascending: true });
 
-    if (error) throw error;
-
-    res.status(200).json(data);
+    res.status(200).json({ pendingAssetLoans, pendingRoomReservations });
   } catch (error) {
     res.status(500).json({
-      error: "Gagal mengambil data reservasi pending.",
+      error: "Gagal mengambil data permintaan pending.",
       details: error.message,
     });
   }
