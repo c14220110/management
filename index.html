@@ -296,14 +296,13 @@
             loadDashboardPage();
             break;
           case "#barang":
-            // loadBarangPage(); // Akan kita buat nanti
+            loadBarangPage(); // Akan kita buat nanti
             contentArea.innerHTML =
               "<h1>Halaman Barang (Dalam Pengembangan)</h1>";
             break;
+          // GANTI DENGAN KODE INI
           case "#ruangan":
-            // loadRuanganPage(); // Akan kita buat nanti
-            contentArea.innerHTML =
-              "<h1>Halaman Ruangan (Dalam Pengembangan)</h1>";
+            loadRuanganPage();
             break;
           case "#user-management":
             if (localStorage.getItem("userRole") === "management") {
@@ -353,7 +352,7 @@
           // Panggil kedua API secara paralel untuk efisiensi
           const [stats, pendingRequests] = await Promise.all([
             api.get("/api/dashboard-stats"),
-            api.get("/api/management/pending-requests"),
+            api.post("/api/management", { action: "getPendingRequests" }),
           ]);
 
           const { pendingAssetLoans, pendingRoomReservations } =
@@ -526,8 +525,7 @@
           listContainer.innerHTML = `<p class="text-red-500">Gagal memuat data: ${error.message}</p>`;
         }
       }
-
-      // BARU: Fungsi untuk menangani aksi admin (Setujui/Tolak)
+      // GANTI FUNGSI LAMA DENGAN VERSI YANG SUDAH DIPERBAIKI INI
       async function handleAdminAction(e) {
         const button = e.target;
         const id = button.dataset.id;
@@ -545,18 +543,19 @@
         button.textContent = "Memproses...";
 
         try {
-          // Tentukan API endpoint yang akan dipanggil berdasarkan tipe permintaan
-          const endpoint =
-            type === "loan"
-              ? "/api/management/update-loan-status"
-              : "/api/management/update-reservation-status";
+          const endpoint = "/api/management";
+
+          // Variabel 'action' di sini diganti namanya menjadi 'actionPayload' untuk menghindari duplikasi
+          const actionPayload =
+            type === "loan" ? "updateLoanStatus" : "updateReservationStatus";
 
           const payload =
             type === "loan"
               ? { loanId: id, newStatus: action }
               : { reservationId: id, newStatus: action };
 
-          await api.post(endpoint, payload);
+          await api.post(endpoint, { action: actionPayload, payload: payload });
+
           alert("Status permintaan berhasil diperbarui.");
           loadDashboardPage(); // Muat ulang data dashboard
         } catch (error) {
@@ -591,8 +590,383 @@
         }
       }
 
-      // TODO: Buat fungsi loadBarangPage(), loadRuanganPage(), loadUserManagementPage() nanti.
+      // =====================================================================
+      //          FUNGSI UNTUK HALAMAN BARANG
+      // =====================================================================
 
+      // Fungsi utama untuk memuat halaman Barang
+      async function loadBarangPage() {
+        const template = document
+          .getElementById("barang-template")
+          .content.cloneNode(true);
+        contentArea.appendChild(template);
+
+        // Secara default, tampilkan daftar semua barang
+        renderBarangListView();
+      }
+
+      // Fungsi untuk menampilkan daftar semua barang dalam bentuk kartu
+      async function renderBarangListView() {
+        const container = document.getElementById("barang-content-area");
+        container.innerHTML = `<p>Memuat daftar barang...</p>`;
+
+        try {
+          const assets = await api.get("/api/assets");
+          let cardsHTML =
+            '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">';
+          assets.forEach((asset) => {
+            cardsHTML += `
+        <div data-id="${
+          asset.id
+        }" class="asset-card bg-white p-4 rounded-lg shadow-md cursor-pointer hover:shadow-xl transition-shadow">
+          <img src="${
+            asset.photo_url ||
+            "https://placehold.co/600x400/EEE/31343C?text=Aset"
+          }" class="w-full h-40 object-cover rounded-md mb-3">
+          <h3 class="font-bold text-lg">${asset.asset_name}</h3>
+          <p class="text-sm text-gray-500">${asset.location}</p>
+        </div>
+      `;
+          });
+          cardsHTML += "</div>";
+          container.innerHTML = cardsHTML;
+
+          // Tambahkan event listener untuk setiap kartu aset
+          document.querySelectorAll(".asset-card").forEach((card) => {
+            card.addEventListener("click", () => {
+              const assetId = card.dataset.id;
+              renderBarangDetailView(assetId); // Pindah ke tampilan detail saat diklik
+            });
+          });
+        } catch (error) {
+          container.innerHTML = `<p class="text-red-500">Gagal memuat barang: ${error.message}</p>`;
+        }
+      }
+
+      // GANTI SELURUH FUNGSI INI DENGAN VERSI YANG SUDAH DIPERBAIKI
+      async function renderBarangDetailView(assetId) {
+        const container = document.getElementById("barang-content-area");
+        container.innerHTML = `<p>Memuat detail dan jadwal untuk aset...</p>`; // Tampilkan pesan loading awal
+
+        try {
+          // Ambil data detail aset dan jadwalnya secara bersamaan
+          const [assets, schedule] = await Promise.all([
+            api.get("/api/assets"), // Ambil semua aset untuk mencari detailnya
+            api.get(`/api/assets/${assetId}/schedule`), // Ambil jadwal spesifik
+          ]);
+
+          const asset = assets.find((a) => a.id === assetId);
+          if (!asset) {
+            container.innerHTML =
+              '<p class="text-red-500">Aset tidak ditemukan.</p>';
+            return;
+          }
+
+          // Siapkan events untuk FullCalendar
+          const calendarEvents = schedule.map((loan) => {
+            const title = `Dipinjam oleh ${loan.profiles.full_name}`;
+            const isSingleDay =
+              new Date(loan.due_date).getTime() -
+                new Date(loan.loan_date).getTime() <
+              86400000;
+            return {
+              title: title,
+              start: loan.loan_date,
+              end: loan.due_date,
+              allDay: !isSingleDay,
+            };
+          });
+
+          // Render HTML untuk tampilan detail SETELAH data asset didapatkan
+          container.innerHTML = `
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <button id="back-to-list-btn" class="mb-4 text-blue-600 hover:underline"><i class="fas fa-arrow-left mr-2"></i>Kembali ke Daftar</button>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="md:col-span-1">
+                        <img src="${
+                          asset.photo_url ||
+                          "https://placehold.co/600x400/EEE/31343C?text=Aset"
+                        }" class="w-full h-auto object-cover rounded-lg shadow-md">
+                        <h2 class="text-2xl font-bold mt-4">${
+                          asset.asset_name
+                        }</h2>
+                        <p class="text-gray-600">${
+                          asset.description || "Tidak ada deskripsi."
+                        }</p>
+                        <p class="mt-2"><i class="fas fa-map-marker-alt w-5"></i> ${
+                          asset.location
+                        }</p>
+                        <div id="borrow-section-container" class="mt-6"></div>
+                    </div>
+                    <div class="md:col-span-2">
+                        <h3 class="text-xl font-semibold mb-2">Kalender Peminjaman</h3>
+                        <div id="detail-calendar" class="w-full h-full"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+          // Inisialisasi FullCalendar
+          const calendarEl = document.getElementById("detail-calendar");
+          if (fullCalendarInstance) {
+            fullCalendarInstance.destroy();
+          }
+          fullCalendarInstance = new FullCalendar.Calendar(calendarEl, {
+            initialView: "dayGridMonth",
+            headerToolbar: {
+              left: "prev,next today",
+              center: "title",
+              right: "dayGridMonth,timeGridWeek",
+            },
+            locale: "id",
+            events: calendarEvents,
+            eventDidMount: function (info) {
+              info.el.title = info.event.title;
+            },
+          });
+          fullCalendarInstance.render();
+
+          // Tambahkan event listener untuk tombol kembali
+          document
+            .getElementById("back-to-list-btn")
+            .addEventListener("click", renderBarangListView);
+
+          // Logika untuk menampilkan tombol dan form peminjaman
+          const borrowContainer = document.getElementById(
+            "borrow-section-container"
+          );
+          if (localStorage.getItem("userRole") === "member") {
+            borrowContainer.innerHTML = `
+                <button id="show-borrow-form-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700">Pinjam Barang Ini</button>
+                <form id="detail-borrow-form" class="hidden mt-4 space-y-4">
+                    <div>
+                        <label for="loan_date" class="block text-sm font-medium text-gray-700">Waktu Pinjam</label>
+                        <input type="datetime-local" id="loan_date" required class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label for="due_date" class="block text-sm font-medium text-gray-700">Waktu Kembali</label>
+                        <input type="datetime-local" id="due_date" required class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">Kirim Permintaan</button>
+                    <p id="detail-borrow-feedback" class="text-center font-semibold"></p>
+                </form>
+            `;
+
+            const showFormBtn = document.getElementById("show-borrow-form-btn");
+            const detailBorrowForm =
+              document.getElementById("detail-borrow-form");
+
+            showFormBtn.addEventListener("click", () => {
+              detailBorrowForm.classList.remove("hidden");
+              showFormBtn.classList.add("hidden");
+            });
+
+            detailBorrowForm.addEventListener("submit", async (e) => {
+              e.preventDefault();
+              const feedback = document.getElementById(
+                "detail-borrow-feedback"
+              );
+              feedback.textContent = "Mengirim...";
+              feedback.className = "text-center font-semibold text-blue-600";
+
+              try {
+                await api.post("/api/assets", {
+                  asset_id: assetId,
+                  loan_date: document.getElementById("loan_date").value,
+                  due_date: document.getElementById("due_date").value,
+                });
+                feedback.textContent = "Permintaan berhasil dikirim!";
+                feedback.className = "text-center font-semibold text-green-600";
+                detailBorrowForm.reset();
+                renderBarangDetailView(assetId);
+              } catch (error) {
+                feedback.textContent = `Gagal: ${error.message}`;
+                feedback.className = "text-center font-semibold text-red-600";
+              }
+            });
+          }
+        } catch (error) {
+          container.innerHTML = `<p class="text-red-500">Gagal memuat detail barang: ${error.message}</p>`;
+        }
+      }
+      // =====================================================================
+      //          FUNGSI UNTUK HALAMAN RUANGAN
+      // =====================================================================
+
+      // Fungsi utama untuk memuat halaman Ruangan
+      async function loadRuanganPage() {
+        const template = document
+          .getElementById("ruangan-template")
+          .content.cloneNode(true);
+        contentArea.appendChild(template);
+
+        // Secara default, tampilkan daftar semua ruangan
+        renderRuanganListView();
+      }
+
+      // Fungsi untuk menampilkan daftar semua ruangan
+      async function renderRuanganListView() {
+        const container = document.getElementById("ruangan-content-area");
+        container.innerHTML = `<p>Memuat daftar ruangan...</p>`;
+
+        try {
+          const rooms = await api.get("/api/rooms");
+          let listHTML = '<div class="space-y-4">';
+          rooms.forEach((room) => {
+            listHTML += `
+        <div data-name="${room.name}" class="room-item bg-white p-4 rounded-lg shadow-md cursor-pointer hover:shadow-xl transition-shadow flex items-center">
+          <i class="fas fa-building text-2xl text-gray-400 mr-4"></i>
+          <h3 class="font-bold text-lg">${room.name}</h3>
+        </div>
+      `;
+          });
+          listHTML += "</div>";
+          container.innerHTML = listHTML;
+
+          // Tambahkan event listener untuk setiap item ruangan
+          document.querySelectorAll(".room-item").forEach((item) => {
+            item.addEventListener("click", () => {
+              const roomName = item.dataset.name;
+              renderRuanganDetailView(roomName); // Pindah ke tampilan detail saat diklik
+            });
+          });
+        } catch (error) {
+          container.innerHTML = `<p class="text-red-500">Gagal memuat ruangan: ${error.message}</p>`;
+        }
+      }
+
+      // GANTI SELURUH FUNGSI INI DENGAN VERSI YANG SUDAH LENGKAP
+      async function renderRuanganDetailView(roomName) {
+        const container = document.getElementById("ruangan-content-area");
+        container.innerHTML = `<p>Memuat detail dan jadwal untuk ${roomName}...</p>`;
+
+        try {
+          // Ambil jadwal dari API
+          const schedule = await api.get(
+            `/api/rooms/${encodeURIComponent(roomName)}/schedule`
+          );
+
+          // Siapkan events untuk FullCalendar
+          const calendarEvents = schedule.map((reservation) => {
+            return {
+              title: reservation.event_name,
+              start: reservation.start_time,
+              end: reservation.end_time,
+              backgroundColor: "#3b82f6",
+              borderColor: "#3b82f6",
+            };
+          });
+
+          // Render HTML untuk tampilan detail, sekarang dengan placeholder untuk form
+          container.innerHTML = `
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <button id="back-to-room-list-btn" class="mb-4 text-blue-600 hover:underline"><i class="fas fa-arrow-left mr-2"></i>Kembali ke Daftar Ruangan</button>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="md:col-span-1">
+                        <h2 class="text-2xl font-bold">${roomName}</h2>
+                        <p class="text-gray-600 mt-2">Gunakan kalender di sebelah kanan untuk melihat jadwal yang sudah terisi.</p>
+
+                        <div id="reservation-section-container" class="mt-6"></div>
+                    </div>
+                    <div class="md:col-span-2">
+                        <h3 class="text-xl font-semibold mb-2">Kalender Reservasi</h3>
+                        <div id="detail-calendar" class="w-full h-full"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+          // Inisialisasi FullCalendar
+          const calendarEl = document.getElementById("detail-calendar");
+          if (fullCalendarInstance) {
+            fullCalendarInstance.destroy();
+          }
+          fullCalendarInstance = new FullCalendar.Calendar(calendarEl, {
+            initialView: "timeGridWeek",
+            headerToolbar: {
+              left: "prev,next today",
+              center: "title",
+              right: "dayGridMonth,timeGridWeek,timeGridDay",
+            },
+            locale: "id",
+            events: calendarEvents,
+            eventDidMount: function (info) {
+              info.el.title = info.event.title;
+            },
+          });
+          fullCalendarInstance.render();
+
+          // Tambahkan event listener untuk tombol kembali
+          document
+            .getElementById("back-to-room-list-btn")
+            .addEventListener("click", renderRuanganListView);
+
+          // BARU: Logika untuk menampilkan tombol dan form reservasi
+          const reservationContainer = document.getElementById(
+            "reservation-section-container"
+          );
+          if (localStorage.getItem("userRole") === "member") {
+            reservationContainer.innerHTML = `
+                <button id="show-reservation-form-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700">Reservasi Ruangan Ini</button>
+                <form id="detail-reservation-form" class="hidden mt-4 space-y-4">
+                    <div>
+                        <label for="res-event-name" class="block text-sm font-medium text-gray-700">Nama Kegiatan</label>
+                        <input type="text" id="res-event-name" required class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label for="res-start-time" class="block text-sm font-medium text-gray-700">Waktu Mulai</label>
+                        <input type="datetime-local" id="res-start-time" required class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label for="res-end-time" class="block text-sm font-medium text-gray-700">Waktu Selesai</label>
+                        <input type="datetime-local" id="res-end-time" required class="w-full p-2 border border-gray-300 rounded-md">
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">Kirim Permintaan</button>
+                    <p id="detail-reservation-feedback" class="text-center font-semibold"></p>
+                </form>
+            `;
+
+            const showFormBtn = document.getElementById(
+              "show-reservation-form-btn"
+            );
+            const detailReservationForm = document.getElementById(
+              "detail-reservation-form"
+            );
+
+            showFormBtn.addEventListener("click", () => {
+              detailReservationForm.classList.remove("hidden");
+              showFormBtn.classList.add("hidden");
+            });
+
+            detailReservationForm.addEventListener("submit", async (e) => {
+              e.preventDefault();
+              const feedback = document.getElementById(
+                "detail-reservation-feedback"
+              );
+              feedback.textContent = "Mengirim...";
+              feedback.className = "text-center font-semibold text-blue-600";
+
+              try {
+                await api.post("/api/rooms", {
+                  room_name: roomName,
+                  event_name: document.getElementById("res-event-name").value,
+                  start_time: document.getElementById("res-start-time").value,
+                  end_time: document.getElementById("res-end-time").value,
+                });
+                feedback.textContent = "Permintaan berhasil dikirim!";
+                feedback.className = "text-center font-semibold text-green-600";
+                detailReservationForm.reset();
+                renderRuanganDetailView(roomName);
+              } catch (error) {
+                feedback.textContent = `Gagal: ${error.message}`;
+                feedback.className = "text-center font-semibold text-red-600";
+              }
+            });
+          }
+        } catch (error) {
+          container.innerHTML = `<p class="text-red-500">Gagal memuat detail ruangan: ${error.message}</p>`;
+        }
+      }
       // === EVENT LISTENERS (di bagian akhir skrip) ===
       document
         .getElementById("login-form")
