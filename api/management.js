@@ -1,4 +1,4 @@
-// File: /api/management.js
+// File: /api/management.js (Versi Final & Lengkap)
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -32,9 +32,7 @@ async function verifyManagement(req) {
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res
-      .status(405)
-      .json({ error: "Hanya metode POST yang diizinkan untuk API manajemen" });
+    return res.status(405).json({ error: "Hanya metode POST yang diizinkan" });
   }
 
   const { error: authError } = await verifyManagement(req);
@@ -110,8 +108,73 @@ export default async function handler(req, res) {
           message: `Reservasi berhasil diubah menjadi ${newReservationStatus}`,
         });
 
-      // Aksi dari assets.js & rooms.js (CRUD)
-      // Implementasi CRUD bisa ditambahkan di sini jika diperlukan nanti
+      // BARU: Aksi untuk Manajemen Pengguna
+      case "getUsers":
+        const {
+          data: { users },
+          error: listError,
+        } = await supabase.auth.admin.listUsers();
+        if (listError) throw listError;
+        // Ambil profil untuk digabungkan
+        const { data: profiles } = await supabase.from("profiles").select("*");
+        const usersWithProfiles = users
+          .map((user) => {
+            const profile = profiles.find((p) => p.id === user.id);
+            return { ...user, ...profile };
+          })
+          .filter((user) => user.role === "member"); // Hanya tampilkan member
+        return res.status(200).json(usersWithProfiles);
+
+      case "createUser":
+        const { fullName, email, password } = payload;
+        const {
+          data: { user: newUser },
+          error: createError,
+        } = await supabase.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true,
+          user_metadata: { role: "member", full_name: fullName },
+        });
+        if (createError) throw createError;
+        return res.status(201).json({
+          message: "User member baru berhasil dibuat.",
+          user: newUser,
+        });
+
+      case "updateUser":
+        const { userId, ...updateData } = payload;
+        // Pisahkan data untuk auth dan profile
+        const authUpdate = {};
+        if (updateData.email) authUpdate.email = updateData.email;
+        if (updateData.password) authUpdate.password = updateData.password;
+
+        const profileUpdate = {};
+        if (updateData.fullName) profileUpdate.full_name = updateData.fullName;
+
+        if (Object.keys(authUpdate).length > 0) {
+          const { error: authUpdateError } =
+            await supabase.auth.admin.updateUserById(userId, authUpdate);
+          if (authUpdateError) throw authUpdateError;
+        }
+        if (Object.keys(profileUpdate).length > 0) {
+          const { error: profileUpdateError } = await supabase
+            .from("profiles")
+            .update(profileUpdate)
+            .eq("id", userId);
+          if (profileUpdateError) throw profileUpdateError;
+        }
+        return res
+          .status(200)
+          .json({ message: "Data user berhasil diperbarui." });
+
+      case "deleteUser":
+        const { userId: deleteId } = payload;
+        const { error: deleteError } = await supabase.auth.admin.deleteUser(
+          deleteId
+        );
+        if (deleteError) throw deleteError;
+        return res.status(200).json({ message: "User berhasil dihapus." });
 
       default:
         return res.status(400).json({ error: "Aksi tidak dikenal" });

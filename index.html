@@ -304,11 +304,10 @@
           case "#ruangan":
             loadRuanganPage();
             break;
+          // GANTI ISI CASE INI
           case "#user-management":
             if (localStorage.getItem("userRole") === "management") {
-              // loadUserManagementPage(); // Akan kita buat nanti
-              contentArea.innerHTML =
-                "<h1>Halaman User Management (Dalam Pengembangan)</h1>";
+              loadUserManagementPage(); // <-- Panggil fungsi baru
             } else {
               contentArea.innerHTML = `<h1 class="text-2xl text-red-600">Akses Ditolak</h1>`;
             }
@@ -973,6 +972,187 @@
           container.innerHTML = `<p class="text-red-500">Gagal memuat detail ruangan: ${error.message}</p>`;
         }
       }
+      // =====================================================================
+      //          FUNGSI UNTUK HALAMAN USER MANAGEMENT
+      // =====================================================================
+
+      // Fungsi utama untuk memuat halaman
+      async function loadUserManagementPage() {
+        const template = document
+          .getElementById("user-management-template")
+          .content.cloneNode(true);
+        contentArea.appendChild(template);
+
+        const container = document.getElementById(
+          "user-management-content-area"
+        );
+        container.innerHTML = `
+    <div class="flex justify-end mb-4">
+      <button id="add-user-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">
+        <i class="fas fa-plus mr-2"></i>Tambah User Member
+      </button>
+    </div>
+    <div class="bg-white p-4 rounded-lg shadow-md">
+      <table class="min-w-full">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="text-left p-3">Nama Lengkap</th>
+            <th class="text-left p-3">Email</th>
+            <th class="text-left p-3">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="user-table-body">
+          <tr><td colspan="3" class="p-4 text-center">Memuat data pengguna...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+
+        try {
+          const users = await api.post("/api/management", {
+            action: "getUsers",
+          });
+          renderUserTable(users);
+        } catch (error) {
+          document.getElementById(
+            "user-table-body"
+          ).innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500">${error.message}</td></tr>`;
+        }
+
+        // Event listener untuk tombol Tambah User
+        document
+          .getElementById("add-user-btn")
+          .addEventListener("click", () => {
+            openUserModal("create");
+          });
+      }
+
+      // Fungsi untuk render isi tabel pengguna
+      function renderUserTable(users) {
+        const tableBody = document.getElementById("user-table-body");
+        if (users.length === 0) {
+          tableBody.innerHTML = `<tr><td colspan="3" class="p-4 text-center">Belum ada user member.</td></tr>`;
+          return;
+        }
+        tableBody.innerHTML = users
+          .map(
+            (user) => `
+    <tr class="border-b">
+      <td class="p-3">${user.full_name || "-"}</td>
+      <td class="p-3">${user.email}</td>
+      <td class="p-3">
+        <button data-id="${user.id}" data-name="${
+              user.full_name || ""
+            }" data-email="${
+              user.email
+            }" class="edit-user-btn text-blue-500 hover:underline mr-4">Edit</button>
+        <button data-id="${
+          user.id
+        }" class="delete-user-btn text-red-500 hover:underline">Hapus</button>
+      </td>
+    </tr>
+  `
+          )
+          .join("");
+      }
+
+      // Fungsi untuk membuka modal
+      function openUserModal(mode, userData = {}) {
+        const modal = document.getElementById("user-modal");
+        const form = document.getElementById("user-modal-form");
+        form.reset();
+        document.getElementById("user-modal-feedback").textContent = "";
+        document.getElementById("user-password").placeholder =
+          mode === "edit" ? "Kosongkan jika tidak ingin diubah" : "Wajib diisi";
+        document.getElementById("user-password").required = mode === "create";
+
+        if (mode === "edit") {
+          document.getElementById("user-modal-title").textContent =
+            "Edit User Member";
+          document.getElementById("user-id").value = userData.id;
+          document.getElementById("user-fullname").value = userData.name;
+          document.getElementById("user-email").value = userData.email;
+        } else {
+          document.getElementById("user-modal-title").textContent =
+            "Tambah User Member Baru";
+          document.getElementById("user-id").value = "";
+        }
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+      }
+
+      // Fungsi untuk menutup modal
+      function closeUserModal() {
+        document.getElementById("user-modal").classList.add("hidden");
+        document.getElementById("user-modal").classList.remove("flex");
+      }
+
+      // Fungsi untuk menangani submit form
+      async function handleUserFormSubmit(e) {
+        e.preventDefault();
+        const feedback = document.getElementById("user-modal-feedback");
+        feedback.textContent = "Menyimpan...";
+        const userId = document.getElementById("user-id").value;
+        const mode = userId ? "updateUser" : "createUser";
+
+        const payload = {
+          fullName: document.getElementById("user-fullname").value,
+          email: document.getElementById("user-email").value,
+        };
+        const password = document.getElementById("user-password").value;
+        if (password) {
+          payload.password = password;
+        }
+        if (mode === "updateUser") {
+          payload.userId = userId;
+        }
+
+        try {
+          const result = await api.post("/api/management", {
+            action: mode,
+            payload,
+          });
+          alert(result.message);
+          closeUserModal();
+          loadUserManagementPage(); // Refresh data
+        } catch (error) {
+          feedback.textContent = `Error: ${error.message}`;
+        }
+      }
+
+      // === EVENT LISTENERS UNTUK HALAMAN DINAMIS & MODAL ===
+      document.addEventListener("click", (e) => {
+        // Event delegation untuk tombol di tabel user
+        if (e.target.matches(".edit-user-btn")) {
+          openUserModal("edit", e.target.dataset);
+        }
+        if (e.target.matches(".delete-user-btn")) {
+          if (
+            confirm(
+              "Apakah Anda yakin ingin menghapus user ini? Tindakan ini tidak bisa dibatalkan."
+            )
+          ) {
+            const userId = e.target.dataset.id;
+            api
+              .post("/api/management", {
+                action: "deleteUser",
+                payload: { userId },
+              })
+              .then((res) => {
+                alert(res.message);
+                loadUserManagementPage();
+              })
+              .catch((err) => alert(`Gagal menghapus: ${err.message}`));
+          }
+        }
+      });
+
+      document
+        .getElementById("user-modal-close")
+        .addEventListener("click", closeUserModal);
+      document
+        .getElementById("user-modal-form")
+        .addEventListener("submit", handleUserFormSubmit);
       // === EVENT LISTENERS (di bagian akhir skrip) ===
       document
         .getElementById("login-form")
@@ -996,5 +1176,76 @@
         sidebarOverlay.addEventListener("click", toggleSidebar);
       });
     </script>
+    <div
+      id="user-modal"
+      class="modal fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center z-50"
+    >
+      <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+        <h2 id="user-modal-title" class="text-2xl font-bold mb-6"></h2>
+        <form id="user-modal-form">
+          <input type="hidden" id="user-id" />
+          <div class="space-y-4">
+            <div>
+              <label
+                for="user-fullname"
+                class="block text-sm font-medium text-gray-700"
+                >Nama Lengkap</label
+              >
+              <input
+                type="text"
+                id="user-fullname"
+                required
+                class="w-full p-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            <div>
+              <label
+                for="user-email"
+                class="block text-sm font-medium text-gray-700"
+                >Email</label
+              >
+              <input
+                type="email"
+                id="user-email"
+                required
+                class="w-full p-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            <div>
+              <label
+                for="user-password"
+                class="block text-sm font-medium text-gray-700"
+                >Password</label
+              >
+              <input
+                type="password"
+                id="user-password"
+                class="w-full p-2 border border-gray-300 rounded-md"
+                placeholder="Kosongkan jika tidak ingin diubah"
+              />
+            </div>
+          </div>
+          <div class="flex justify-end space-x-4 mt-8">
+            <button
+              type="button"
+              id="user-modal-close"
+              class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Simpan
+            </button>
+          </div>
+          <p
+            id="user-modal-feedback"
+            class="mt-4 text-center font-semibold"
+          ></p>
+        </form>
+      </div>
+    </div>
   </body>
 </html>
