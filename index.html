@@ -1120,39 +1120,6 @@
         }
       }
 
-      // === EVENT LISTENERS UNTUK HALAMAN DINAMIS & MODAL ===
-      document.addEventListener("click", (e) => {
-        // Event delegation untuk tombol di tabel user
-        if (e.target.matches(".edit-user-btn")) {
-          openUserModal("edit", e.target.dataset);
-        }
-        if (e.target.matches(".delete-user-btn")) {
-          if (
-            confirm(
-              "Apakah Anda yakin ingin menghapus user ini? Tindakan ini tidak bisa dibatalkan."
-            )
-          ) {
-            const userId = e.target.dataset.id;
-            api
-              .post("/api/management", {
-                action: "deleteUser",
-                payload: { userId },
-              })
-              .then((res) => {
-                alert(res.message);
-                loadUserManagementPage();
-              })
-              .catch((err) => alert(`Gagal menghapus: ${err.message}`));
-          }
-        }
-      });
-
-      document
-        .getElementById("user-modal-close")
-        .addEventListener("click", closeUserModal);
-      document
-        .getElementById("user-modal-form")
-        .addEventListener("submit", handleUserFormSubmit);
       // === EVENT LISTENERS (di bagian akhir skrip) ===
       document
         .getElementById("login-form")
@@ -1174,6 +1141,39 @@
         hamburgerButton.addEventListener("click", toggleSidebar);
         closeSidebarButton.addEventListener("click", toggleSidebar);
         sidebarOverlay.addEventListener("click", toggleSidebar);
+        // === EVENT LISTENERS UNTUK HALAMAN DINAMIS & MODAL ===
+        document.addEventListener("click", (e) => {
+          // Event delegation untuk tombol di tabel user
+          if (e.target.matches(".edit-user-btn")) {
+            openUserModal("edit", e.target.dataset);
+          }
+          if (e.target.matches(".delete-user-btn")) {
+            if (
+              confirm(
+                "Apakah Anda yakin ingin menghapus user ini? Tindakan ini tidak bisa dibatalkan."
+              )
+            ) {
+              const userId = e.target.dataset.id;
+              api
+                .post("/api/management", {
+                  action: "deleteUser",
+                  payload: { userId },
+                })
+                .then((res) => {
+                  alert(res.message);
+                  loadUserManagementPage();
+                })
+                .catch((err) => alert(`Gagal menghapus: ${err.message}`));
+            }
+          }
+        });
+
+        document
+          .getElementById("user-modal-close")
+          .addEventListener("click", closeUserModal);
+        document
+          .getElementById("user-modal-form")
+          .addEventListener("submit", handleUserFormSubmit);
       });
     </script>
     <div
