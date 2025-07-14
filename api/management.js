@@ -108,7 +108,7 @@ export default async function handler(req, res) {
           message: `Reservasi berhasil diubah menjadi ${newReservationStatus}`,
         });
 
-      // Aksi untuk Manajemen Pengguna
+      // GANTI CASE LAMA DENGAN VERSI INI
       case "getUsers":
         const {
           data: { users },
@@ -117,12 +117,18 @@ export default async function handler(req, res) {
         if (listError) throw listError;
 
         const { data: profiles } = await supabase.from("profiles").select("*");
-        const usersWithProfiles = users
-          .map((user) => {
-            const profile = profiles.find((p) => p.id === user.id);
-            return { ...user, ...profile };
-          })
-          .filter((user) => user.role === "member");
+
+        const usersWithProfiles = users.map((user) => {
+          const profile = profiles.find((p) => p.id === user.id);
+          // Gabungkan data auth dan profile, pastikan ada fallback jika profil belum ada
+          return {
+            ...user,
+            full_name: profile?.full_name,
+            role: profile?.role || "member",
+          };
+        });
+
+        // Sekarang kita kembalikan SEMUA user, biarkan frontend yang menyaring
         return res.status(200).json(usersWithProfiles);
 
       case "createUser":
