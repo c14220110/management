@@ -922,9 +922,16 @@
         try {
           // Ambil data ruangan dan daftar user management secara bersamaan
           const [rooms, users] = await Promise.all([
-            api.post("/api/management", { action: "getRooms" }),
-            api.post("/api/management", { action: "getUsers" }),
+            api.get("/api/rooms"),
+            api.get("/api/users"),
           ]);
+          const managementUserList = users.filter(
+            (u) => u.role === "management"
+          );
+          const managerOptions = managementUserList
+            .map((m) => `<option value="${m.id}">${m.full_name}</option>`)
+            .join("");
+          renderRoomTable(rooms, managerOptions);
 
           // Simpan daftar manajer ke variabel global
           managementUserList = users.filter((u) => u.role === "management");
@@ -1212,8 +1219,8 @@
       //          FUNGSI UNTUK HALAMAN USER MANAGEMENT (VERSI BENAR)
       // =====================================================================
 
-      // GANTI DENGAN VERSI INI
       async function refreshUserTable() {
+        console.log("refreshUserTable called");
         const tableBody = document.getElementById("user-table-body");
         if (!tableBody) return;
 
@@ -1222,8 +1229,9 @@
           const users = await api.post("/api/management", {
             action: "getUsers",
           });
-          renderUserTable(users); // <-- PERBAIKAN: Panggil renderUserTable di sini
+          renderUserTable(users);
         } catch (error) {
+          console.error("Error in refreshUserTable:", error);
           tableBody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500">${error.message}</td></tr>`;
         }
       }
