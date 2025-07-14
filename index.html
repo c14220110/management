@@ -243,12 +243,17 @@
           greetingElement.innerHTML = `Hi, <strong class="font-bold text-white">${userName}</strong>!`;
         }
       }
+      // GANTI FUNGSI LAMA DENGAN VERSI YANG LEBIH BERSIH DAN AMPUH INI
       function logout() {
+        // Hapus semua data sesi dari local storage
         localStorage.removeItem("authToken");
         localStorage.removeItem("userRole");
-        appLayout.classList.add("hidden");
-        loginScreen.classList.remove("hidden");
-        window.location.hash = "";
+        localStorage.removeItem("userFullName"); // Tambahkan ini untuk kebersihan
+
+        // Cara paling bersih untuk kembali ke halaman login:
+        // Muat ulang halaman ke root URL. Ini akan mematikan semua skrip yang berjalan
+        // dan mereset state aplikasi ke kondisi awal.
+        window.location.replace("/");
       }
 
       async function handleLogin(e) {
@@ -295,11 +300,18 @@
           sidebar.classList.add("-translate-x-full");
           sidebarOverlay.classList.add("hidden");
         }
-        const hash =
-          window.location.hash ||
-          (localStorage.getItem("userRole") === "management"
-            ? "#dashboard"
-            : "#inventaris");
+        let hash = window.location.hash;
+        if (!hash) {
+          // Jika tidak ada hash di URL, cek apakah user sudah login
+          if (localStorage.getItem("authToken")) {
+            // Jika sudah login, arahkan ke dashboard
+            hash = "#dashboard";
+            window.location.hash = "#dashboard"; // Update URL juga
+          } else {
+            // Jika tidak login, jangan lakukan apa-apa, biarkan di halaman login
+            return;
+          }
+        }
 
         document.querySelectorAll(".nav-link").forEach((link) => {
           link.classList.toggle(
