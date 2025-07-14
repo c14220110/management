@@ -428,10 +428,14 @@
 
       // BARU: Fungsi untuk mengontrol animasi loading
       const loader = document.getElementById("page-loader");
+      // GANTI DENGAN VERSI INI
       function showLoader() {
         if (loader) {
           loader.classList.remove("hidden");
-          loader.classList.add("flex");
+          // Beri jeda sedikit agar transisi CSS berjalan
+          setTimeout(() => {
+            loader.classList.add("flex");
+          }, 10); // Jeda 10 milidetik sudah cukup
         }
       }
       function hideLoader() {
@@ -1474,26 +1478,50 @@
 
       // GANTI DENGAN VERSI INI
       async function loadUserManagementPage() {
-        showLoader(); // Tampilkan animasi
+        showLoader();
         try {
           const template = document
             .getElementById("user-management-template")
             .content.cloneNode(true);
           contentArea.appendChild(template);
 
-          // Panggil fungsi untuk membangun kerangka dan mengisi data
-          await refreshUserTable();
+          const container = document.getElementById(
+            "user-management-content-area"
+          );
+          // Pertama, buat kerangka HTML-nya
+          container.innerHTML = `
+      <div class="flex justify-end mb-4">
+        <button id="add-user-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">
+          <i class="fas fa-plus mr-2"></i>Tambah User Member
+        </button>
+      </div>
+      <div class="bg-white p-4 rounded-lg shadow-md">
+        <table class="min-w-full">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="text-left p-3">Nama Lengkap</th>
+              <th class="text-left p-3">Email</th>
+              <th class="text-left p-3">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="user-table-body"></tbody>
+        </table>
+      </div>
+    `;
 
-          // Pasang listener untuk tombol tambah user
+          // KEDUA, pasang listener pada tombol yang sudah pasti ada
           document
             .getElementById("add-user-btn")
             .addEventListener("click", () => {
               openUserModal("create");
             });
+
+          // KETIGA, baru panggil fungsi untuk mengisi data tabel
+          await refreshUserTable();
         } catch (error) {
           contentArea.innerHTML = `<p class="text-red-500">Terjadi error saat memuat halaman user: ${error.message}</p>`;
         } finally {
-          hideLoader(); // Selalu sembunyikan animasi setelah selesai
+          hideLoader();
         }
       }
       // TAMBAHKAN KEMBALI FUNGSI INI
