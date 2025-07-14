@@ -204,10 +204,6 @@
     </template>
 
     <script>
-      // =====================================================================
-      //          LOGIKA JAVASCRIPT BARU (REVISI BESAR)
-      // =====================================================================
-
       // === STATE & KONFIGURASI ===
       const contentArea = document.getElementById("content-area");
       const loginScreen = document.getElementById("login-screen");
@@ -891,6 +887,7 @@
 
       // Fungsi baru yang hanya bertugas me-refresh tabel ruangan
       // GANTI DENGAN VERSI INI
+      // GANTI DENGAN VERSI INI
       async function refreshRoomTable() {
         const container = document.getElementById("ruangan-content-area");
         const tableBody = container.querySelector("tbody");
@@ -898,77 +895,52 @@
 
         tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center">Memuat ulang data...</td></tr>`;
         try {
-          const rooms = await api.post("/api/management", {
-            action: "getRooms",
-          });
-          const users = await api.post("/api/management", {
-            action: "getUsers",
-          });
-          const managementUsers = users.filter((u) => u.role === "management");
-          const managerOptions = managementUsers
-            .map((m) => `<option value="${m.id}">${m.full_name}</option>`)
-            .join("");
+          // Ambil data ruangan dan user management lagi
+          const [rooms, users] = await Promise.all([
+            api.post("/api/management", { action: "getRooms" }),
+            api.post("/api/management", { action: "getUsers" }),
+          ]);
 
-          renderRoomTable(rooms, managerOptions); // <-- PERBAIKAN: Panggil renderRoomTable di sini
+          const managementUsers = users.filter((u) => u.role === "management");
+          // Simpan lagi ke variabel global untuk konsistensi
+          managementUserList = managementUsers;
+
+          // Render tabel dengan data baru
+          renderRoomTable(rooms);
         } catch (error) {
           tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">${error.message}</td></tr>`;
         }
       }
 
-      // GANTI DENGAN VERSI BARU INI
+      // GANTI DENGAN VERSI INI
       async function renderRuanganManagementView(container) {
-        container.innerHTML = `<p>Memuat data manajemen ruangan...</p>`;
+        // Hanya membangun kerangka HTML satu kali
+        container.innerHTML = `
+    <div class="flex justify-end mb-4">
+      <button id="add-room-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">
+        <i class="fas fa-plus mr-2"></i>Tambah Ruangan
+      </button>
+    </div>
+    <div class="bg-white p-4 rounded-lg shadow-md overflow-x-auto">
+      <table class="min-w-full">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="text-left p-3">Nama Ruangan</th>
+            <th class="text-left p-3">Lokasi</th>
+            <th class="text-left p-3">Kapasitas</th>
+            <th class="text-left p-3">Penanggung Jawab</th>
+            <th class="text-left p-3">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="room-table-body">
+          <tr><td colspan="5" class="p-4 text-center">Memuat data...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  `;
 
-        try {
-          // Ambil data ruangan dan pengguna secara bersamaan
-          const [rooms, users] = await Promise.all([
-            api.get("/api/rooms"),
-            api.post("/api/management", { action: "getUsers" }), // Perbaikan di sini
-          ]);
-          const managementUsers = users.filter((u) => u.role === "management");
-          const managerOptions = managementUsers
-            .map((m) => `<option value="${m.id}">${m.full_name}</option>`)
-            .join("");
-
-          // Simpan daftar manajer ke variabel global
-          managementUserList = managementUsers;
-
-          // Render kerangka HTML dan tabel
-          container.innerHTML = `
-      <div class="flex justify-end mb-4">
-        <button id="add-room-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">
-          <i class="fas fa-plus mr-2"></i>Tambah Ruangan
-        </button>
-      </div>
-      <div class="bg-white p-4 rounded-lg shadow-md overflow-x-auto">
-        <table class="min-w-full">
-          <thead class="bg-gray-100">
-            <tr>
-              <th class="text-left p-3">Nama Ruangan</th>
-              <th class="text-left p-3">Lokasi</th>
-              <th class="text-left p-3">Kapasitas</th>
-              <th class="text-left p-3">Penanggung Jawab</th>
-              <th class="text-left p-3">Aksi</th>
-            </tr>
-          </thead>
-          <tbody id="room-table-body">
-          </tbody>
-        </table>
-      </div>
-    `;
-
-          // Panggil fungsi untuk mengisi tabel
-          renderRoomTable(rooms, managerOptions);
-
-          // Tambahkan event listener untuk tombol "Tambah Ruangan"
-          document
-            .getElementById("add-room-btn")
-            .addEventListener("click", () =>
-              openRoomModal("create", {}, managerOptions)
-            );
-        } catch (error) {
-          container.innerHTML = `<p class="text-red-500">Gagal memuat data: ${error.message}</p>`;
-        }
+        // Panggil fungsi refresh untuk mengisi data dan memasang listener
+        refreshRoomTable();
       }
 
       // Fungsi untuk menampilkan daftar semua ruangan
@@ -1283,106 +1255,6 @@
             openUserModal("create");
           });
       }
-      // TAMBAHKAN FUNGSI BARU INI
-      function renderRoomTable(rooms, managerOptions) {
-        const tableBody = document.getElementById("room-table-body");
-        if (!tableBody) return;
-
-        if (rooms.length === 0) {
-          tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center">Belum ada data ruangan.</td></tr>`;
-        } else {
-          tableBody.innerHTML = rooms
-            .map(
-              (room) => `
-            <tr class="border-b">
-                <td class="p-3">${room.name}</td>
-                <td class="p-3">${room.lokasi || "-"}</td>
-                <td class="p-3">${room.kapasitas || "-"}</td>
-                <td class="p-3">${
-                  room.penanggung_jawab?.full_name || "<i>Belum diatur</i>"
-                }</td>
-                <td class="p-3 whitespace-nowrap">
-                    <button data-room='${JSON.stringify(
-                      room
-                    )}' class="edit-room-btn text-blue-500 hover:underline mr-4">Edit</button>
-                    <button data-id="${
-                      room.id
-                    }" class="delete-room-btn text-red-500 hover:underline">Hapus</button>
-                </td>
-            </tr>
-        `
-            )
-            .join("");
-        }
-
-        // Pasang event listener setelah tabel di-render
-        document
-          .getElementById("add-room-btn")
-          ?.addEventListener("click", () =>
-            openRoomModal("create", {}, managerOptions)
-          );
-        document.querySelectorAll(".edit-room-btn").forEach((btn) => {
-          btn.addEventListener("click", () =>
-            openRoomModal("edit", JSON.parse(btn.dataset.room), managerOptions)
-          );
-        });
-        document.querySelectorAll(".delete-room-btn").forEach((btn) => {
-          btn.addEventListener("click", (e) => {
-            const roomId = e.target.dataset.id;
-            if (
-              confirm(
-                "Apakah Anda yakin ingin menghapus ruangan ini? Semua data reservasi terkait akan sulit dilacak."
-              )
-            ) {
-              api
-                .post("/api/management", {
-                  action: "deleteRoom",
-                  payload: { roomId },
-                })
-                .then((res) => {
-                  alert(res.message);
-                  refreshRoomTable();
-                })
-                .catch((err) => alert(`Gagal menghapus: ${err.message}`));
-            }
-          });
-        });
-      }
-
-      // GANTI FUNGSI LAMA DENGAN DUA FUNGSI INI
-
-      // Fungsi untuk merender isi tabel ruangan
-      function renderRoomTable(rooms) {
-        const tableBody = document.getElementById("room-table-body");
-        if (!tableBody) return;
-
-        if (rooms.length === 0) {
-          tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center">Belum ada data ruangan.</td></tr>`;
-        } else {
-          tableBody.innerHTML = rooms
-            .map(
-              (room) => `
-      <tr class="border-b">
-        <td class="p-3">${room.name}</td>
-        <td class="p-3">${room.lokasi || "-"}</td>
-        <td class="p-3">${room.kapasitas || "-"}</td>
-        <td class="p-3">${
-          room.penanggung_jawab?.full_name || "<i>Belum diatur</i>"
-        }</td>
-        <td class="p-3 whitespace-nowrap">
-          <button data-room='${JSON.stringify(
-            room
-          )}' class="edit-room-btn text-blue-500 hover:underline mr-4">Edit</button>
-          <button data-id="${
-            room.id
-          }" class="delete-room-btn text-red-500 hover:underline">Hapus</button>
-        </td>
-      </tr>
-    `
-            )
-            .join("");
-        }
-      }
 
       function renderUserTable(users) {
         const tableBody = document.getElementById("user-table-body");
@@ -1527,15 +1399,14 @@
         hamburgerButton.addEventListener("click", toggleSidebar);
         closeSidebarButton.addEventListener("click", toggleSidebar);
         sidebarOverlay.addEventListener("click", toggleSidebar);
-        // === EVENT LISTENERS UNTUK HALAMAN DINAMIS & MODAL ===
-        // GANTI BLOK addEventListener('click',...) LAMA DENGAN INI
+        // GANTI SELURUH BLOK addEventListener('click', ...) LAMA DENGAN INI
         document.addEventListener("click", (e) => {
           // Event delegation untuk tombol di tabel user
           if (e.target.matches(".edit-user-btn")) {
             openUserModal("edit", e.target.dataset);
           }
           if (e.target.matches(".delete-user-btn")) {
-            if (confirm("Apakah Anda yakin ingin menghapus user ini? ...")) {
+            if (confirm("Apakah Anda yakin ingin menghapus user ini?")) {
               const userId = e.target.dataset.id;
               api
                 .post("/api/management", {
@@ -1549,7 +1420,8 @@
                 .catch((err) => alert(`Gagal menghapus: ${err.message}`));
             }
           }
-          // BARU: Event delegation untuk tombol di halaman manajemen ruangan
+
+          // Event delegation untuk tombol di halaman manajemen ruangan
           if (e.target.matches("#add-room-btn")) {
             const managerOptions = managementUserList
               .map((m) => `<option value="${m.id}">${m.full_name}</option>`)
@@ -1567,7 +1439,7 @@
             );
           }
           if (e.target.matches(".delete-room-btn")) {
-            if (confirm("Apakah Anda yakin ingin menghapus ruangan ini? ...")) {
+            if (confirm("Apakah Anda yakin ingin menghapus ruangan ini?")) {
               const roomId = e.target.dataset.id;
               api
                 .post("/api/management", {
