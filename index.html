@@ -36,6 +36,162 @@
       .modal {
         transition: opacity 0.25s ease;
       }
+      /* BARU: CSS untuk Animasi Loading Overlay */
+      /* Kita tidak butuh background-particles atau body styling dari file asli Anda */
+
+      .loading-container {
+        text-align: center;
+        color: white;
+      }
+      .church-loader {
+        width: 120px;
+        height: 120px;
+        margin: 0 auto 20px;
+        position: relative;
+        animation: church-pulse 2s ease-in-out infinite;
+      }
+      @keyframes church-pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.1);
+        }
+      }
+      .church-building {
+        width: 120px;
+        height: 120px;
+        position: relative;
+        margin: 0 auto;
+      }
+      .church-base {
+        width: 80px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 5px;
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        animation: building-glow 3s ease-in-out infinite;
+      }
+      @keyframes building-glow {
+        0%,
+        100% {
+          box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+        50% {
+          box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+        }
+      }
+      .church-roof {
+        width: 0;
+        height: 0;
+        border-left: 45px solid transparent;
+        border-right: 45px solid transparent;
+        border-bottom: 35px solid rgba(255, 255, 255, 0.9);
+        position: absolute;
+        bottom: 55px;
+        left: 50%;
+        transform: translateX(-50%);
+        animation: roof-bounce 2s ease-in-out infinite;
+      }
+      @keyframes roof-bounce {
+        0%,
+        100% {
+          transform: translateX(-50%) translateY(0px);
+        }
+        50% {
+          transform: translateX(-50%) translateY(-5px);
+        }
+      }
+      .church-tower {
+        width: 30px;
+        height: 40px;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 3px;
+        position: absolute;
+        bottom: 60px;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+      .church-tower-roof {
+        width: 0;
+        height: 0;
+        border-left: 18px solid transparent;
+        border-right: 18px solid transparent;
+        border-bottom: 20px solid rgba(255, 255, 255, 0.9);
+        position: absolute;
+        bottom: 100px;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+      .church-cross {
+        position: absolute;
+        bottom: 115px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 24px;
+        animation: cross-glow 2s ease-in-out infinite;
+      }
+      @keyframes cross-glow {
+        0%,
+        100% {
+          text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+          transform: translateX(-50%) scale(1);
+        }
+        50% {
+          text-shadow: 0 0 20px rgba(255, 255, 255, 1);
+          transform: translateX(-50%) scale(1.2);
+        }
+      }
+      .loading-text {
+        font-size: 1.8rem;
+        font-weight: 600;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        animation: text-fade 2s ease-in-out infinite;
+      }
+      @keyframes text-fade {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.7;
+        }
+      }
+      .loading-dots {
+        margin: 20px 0;
+      }
+      .dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        background: white;
+        border-radius: 50%;
+        margin: 0 3px;
+        animation: dot-bounce 1.4s ease-in-out infinite;
+      }
+      .dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      .dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      @keyframes dot-bounce {
+        0%,
+        80%,
+        100% {
+          transform: scale(0.8);
+          opacity: 0.5;
+        }
+        40% {
+          transform: scale(1.2);
+          opacity: 1;
+        }
+      }
     </style>
   </head>
   <body class="bg-gray-100">
@@ -270,6 +426,20 @@
         },
       };
 
+      // BARU: Fungsi untuk mengontrol animasi loading
+      const loader = document.getElementById("page-loader");
+      function showLoader() {
+        if (loader) {
+          loader.classList.remove("hidden");
+          loader.classList.add("flex");
+        }
+      }
+      function hideLoader() {
+        if (loader) {
+          loader.classList.add("hidden");
+          loader.classList.remove("flex");
+        }
+      }
       // === FUNGSI UTAMA (AUTH & NAVIGASI) ===
       // BARU: Fungsi untuk menampilkan sapaan kepada user
       function updateUserGreeting() {
@@ -388,23 +558,33 @@
       // === FUNGSI PEMUAT HALAMAN (BARU) ===
 
       // 1. Pemuatan Halaman Dashboard
+      // GANTI DENGAN VERSI INI
       async function loadDashboardPage() {
-        const template = document
-          .getElementById("dashboard-template")
-          .content.cloneNode(true);
-        contentArea.appendChild(template);
-        const userRole = localStorage.getItem("userRole");
+        showLoader(); // Tampilkan animasi
+        try {
+          const template = document
+            .getElementById("dashboard-template")
+            .content.cloneNode(true);
+          contentArea.innerHTML = ""; // Kosongkan dulu sebelum menempel template
+          contentArea.appendChild(template);
 
-        if (userRole === "management") {
-          document
-            .getElementById("manager-dashboard-content")
-            .classList.remove("hidden");
-          renderManagerDashboard();
-        } else {
-          document
-            .getElementById("member-dashboard-content")
-            .classList.remove("hidden");
-          renderMemberDashboard();
+          const userRole = localStorage.getItem("userRole");
+
+          if (userRole === "management") {
+            document
+              .getElementById("manager-dashboard-content")
+              .classList.remove("hidden");
+            await renderManagerDashboard(); // Tunggu sampai render selesai
+          } else {
+            document
+              .getElementById("member-dashboard-content")
+              .classList.remove("hidden");
+            await renderMemberDashboard(); // Tunggu sampai render selesai
+          }
+        } catch (error) {
+          contentArea.innerHTML = `<p class="text-red-500">Gagal memuat dashboard: ${error.message}</p>`;
+        } finally {
+          hideLoader(); // Selalu sembunyikan animasi, baik sukses maupun gagal
         }
       }
 
@@ -666,15 +846,21 @@
       //          FUNGSI UNTUK HALAMAN BARANG
       // =====================================================================
 
-      // Fungsi utama untuk memuat halaman Barang
       async function loadBarangPage() {
-        const template = document
-          .getElementById("barang-template")
-          .content.cloneNode(true);
-        contentArea.appendChild(template);
+        showLoader(); // Tampilkan animasi
+        try {
+          const template = document
+            .getElementById("barang-template")
+            .content.cloneNode(true);
+          contentArea.appendChild(template);
 
-        // Secara default, tampilkan daftar semua barang
-        renderBarangListView();
+          // Secara default, tampilkan daftar semua barang
+          await renderBarangListView();
+        } catch (error) {
+          contentArea.innerHTML = `<p class="text-red-500">Terjadi error saat memuat halaman barang: ${error.message}</p>`;
+        } finally {
+          hideLoader(); // Selalu sembunyikan animasi setelah selesai
+        }
       }
 
       // Fungsi untuk menampilkan daftar semua barang dalam bentuk kartu
@@ -864,22 +1050,26 @@
       // =====================================================================
       //          FUNGSI UNTUK HALAMAN RUANGAN
       // =====================================================================
-
-      // GANTI DENGAN FUNGSI BARU YANG LEBIH PINTAR INI
+      // GANTI DENGAN VERSI INI
       async function loadRuanganPage() {
-        const template = document
-          .getElementById("ruangan-template")
-          .content.cloneNode(true);
-        contentArea.appendChild(template);
-        const container = document.getElementById("ruangan-content-area");
+        showLoader(); // Tampilkan animasi
+        try {
+          const template = document
+            .getElementById("ruangan-template")
+            .content.cloneNode(true);
+          contentArea.appendChild(template);
 
-        // BARU: Cek peran pengguna yang sedang login
-        if (localStorage.getItem("userRole") === "management") {
-          // Jika management, tampilkan panel CRUD
-          renderRuanganManagementView(container);
-        } else {
-          // Jika member, tampilkan daftar ruangan biasa
-          renderRuanganListView();
+          const container = document.getElementById("ruangan-content-area");
+
+          if (localStorage.getItem("userRole") === "management") {
+            await renderRuanganManagementView(container);
+          } else {
+            await renderRuanganListView();
+          }
+        } catch (error) {
+          contentArea.innerHTML = `<p class="text-red-500">Terjadi error saat memuat halaman ruangan: ${error.message}</p>`;
+        } finally {
+          hideLoader(); // Selalu sembunyikan animasi setelah selesai
         }
       }
 
@@ -1282,44 +1472,29 @@
         }
       }
 
-      // Fungsi ini sekarang hanya membangun kerangka halaman satu kali.
+      // GANTI DENGAN VERSI INI
       async function loadUserManagementPage() {
-        const template = document
-          .getElementById("user-management-template")
-          .content.cloneNode(true);
-        contentArea.appendChild(template);
+        showLoader(); // Tampilkan animasi
+        try {
+          const template = document
+            .getElementById("user-management-template")
+            .content.cloneNode(true);
+          contentArea.appendChild(template);
 
-        const container = document.getElementById(
-          "user-management-content-area"
-        );
-        container.innerHTML = `
-    <div class="flex justify-end mb-4">
-      <button id="add-user-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">
-        <i class="fas fa-plus mr-2"></i>Tambah User Member
-      </button>
-    </div>
-    <div class="bg-white p-4 rounded-lg shadow-md">
-      <table class="min-w-full">
-        <thead class="bg-gray-100">
-          <tr>
-            <th class="text-left p-3">Nama Lengkap</th>
-            <th class="text-left p-3">Email</th>
-            <th class="text-left p-3">Aksi</th>
-          </tr>
-        </thead>
-        <tbody id="user-table-body">
-          </tbody>
-      </table>
-    </div>
-  `;
+          // Panggil fungsi untuk membangun kerangka dan mengisi data
+          await refreshUserTable();
 
-        refreshUserTable(); // Panggil untuk mengisi data pertama kali
-
-        document
-          .getElementById("add-user-btn")
-          .addEventListener("click", () => {
-            openUserModal("create");
-          });
+          // Pasang listener untuk tombol tambah user
+          document
+            .getElementById("add-user-btn")
+            .addEventListener("click", () => {
+              openUserModal("create");
+            });
+        } catch (error) {
+          contentArea.innerHTML = `<p class="text-red-500">Terjadi error saat memuat halaman user: ${error.message}</p>`;
+        } finally {
+          hideLoader(); // Selalu sembunyikan animasi setelah selesai
+        }
       }
       // TAMBAHKAN KEMBALI FUNGSI INI
       function renderRoomTable(rooms) {
@@ -1687,6 +1862,32 @@
             class="mt-4 text-center font-semibold"
           ></p>
         </form>
+      </div>
+    </div>
+    <div
+      id="page-loader"
+      class="fixed inset-0 bg-gray-900 bg-opacity-75 items-center justify-center z-50 hidden"
+    >
+      <div class="loading-container">
+        <div class="church-loader">
+          <div class="church-building">
+            <div class="church-base">
+              <div class="church-window"></div>
+              <div class="church-window"></div>
+              <div class="church-window"></div>
+              <div class="church-door"></div>
+            </div>
+            <div class="church-roof"></div>
+            <div class="church-tower"></div>
+            <div class="church-tower-roof"></div>
+            <div class="church-cross">✠</div>
+          </div>
+        </div>
+        <div class="loading-text">Memuat Data</div>
+        <div class="loading-dots">
+          <span class="dot"></span><span class="dot"></span
+          ><span class="dot"></span>
+        </div>
       </div>
     </div>
   </body>
