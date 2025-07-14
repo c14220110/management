@@ -912,19 +912,18 @@
         container.innerHTML = `<p>Memuat data manajemen ruangan...</p>`;
 
         try {
-          // Ambil semua data yang dibutuhkan terlebih dahulu
+          // Ambil data ruangan dan daftar user management secara bersamaan
           const [rooms, users] = await Promise.all([
             api.post("/api/management", { action: "getRooms" }),
             api.post("/api/management", { action: "getUsers" }),
           ]);
 
           const managementUsers = users.filter((u) => u.role === "management");
-          managementUserList = managementUsers; // Simpan ke variabel global
           const managerOptionsHTML = managementUsers
             .map((m) => `<option value="${m.id}">${m.full_name}</option>`)
             .join("");
 
-          // Render kerangka HTML
+          // Render kerangka HTML dan tabel
           container.innerHTML = `
       <div class="flex justify-end mb-4">
         <button id="add-room-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">
@@ -940,13 +939,33 @@
               <th class="text-left p-3">Aksi</th>
             </tr>
           </thead>
-          <tbody id="room-table-body"></tbody>
+          <tbody id="room-table-body">
+            ${rooms
+              .map(
+                (room) => `
+              <tr class="border-b">
+                <td class="p-3">${room.name}</td>
+                <td class="p-3">${room.lokasi || "-"}</td>
+                <td class="p-3">${room.kapasitas || "-"}</td>
+                <td class="p-3">${
+                  room.penanggung_jawab?.full_name || "<i>Belum diatur</i>"
+                }</td>
+                <td class="p-3 whitespace-nowrap">
+                  <button data-room='${JSON.stringify(
+                    room
+                  )}' class="edit-room-btn text-blue-500 hover:underline mr-4">Edit</button>
+                  <button data-id="${
+                    room.id
+                  }" class="delete-room-btn text-red-500 hover:underline">Hapus</button>
+                </td>
+              </tr>
+            `
+              )
+              .join("")}
+          </tbody>
         </table>
       </div>
     `;
-
-          // Panggil fungsi untuk mengisi tabel dengan data yang sudah ada
-          renderRoomTable(rooms);
 
           // --- PASANG EVENT LISTENER DI SINI, SETELAH SEMUA SIAP ---
           document
@@ -976,7 +995,7 @@
                   })
                   .then((res) => {
                     alert(res.message);
-                    refreshRoomTable();
+                    renderRuanganManagementView(container); // Refresh view
                   })
                   .catch((err) => alert(`Gagal menghapus: ${err.message}`));
               }
@@ -1150,16 +1169,16 @@
           container.innerHTML = `<p class="text-red-500">Gagal memuat detail ruangan: ${error.message}</p>`;
         }
       }
-
-      // GANTI FUNGSI PLACEHOLDER DENGAN INI
-      function openRoomModal(mode, roomData = {}, managerOptions) {
+      // GANTI DENGAN VERSI LENGKAP INI
+      function openRoomModal(mode, roomData = {}, managerOptionsHTML) {
         const modal = document.getElementById("room-modal");
         const form = document.getElementById("room-modal-form");
         form.reset();
         document.getElementById("room-modal-feedback").textContent = "";
 
         const pjSelect = document.getElementById("room-penanggung-jawab");
-        pjSelect.innerHTML = managerOptions;
+        // Mengisi dropdown dengan daftar manajer
+        pjSelect.innerHTML = `<option value="">-- Pilih Penanggung Jawab --</option>${managerOptionsHTML}`;
 
         if (mode === "edit") {
           document.getElementById("room-modal-title").textContent =
@@ -1169,6 +1188,7 @@
           document.getElementById("room-lokasi").value = roomData.lokasi || "";
           document.getElementById("room-kapasitas").value =
             roomData.kapasitas || "";
+          // Set nilai dropdown sesuai data yang ada
           pjSelect.value = roomData.penanggung_jawab?.id || "";
         } else {
           document.getElementById("room-modal-title").textContent =
@@ -1187,47 +1207,49 @@
         document.getElementById("room-modal").classList.remove("flex");
       }
 
+      // GANTI DENGAN VERSI LENGKAP INI
       async function handleRoomFormSubmit(e) {
         e.preventDefault();
-
         const feedback = document.getElementById("room-modal-feedback");
-
+        const button = e.target.querySelector('button[type="submit"]');
+        button.disabled = true;
         feedback.textContent = "Menyimpan...";
 
         const roomId = document.getElementById("room-id").value;
-
         const action = roomId ? "updateRoom" : "createRoom";
 
+        // Ambil semua data dari form, termasuk UUID penanggung jawab yang dipilih
         const payload = {
           name: document.getElementById("room-name").value,
-
           lokasi: document.getElementById("room-lokasi").value,
-
           kapasitas:
             parseInt(document.getElementById("room-kapasitas").value) || null,
-
           penanggung_jawab_id: document.getElementById("room-penanggung-jawab")
             .value,
         };
+
+        if (!payload.penanggung_jawab_id) {
+          feedback.textContent = "Error: Penanggung Jawab wajib dipilih.";
+          button.disabled = false;
+          return;
+        }
 
         if (action === "updateRoom") {
           payload.roomId = roomId;
         }
 
         try {
-          const result = await api.post("/api/management", {
-            action,
-
-            payload,
-          });
-
+          const result = await api.post("/api/management", { action, payload });
           alert(result.message);
-
           closeRoomModal();
-
-          refreshRoomTable();
+          // Panggil fungsi render ulang untuk refresh tabel
+          renderRuanganManagementView(
+            document.getElementById("ruangan-content-area")
+          );
         } catch (error) {
           feedback.textContent = `Error: ${error.message}`;
+        } finally {
+          button.disabled = false;
         }
       }
       // =====================================================================
