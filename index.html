@@ -192,6 +192,35 @@
           opacity: 1;
         }
       }
+      /* GANTI DENGAN VERSI INI */
+      #page-loader {
+        /* Properti dasar: selalu flex, tapi dikontrol oleh opacity dan visibility */
+        position: fixed;
+        inset: 0;
+        background-color: rgba(
+          17,
+          24,
+          39,
+          0.75
+        ); /* bg-gray-900 bg-opacity-75 */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+        transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+      }
+
+      /* Class untuk menyembunyikan loader */
+      .loader-hidden {
+        opacity: 0;
+        visibility: hidden;
+      }
+
+      /* Class untuk menampilkan loader */
+      .loader-visible {
+        opacity: 1;
+        visibility: visible;
+      }
     </style>
   </head>
   <body class="bg-gray-100">
@@ -426,22 +455,21 @@
         },
       };
 
-      // BARU: Fungsi untuk mengontrol animasi loading
+      // GANTI KEDUA FUNGSI DENGAN VERSI BARU INI
+
       const loader = document.getElementById("page-loader");
-      // GANTI DENGAN VERSI INI
+
       function showLoader() {
         if (loader) {
-          loader.classList.remove("hidden");
-          // Beri jeda sedikit agar transisi CSS berjalan
-          setTimeout(() => {
-            loader.classList.add("flex");
-          }, 10); // Jeda 10 milidetik sudah cukup
+          loader.classList.remove("loader-hidden");
+          loader.classList.add("loader-visible");
         }
       }
+
       function hideLoader() {
         if (loader) {
-          loader.classList.add("hidden");
-          loader.classList.remove("flex");
+          loader.classList.remove("loader-visible");
+          loader.classList.add("loader-hidden");
         }
       }
       // === FUNGSI UTAMA (AUTH & NAVIGASI) ===
@@ -1892,10 +1920,7 @@
         </form>
       </div>
     </div>
-    <div
-      id="page-loader"
-      class="fixed inset-0 bg-gray-900 bg-opacity-75 items-center justify-center z-50 hidden"
-    >
+    <div id="page-loader" class="loader-hidden">
       <div class="loading-container">
         <div class="church-loader">
           <div class="church-building">
