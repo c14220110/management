@@ -868,15 +868,22 @@
       //          FUNGSI UNTUK HALAMAN RUANGAN
       // =====================================================================
 
-      // Fungsi utama untuk memuat halaman Ruangan
+      // GANTI DENGAN FUNGSI BARU YANG LEBIH PINTAR INI
       async function loadRuanganPage() {
         const template = document
           .getElementById("ruangan-template")
           .content.cloneNode(true);
         contentArea.appendChild(template);
+        const container = document.getElementById("ruangan-content-area");
 
-        // Secara default, tampilkan daftar semua ruangan
-        renderRuanganListView();
+        // BARU: Cek peran pengguna yang sedang login
+        if (localStorage.getItem("userRole") === "management") {
+          // Jika management, tampilkan panel CRUD
+          renderRuanganManagementView(container);
+        } else {
+          // Jika member, tampilkan daftar ruangan biasa
+          renderRuanganListView();
+        }
       }
 
       // GANTI FUNGSI LAMA DENGAN DUA FUNGSI BARU INI
