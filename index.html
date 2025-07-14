@@ -11,53 +11,96 @@
       rel="stylesheet"
     />
     <style>
+      /* BARU: CSS untuk Latar Belakang Video dan Form Login */
+      #login-video-bg {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        min-width: 100%;
+        min-height: 100%;
+        width: auto;
+        height: auto;
+        z-index: -100;
+        transform: translateX(-50%) translateY(-50%);
+        background-size: cover;
+      }
+
+      .login-form-container {
+        background: rgba(
+          255,
+          255,
+          255,
+          0.25
+        ); /* Latar belakang semi-transparan */
+        backdrop-filter: blur(10px); /* Efek blur (glassmorphism) */
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3); /* Garis tepi tipis */
+      }
       .modal {
         transition: opacity 0.25s ease;
       }
     </style>
   </head>
   <body class="bg-gray-100">
-    <div id="login-screen" class="flex items-center justify-center h-screen">
-      <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-        <h2 class="text-2xl font-bold text-center text-gray-800">
-          Login ke Dashboard GKI Kutisari
-        </h2>
-        <form id="login-form">
-          <div class="space-y-4">
-            <div>
-              <label for="email" class="text-sm font-medium text-gray-700"
-                >Email</label
-              >
-              <input
-                id="email"
-                type="email"
-                required
-                class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                value="harisgay@gmail.com"
-              />
-            </div>
-            <div>
-              <label for="password" class="text-sm font-medium text-gray-700"
-                >Password</label
-              >
-              <input
-                id="password"
-                type="password"
-                required
-                class="w-full px-3 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                value="123"
-              />
-            </div>
+    <div
+      id="login-screen"
+      class="relative flex items-center justify-center h-screen overflow-hidden"
+    >
+      <video autoplay muted loop id="login-video-bg">
+        <source src="bg.mp4" type="video/mp4" />
+        Browser Anda tidak mendukung tag video.
+      </video>
+
+      <div
+        class="login-form-container w-full max-w-md p-8 space-y-6 rounded-2xl shadow-lg"
+      >
+        <div class="text-center">
+          <img
+            src="logo.png"
+            alt="Logo GKI Kutisari"
+            class="w-16 h-16 mx-auto mb-4"
+          />
+          <h2 class="text-2xl font-bold text-gray-900">
+            Sistem Informasi GKI Kutisari
+          </h2>
+        </div>
+
+        <form id="login-form" class="space-y-6">
+          <div>
+            <label for="email" class="block text-sm font-medium text-gray-700"
+              >Email</label
+            >
+            <input
+              id="email"
+              type="email"
+              required
+              class="w-full px-4 py-2 mt-1 bg-white/50 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              value="harisgay@gmail.com"
+            />
+          </div>
+          <div>
+            <label
+              for="password"
+              class="block text-sm font-medium text-gray-700"
+              >Password</label
+            >
+            <input
+              id="password"
+              type="password"
+              required
+              class="w-full px-4 py-2 mt-1 bg-white/50 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              value="123"
+            />
           </div>
           <button
             type="submit"
-            class="w-full px-4 py-2 mt-6 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            class="w-full py-3 mt-6 font-semibold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 transition-colors"
           >
             Login
           </button>
           <p
             id="login-feedback"
-            class="mt-2 text-sm text-center text-red-600"
+            class="mt-2 text-sm text-center text-red-700 font-semibold"
           ></p>
         </form>
       </div>
