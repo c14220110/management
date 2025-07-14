@@ -1193,7 +1193,7 @@
           });
           alert(result.message);
           closeUserModal();
-          loadUserManagementPage(); // Refresh data
+          refreshUserTable(); // Refresh hanya tabelnya
         } catch (error) {
           feedback.textContent = `Error: ${error.message}`;
         }
@@ -1239,9 +1239,10 @@
                   action: "deleteUser",
                   payload: { userId },
                 })
+                // GANTI DENGAN BLOK INI
                 .then((res) => {
                   alert(res.message);
-                  loadUserManagementPage();
+                  refreshUserTable(); // Refresh hanya tabelnya
                 })
                 .catch((err) => alert(`Gagal menghapus: ${err.message}`));
             }
