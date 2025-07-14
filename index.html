@@ -920,21 +920,18 @@
         container.innerHTML = `<p>Memuat data manajemen ruangan...</p>`;
 
         try {
-          // Ambil data ruangan dan daftar user management secara bersamaan
+          // Ambil data ruangan dan pengguna secara bersamaan
           const [rooms, users] = await Promise.all([
             api.get("/api/rooms"),
-            api.get("/api/users"),
+            api.post("/api/management", { action: "getUsers" }), // Perbaikan di sini
           ]);
-          const managementUserList = users.filter(
-            (u) => u.role === "management"
-          );
-          const managerOptions = managementUserList
+          const managementUsers = users.filter((u) => u.role === "management");
+          const managerOptions = managementUsers
             .map((m) => `<option value="${m.id}">${m.full_name}</option>`)
             .join("");
-          renderRoomTable(rooms, managerOptions);
 
           // Simpan daftar manajer ke variabel global
-          managementUserList = users.filter((u) => u.role === "management");
+          managementUserList = managementUsers;
 
           // Render kerangka HTML dan tabel
           container.innerHTML = `
@@ -955,14 +952,20 @@
             </tr>
           </thead>
           <tbody id="room-table-body">
-            ${/* Isi tabel akan dirender di sini */ ""}
           </tbody>
         </table>
       </div>
     `;
 
-          // Panggil fungsi terpisah untuk mengisi tabel
+          // Panggil fungsi untuk mengisi tabel
           renderRoomTable(rooms, managerOptions);
+
+          // Tambahkan event listener untuk tombol "Tambah Ruangan"
+          document
+            .getElementById("add-room-btn")
+            .addEventListener("click", () =>
+              openRoomModal("create", {}, managerOptions)
+            );
         } catch (error) {
           container.innerHTML = `<p class="text-red-500">Gagal memuat data: ${error.message}</p>`;
         }
@@ -1220,19 +1223,24 @@
       // =====================================================================
 
       async function refreshUserTable() {
-        console.log("refreshUserTable called");
+        console.log("refreshUserTable dipanggil");
         const tableBody = document.getElementById("user-table-body");
-        if (!tableBody) return;
+        if (!tableBody) {
+          console.error("Elemen 'user-table-body' tidak ditemukan di DOM");
+          return;
+        }
 
         tableBody.innerHTML = `<tr><td colspan="3" class="p-4 text-center">Memuat ulang data...</td></tr>`;
         try {
+          console.log("Mengambil data pengguna dari API...");
           const users = await api.post("/api/management", {
             action: "getUsers",
           });
+          console.log("Data pengguna diterima:", users);
           renderUserTable(users);
         } catch (error) {
-          console.error("Error in refreshUserTable:", error);
-          tableBody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500">${error.message}</td></tr>`;
+          console.error("Gagal memuat data pengguna:", error);
+          tableBody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500">Gagal memuat data: ${error.message}</td></tr>`;
         }
       }
 
@@ -1376,9 +1384,61 @@
         }
       }
 
-      // Fungsi renderUserTable (tidak berubah, hanya dipindah)
       function renderUserTable(users) {
-        // ... kode renderUserTable Anda yang sudah ada ...
+        const tableBody = document.getElementById("user-table-body");
+        if (!tableBody) return;
+
+        if (users.length === 0) {
+          tableBody.innerHTML = `<tr><td colspan="3" class="p-4 text-center">Belum ada data pengguna.</td></tr>`;
+        } else {
+          tableBody.innerHTML = users
+            .map(
+              (user) => `
+          <tr class="border-b">
+            <td class="p-3">${user.full_name || user.email}</td>
+            <td class="p-3">${user.email}</td>
+            <td class="p-3 whitespace-nowrap">
+              <button data-id="${user.id}" data-name="${
+                user.full_name
+              }" data-email="${
+                user.email
+              }" class="edit-user-btn text-blue-500 hover:underline mr-4">Edit</button>
+              <button data-id="${
+                user.id
+              }" class="delete-user-btn text-red-500 hover:underline">Hapus</button>
+            </td>
+          </tr>
+        `
+            )
+            .join("");
+        }
+
+        // Pasang event listener untuk tombol edit dan hapus
+        document.querySelectorAll(".edit-user-btn").forEach((btn) => {
+          btn.addEventListener("click", () =>
+            openUserModal("edit", {
+              id: btn.dataset.id,
+              name: btn.dataset.name,
+              email: btn.dataset.email,
+            })
+          );
+        });
+        document.querySelectorAll(".delete-user-btn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            if (confirm("Apakah Anda yakin ingin menghapus user ini?")) {
+              try {
+                const res = await api.post("/api/management", {
+                  action: "deleteUser",
+                  payload: { userId: btn.dataset.id },
+                });
+                alert(res.message);
+                refreshUserTable();
+              } catch (err) {
+                alert(`Gagal menghapus: ${err.message}`);
+              }
+            }
+          });
+        });
       }
 
       // Fungsi untuk membuka modal
