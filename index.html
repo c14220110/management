@@ -11,18 +11,15 @@
       rel="stylesheet"
     />
     <style>
-      /* BARU: CSS untuk Latar Belakang Video dan Form Login */
+      /* GANTI DENGAN BLOK INI */
       #login-video-bg {
         position: fixed;
-        top: 50%;
-        left: 50%;
-        min-width: 100%;
-        min-height: 100%;
-        width: auto;
-        height: auto;
+        top: 0;
+        left: 0;
+        width: 100vw; /* 100% dari lebar viewport */
+        height: 100vh; /* 100% dari tinggi viewport */
+        object-fit: cover; /* Ini kuncinya: "zoom to fill" */
         z-index: -100;
-        transform: translateX(-50%) translateY(-50%);
-        background-size: cover;
       }
 
       .login-form-container {
