@@ -879,6 +879,107 @@
         renderRuanganListView();
       }
 
+      // BARU: Fungsi untuk menampilkan panel manajemen ruangan
+      async function renderRuanganManagementView(container) {
+        container.innerHTML = `<p>Memuat data manajemen ruangan...</p>`;
+
+        try {
+          // Ambil data ruangan dan daftar user management secara bersamaan
+          const [rooms, managementUsers] = await Promise.all([
+            api.post("/api/management", { action: "getRooms" }),
+            api
+              .post("/api/management", { action: "getUsers" })
+              .then((users) => users.filter((u) => u.role === "management")),
+          ]);
+
+          let managerOptions = managementUsers
+            .map((m) => `<option value="${m.id}">${m.full_name}</option>`)
+            .join("");
+
+          let tableHTML = `
+      <div class="flex justify-end mb-4">
+        <button id="add-room-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">
+          <i class="fas fa-plus mr-2"></i>Tambah Ruangan
+        </button>
+      </div>
+      <div class="bg-white p-4 rounded-lg shadow-md overflow-x-auto">
+        <table class="min-w-full">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="text-left p-3">Nama Ruangan</th>
+              <th class="text-left p-3">Lokasi</th>
+              <th class="text-left p-3">Kapasitas</th>
+              <th class="text-left p-3">Penanggung Jawab</th>
+              <th class="text-left p-3">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rooms
+              .map(
+                (room) => `
+              <tr class="border-b">
+                <td class="p-3">${room.name}</td>
+                <td class="p-3">${room.lokasi || "-"}</td>
+                <td class="p-3">${room.kapasitas || "-"}</td>
+                <td class="p-3">${
+                  room.penanggung_jawab?.full_name || "<i>Belum diatur</i>"
+                }</td>
+                <td class="p-3">
+                  <button data-room='${JSON.stringify(
+                    room
+                  )}' class="edit-room-btn text-blue-500 hover:underline mr-4">Edit</button>
+                  <button data-id="${
+                    room.id
+                  }" class="delete-room-btn text-red-500 hover:underline">Hapus</button>
+                </td>
+              </tr>
+            `
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </div>
+    `;
+          container.innerHTML = tableHTML;
+
+          // Logika untuk Modal Tambah/Edit Ruangan (mirip dengan User Management)
+          document
+            .getElementById("add-room-btn")
+            .addEventListener("click", () =>
+              openRoomModal("create", {}, managerOptions)
+            );
+          document.querySelectorAll(".edit-room-btn").forEach((btn) => {
+            btn.addEventListener("click", () =>
+              openRoomModal(
+                "edit",
+                JSON.parse(btn.dataset.room),
+                managerOptions
+              )
+            );
+          });
+          document.querySelectorAll(".delete-room-btn").forEach((btn) => {
+            // GANTI BARIS KOMENTAR DENGAN KODE INI
+            btn.addEventListener("click", (e) => {
+              const roomId = e.target.dataset.id;
+              if (confirm("Apakah Anda yakin ingin menghapus ruangan ini?")) {
+                api
+                  .post("/api/management", {
+                    action: "deleteRoom",
+                    payload: { roomId },
+                  })
+                  .then((res) => {
+                    alert(res.message);
+                    renderRuanganManagementView(container);
+                  })
+                  .catch((err) => alert(`Gagal menghapus: ${err.message}`));
+              }
+            });
+          });
+        } catch (error) {
+          container.innerHTML = `<p class="text-red-500">Gagal memuat data: ${error.message}</p>`;
+        }
+      }
+
       // Fungsi untuk menampilkan daftar semua ruangan
       async function renderRuanganListView() {
         const container = document.getElementById("ruangan-content-area");
@@ -1040,6 +1141,88 @@
           }
         } catch (error) {
           container.innerHTML = `<p class="text-red-500">Gagal memuat detail ruangan: ${error.message}</p>`;
+        }
+      }
+
+      // GANTI FUNGSI PLACEHOLDER DENGAN INI
+      function openRoomModal(mode, roomData = {}, managerOptions) {
+        const modal = document.getElementById("room-modal");
+        const form = document.getElementById("room-modal-form");
+        form.reset();
+        document.getElementById("room-modal-feedback").textContent = "";
+
+        const pjSelect = document.getElementById("room-penanggung-jawab");
+        pjSelect.innerHTML = managerOptions;
+
+        if (mode === "edit") {
+          document.getElementById("room-modal-title").textContent =
+            "Edit Ruangan";
+          document.getElementById("room-id").value = roomData.id;
+          document.getElementById("room-name").value = roomData.name;
+          document.getElementById("room-lokasi").value = roomData.lokasi || "";
+          document.getElementById("room-kapasitas").value =
+            roomData.kapasitas || "";
+          pjSelect.value = roomData.penanggung_jawab?.id || "";
+        } else {
+          document.getElementById("room-modal-title").textContent =
+            "Tambah Ruangan Baru";
+          document.getElementById("room-id").value = "";
+        }
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+      }
+
+      // TAMBAHKAN DUA FUNGSI BARU INI
+
+      function closeRoomModal() {
+        document.getElementById("room-modal").classList.add("hidden");
+
+        document.getElementById("room-modal").classList.remove("flex");
+      }
+
+      async function handleRoomFormSubmit(e) {
+        e.preventDefault();
+
+        const feedback = document.getElementById("room-modal-feedback");
+
+        feedback.textContent = "Menyimpan...";
+
+        const roomId = document.getElementById("room-id").value;
+
+        const action = roomId ? "updateRoom" : "createRoom";
+
+        const payload = {
+          name: document.getElementById("room-name").value,
+
+          lokasi: document.getElementById("room-lokasi").value,
+
+          kapasitas:
+            parseInt(document.getElementById("room-kapasitas").value) || null,
+
+          penanggung_jawab_id: document.getElementById("room-penanggung-jawab")
+            .value,
+        };
+
+        if (action === "updateRoom") {
+          payload.roomId = roomId;
+        }
+
+        try {
+          const result = await api.post("/api/management", {
+            action,
+
+            payload,
+          });
+
+          alert(result.message);
+
+          closeRoomModal();
+
+          renderRuanganManagementView(
+            document.getElementById("ruangan-content-area")
+          );
+        } catch (error) {
+          feedback.textContent = `Error: ${error.message}`;
         }
       }
       // =====================================================================
@@ -1255,6 +1438,12 @@
         document
           .getElementById("user-modal-form")
           .addEventListener("submit", handleUserFormSubmit);
+        document
+          .getElementById("room-modal-close")
+          .addEventListener("click", closeRoomModal);
+        document
+          .getElementById("room-modal-form")
+          .addEventListener("submit", handleRoomFormSubmit);
       });
     </script>
     <div
@@ -1323,6 +1512,89 @@
           </div>
           <p
             id="user-modal-feedback"
+            class="mt-4 text-center font-semibold"
+          ></p>
+        </form>
+      </div>
+    </div>
+    <div
+      id="room-modal"
+      class="modal fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center z-50"
+    >
+      <div class="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
+        <h2 id="room-modal-title" class="text-2xl font-bold mb-6"></h2>
+        <form id="room-modal-form">
+          <input type="hidden" id="room-id" />
+          <div class="space-y-4">
+            <div>
+              <label
+                for="room-name"
+                class="block text-sm font-medium text-gray-700"
+                >Nama Ruangan</label
+              >
+              <input
+                type="text"
+                id="room-name"
+                required
+                class="w-full p-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            <div>
+              <label
+                for="room-lokasi"
+                class="block text-sm font-medium text-gray-700"
+                >Lokasi</label
+              >
+              <input
+                type="text"
+                id="room-lokasi"
+                class="w-full p-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            <div>
+              <label
+                for="room-kapasitas"
+                class="block text-sm font-medium text-gray-700"
+                >Kapasitas (Orang)</label
+              >
+              <input
+                type="number"
+                id="room-kapasitas"
+                class="w-full p-2 border border-gray-300 rounded-md"
+              />
+            </div>
+            <div>
+              <label
+                for="room-penanggung-jawab"
+                class="block text-sm font-medium text-gray-700"
+                >Penanggung Jawab</label
+              >
+              <select
+                id="room-penanggung-jawab"
+                required
+                class="w-full p-2 border border-gray-300 rounded-md"
+              >
+                <option value="">Memuat...</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex justify-end space-x-4 mt-8">
+            <button
+              type="button"
+              id="room-modal-close"
+              class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Simpan
+            </button>
+          </div>
+          <p
+            id="room-modal-feedback"
             class="mt-4 text-center font-semibold"
           ></p>
         </form>

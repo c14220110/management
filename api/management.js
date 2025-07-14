@@ -175,6 +175,51 @@ export default async function handler(req, res) {
         if (deleteError) throw deleteError;
         return res.status(200).json({ message: "User berhasil dihapus." });
 
+      // BARU: Aksi untuk Manajemen Ruangan
+      case "getRooms":
+        // Ambil data ruangan dan gabungkan dengan nama penanggung jawab dari profiles
+        const { data: rooms, error: getRoomsError } = await supabase.from(
+          "rooms"
+        ).select(`
+            id,
+            name,
+            lokasi,
+            kapasitas,
+            penanggung_jawab: profiles (id, full_name)
+          `);
+        if (getRoomsError) throw getRoomsError;
+        return res.status(200).json(rooms);
+
+      case "createRoom":
+        const { name, lokasi, kapasitas, penanggung_jawab_id } = payload;
+        const { error: createRoomError } = await supabase
+          .from("rooms")
+          .insert({ name, lokasi, kapasitas, penanggung_jawab_id });
+        if (createRoomError) throw createRoomError;
+        return res
+          .status(201)
+          .json({ message: "Ruangan baru berhasil dibuat." });
+
+      case "updateRoom":
+        const { roomId, ...updateRoomData } = payload;
+        const { error: updateRoomError } = await supabase
+          .from("rooms")
+          .update(updateRoomData)
+          .eq("id", roomId);
+        if (updateRoomError) throw updateRoomError;
+        return res
+          .status(200)
+          .json({ message: "Data ruangan berhasil diperbarui." });
+
+      case "deleteRoom":
+        const { roomId: deleteRoomId } = payload;
+        const { error: deleteRoomError } = await supabase
+          .from("rooms")
+          .delete()
+          .eq("id", deleteRoomId);
+        if (deleteRoomError) throw deleteRoomError;
+        return res.status(200).json({ message: "Ruangan berhasil dihapus." });
+
       default:
         return res.status(400).json({ error: "Aksi tidak dikenal" });
     }
