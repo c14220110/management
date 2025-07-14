@@ -890,9 +890,10 @@
       // GANTI FUNGSI LAMA DENGAN DUA FUNGSI BARU INI
 
       // Fungsi baru yang hanya bertugas me-refresh tabel ruangan
+      // GANTI DENGAN VERSI INI
       async function refreshRoomTable() {
         const container = document.getElementById("ruangan-content-area");
-        const tableBody = container.querySelector("tbody"); // Cari tbody di dalam kontainer
+        const tableBody = container.querySelector("tbody");
         if (!tableBody) return;
 
         tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center">Memuat ulang data...</td></tr>`;
@@ -900,7 +901,6 @@
           const rooms = await api.post("/api/management", {
             action: "getRooms",
           });
-          // Kita perlu juga daftar manager untuk mengisi modal nanti
           const users = await api.post("/api/management", {
             action: "getUsers",
           });
@@ -909,8 +909,7 @@
             .map((m) => `<option value="${m.id}">${m.full_name}</option>`)
             .join("");
 
-          // Render tabel dengan data baru
-          renderRoomTable(rooms, managerOptions);
+          renderRoomTable(rooms, managerOptions); // <-- PERBAIKAN: Panggil renderRoomTable di sini
         } catch (error) {
           tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">${error.message}</td></tr>`;
         }
@@ -956,7 +955,7 @@
     `;
 
           // Panggil fungsi terpisah untuk mengisi tabel
-          renderRoomTable(rooms);
+          renderRoomTable(rooms, managerOptions);
         } catch (error) {
           container.innerHTML = `<p class="text-red-500">Gagal memuat data: ${error.message}</p>`;
         }
@@ -1213,17 +1212,17 @@
       //          FUNGSI UNTUK HALAMAN USER MANAGEMENT (VERSI BENAR)
       // =====================================================================
 
-      // BARU: Fungsi kecil ini hanya bertugas mengambil data terbaru dan mengisi tabel.
+      // GANTI DENGAN VERSI INI
       async function refreshUserTable() {
         const tableBody = document.getElementById("user-table-body");
-        if (!tableBody) return; // Pengaman jika user sudah pindah halaman
+        if (!tableBody) return;
 
         tableBody.innerHTML = `<tr><td colspan="3" class="p-4 text-center">Memuat ulang data...</td></tr>`;
         try {
           const users = await api.post("/api/management", {
             action: "getUsers",
           });
-          renderUserTable(users);
+          renderUserTable(users); // <-- PERBAIKAN: Panggil renderUserTable di sini
         } catch (error) {
           tableBody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-red-500">${error.message}</td></tr>`;
         }
