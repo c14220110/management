@@ -879,105 +879,62 @@
         renderRuanganListView();
       }
 
-      // BARU: Fungsi untuk menampilkan panel manajemen ruangan
-      async function renderRuanganManagementView(container) {
-        container.innerHTML = `<p>Memuat data manajemen ruangan...</p>`;
+      // GANTI FUNGSI LAMA DENGAN DUA FUNGSI BARU INI
 
+      // Fungsi baru yang hanya bertugas me-refresh tabel ruangan
+      async function refreshRoomTable() {
+        const container = document.getElementById("ruangan-content-area");
+        const tableBody = container.querySelector("tbody"); // Cari tbody di dalam kontainer
+        if (!tableBody) return;
+
+        tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center">Memuat ulang data...</td></tr>`;
         try {
-          // Ambil data ruangan dan daftar user management secara bersamaan
-          const [rooms, managementUsers] = await Promise.all([
-            api.post("/api/management", { action: "getRooms" }),
-            api
-              .post("/api/management", { action: "getUsers" })
-              .then((users) => users.filter((u) => u.role === "management")),
-          ]);
-
-          let managerOptions = managementUsers
+          const rooms = await api.post("/api/management", {
+            action: "getRooms",
+          });
+          // Kita perlu juga daftar manager untuk mengisi modal nanti
+          const users = await api.post("/api/management", {
+            action: "getUsers",
+          });
+          const managementUsers = users.filter((u) => u.role === "management");
+          const managerOptions = managementUsers
             .map((m) => `<option value="${m.id}">${m.full_name}</option>`)
             .join("");
 
-          let tableHTML = `
-      <div class="flex justify-end mb-4">
-        <button id="add-room-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">
-          <i class="fas fa-plus mr-2"></i>Tambah Ruangan
-        </button>
-      </div>
-      <div class="bg-white p-4 rounded-lg shadow-md overflow-x-auto">
-        <table class="min-w-full">
-          <thead class="bg-gray-100">
-            <tr>
-              <th class="text-left p-3">Nama Ruangan</th>
-              <th class="text-left p-3">Lokasi</th>
-              <th class="text-left p-3">Kapasitas</th>
-              <th class="text-left p-3">Penanggung Jawab</th>
-              <th class="text-left p-3">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rooms
-              .map(
-                (room) => `
-              <tr class="border-b">
-                <td class="p-3">${room.name}</td>
-                <td class="p-3">${room.lokasi || "-"}</td>
-                <td class="p-3">${room.kapasitas || "-"}</td>
-                <td class="p-3">${
-                  room.penanggung_jawab?.full_name || "<i>Belum diatur</i>"
-                }</td>
-                <td class="p-3">
-                  <button data-room='${JSON.stringify(
-                    room
-                  )}' class="edit-room-btn text-blue-500 hover:underline mr-4">Edit</button>
-                  <button data-id="${
-                    room.id
-                  }" class="delete-room-btn text-red-500 hover:underline">Hapus</button>
-                </td>
-              </tr>
-            `
-              )
-              .join("")}
-          </tbody>
-        </table>
-      </div>
-    `;
-          container.innerHTML = tableHTML;
-
-          // Logika untuk Modal Tambah/Edit Ruangan (mirip dengan User Management)
-          document
-            .getElementById("add-room-btn")
-            .addEventListener("click", () =>
-              openRoomModal("create", {}, managerOptions)
-            );
-          document.querySelectorAll(".edit-room-btn").forEach((btn) => {
-            btn.addEventListener("click", () =>
-              openRoomModal(
-                "edit",
-                JSON.parse(btn.dataset.room),
-                managerOptions
-              )
-            );
-          });
-          document.querySelectorAll(".delete-room-btn").forEach((btn) => {
-            // GANTI BARIS KOMENTAR DENGAN KODE INI
-            btn.addEventListener("click", (e) => {
-              const roomId = e.target.dataset.id;
-              if (confirm("Apakah Anda yakin ingin menghapus ruangan ini?")) {
-                api
-                  .post("/api/management", {
-                    action: "deleteRoom",
-                    payload: { roomId },
-                  })
-                  .then((res) => {
-                    alert(res.message);
-                    renderRuanganManagementView(container);
-                  })
-                  .catch((err) => alert(`Gagal menghapus: ${err.message}`));
-              }
-            });
-          });
+          // Render tabel dengan data baru
+          renderRoomTable(rooms, managerOptions);
         } catch (error) {
-          container.innerHTML = `<p class="text-red-500">Gagal memuat data: ${error.message}</p>`;
+          tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-red-500">${error.message}</td></tr>`;
         }
+      }
+
+      // Fungsi renderRuanganManagementView sekarang hanya membangun kerangka awal
+      async function renderRuanganManagementView(container) {
+        container.innerHTML = `
+    <div class="flex justify-end mb-4">
+      <button id="add-room-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">
+        <i class="fas fa-plus mr-2"></i>Tambah Ruangan
+      </button>
+    </div>
+    <div class="bg-white p-4 rounded-lg shadow-md overflow-x-auto">
+      <table class="min-w-full">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="text-left p-3">Nama Ruangan</th>
+            <th class="text-left p-3">Lokasi</th>
+            <th class="text-left p-3">Kapasitas</th>
+            <th class="text-left p-3">Penanggung Jawab</th>
+            <th class="text-left p-3">Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="room-table-body">
+          <tr><td colspan="5" class="p-4 text-center">Memuat data...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+
+        refreshRoomTable(); // Panggil refresh untuk mengisi data pertama kali
       }
 
       // Fungsi untuk menampilkan daftar semua ruangan
@@ -1218,9 +1175,7 @@
 
           closeRoomModal();
 
-          renderRuanganManagementView(
-            document.getElementById("ruangan-content-area")
-          );
+          refreshRoomTable();
         } catch (error) {
           feedback.textContent = `Error: ${error.message}`;
         }
@@ -1287,6 +1242,71 @@
           .addEventListener("click", () => {
             openUserModal("create");
           });
+      }
+      // TAMBAHKAN FUNGSI BARU INI
+      function renderRoomTable(rooms, managerOptions) {
+        const tableBody = document.getElementById("room-table-body");
+        if (!tableBody) return;
+
+        if (rooms.length === 0) {
+          tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center">Belum ada data ruangan.</td></tr>`;
+        } else {
+          tableBody.innerHTML = rooms
+            .map(
+              (room) => `
+            <tr class="border-b">
+                <td class="p-3">${room.name}</td>
+                <td class="p-3">${room.lokasi || "-"}</td>
+                <td class="p-3">${room.kapasitas || "-"}</td>
+                <td class="p-3">${
+                  room.penanggung_jawab?.full_name || "<i>Belum diatur</i>"
+                }</td>
+                <td class="p-3 whitespace-nowrap">
+                    <button data-room='${JSON.stringify(
+                      room
+                    )}' class="edit-room-btn text-blue-500 hover:underline mr-4">Edit</button>
+                    <button data-id="${
+                      room.id
+                    }" class="delete-room-btn text-red-500 hover:underline">Hapus</button>
+                </td>
+            </tr>
+        `
+            )
+            .join("");
+        }
+
+        // Pasang event listener setelah tabel di-render
+        document
+          .getElementById("add-room-btn")
+          ?.addEventListener("click", () =>
+            openRoomModal("create", {}, managerOptions)
+          );
+        document.querySelectorAll(".edit-room-btn").forEach((btn) => {
+          btn.addEventListener("click", () =>
+            openRoomModal("edit", JSON.parse(btn.dataset.room), managerOptions)
+          );
+        });
+        document.querySelectorAll(".delete-room-btn").forEach((btn) => {
+          btn.addEventListener("click", (e) => {
+            const roomId = e.target.dataset.id;
+            if (
+              confirm(
+                "Apakah Anda yakin ingin menghapus ruangan ini? Semua data reservasi terkait akan sulit dilacak."
+              )
+            ) {
+              api
+                .post("/api/management", {
+                  action: "deleteRoom",
+                  payload: { roomId },
+                })
+                .then((res) => {
+                  alert(res.message);
+                  refreshRoomTable();
+                })
+                .catch((err) => alert(`Gagal menghapus: ${err.message}`));
+            }
+          });
+        });
       }
 
       // Fungsi untuk render isi tabel pengguna
