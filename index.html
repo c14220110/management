@@ -1289,49 +1289,51 @@
             .join("");
 
           container.innerHTML = `<div class="flex justify-end mb-4"><button id="add-room-btn" class="bg-[#d97706] text-white font-bold py-2 px-4 rounded-md hover:bg-[#b46504]"><i class="fas fa-plus mr-2"></i>Tambah Ruangan</button></div>
-            <div class="bg-white p-4 rounded-lg shadow-md overflow-x-auto">
-                <table class="min-w-full"><thead class="bg-gray-100"><tr><th class="text-left p-3">Nama Ruangan</th><th class="text-left p-3">Lokasi</th><th class="text-left p-3">Kapasitas</th><th class="text-left p-3">Penanggung Jawab</th><th class="text-center p-3">Aksi</th></tr></thead>
-                <tbody id="room-table-body">${rooms
-                  .map(
-                    (room) => `
-                    <tr class="border-b">
-                        <td class="p-3">${room.name}</td>
-                        <td class="p-3">${room.lokasi || "-"}</td>
-                        <td class="p-3">${room.kapasitas || "-"}</td>
-                        <td class="p-3">${
-                          room.penanggung_jawab?.full_name ||
-                          "<i>Belum diatur</i>"
-                        }</td>
-                        <td class="p-3 whitespace-nowrap text-center">
-                            <div class="relative inline-block">
-                                <div>
-                                    <button type="button" class="action-menu-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none" id="menu-button-${
-                                      room.id
-                                    }">
-                                        <i class="fas fa-ellipsis-v"></i>
-                                    </button>
-                                </div>
-                                <div id="action-menu-${
-                                  room.id
-                                }" class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-10" role="menu">
-                                    <div class="py-1" role="none">
-                                        <a href="#" data-room='${JSON.stringify(
-                                          room
-                                        )}' class="edit-room-link text-blue-600 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Edit</a>
-                                        <a href="#" data-name="${
-                                          room.name
-                                        }" class="view-schedule-link text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Lihat Jadwal</a>
-                                        <a href="#" data-id="${
+            <div class="bg-white p-4 rounded-lg shadow-md">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full"><thead class="bg-gray-100"><tr><th class="text-left p-3">Nama Ruangan</th><th class="text-left p-3">Lokasi</th><th class="text-left p-3">Kapasitas</th><th class="text-left p-3">Penanggung Jawab</th><th class="text-center p-3">Aksi</th></tr></thead>
+                    <tbody id="room-table-body">${rooms
+                      .map(
+                        (room) => `
+                        <tr class="border-b">
+                            <td class="p-3">${room.name}</td>
+                            <td class="p-3">${room.lokasi || "-"}</td>
+                            <td class="p-3">${room.kapasitas || "-"}</td>
+                            <td class="p-3">${
+                              room.penanggung_jawab?.full_name ||
+                              "<i>Belum diatur</i>"
+                            }</td>
+                            <td class="p-3 whitespace-nowrap text-center">
+                                <div class="relative inline-block">
+                                    <div>
+                                        <button type="button" class="action-menu-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none" id="menu-button-${
                                           room.id
-                                        }" class="delete-room-link text-red-600 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Hapus</a>
+                                        }">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                    </div>
+                                    <div id="action-menu-${
+                                      room.id
+                                    }" class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-10" role="menu">
+                                        <div class="py-1" role="none">
+                                            <a href="#" data-room='${JSON.stringify(
+                                              room
+                                            )}' class="edit-room-link text-blue-600 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Edit</a>
+                                            <a href="#" data-name="${
+                                              room.name
+                                            }" class="view-schedule-link text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Lihat Jadwal</a>
+                                            <a href="#" data-id="${
+                                              room.id
+                                            }" class="delete-room-link text-red-600 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Hapus</a>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </td>
-                    </tr>`
-                  )
-                  .join("")}
-                </tbody></table>
+                            </td>
+                        </tr>`
+                      )
+                      .join("")}
+                    </tbody></table>
+                </div>
             </div>`;
 
           document
