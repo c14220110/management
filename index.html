@@ -681,6 +681,17 @@
       </div>
     </div>
 
+    <!-- Global Action Menu (Solusi Baru) -->
+    <div
+      id="global-action-menu"
+      class="absolute hidden z-20 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5"
+      role="menu"
+    >
+      <div class="py-1" role="none" id="global-action-menu-items">
+        <!-- Items will be injected by JavaScript -->
+      </div>
+    </div>
+
     <script>
       // === STATE & KONFIGURASI ===
       const contentArea = document.getElementById("content-area");
@@ -1304,30 +1315,13 @@
                               "<i>Belum diatur</i>"
                             }</td>
                             <td class="p-3 whitespace-nowrap text-center">
-                                <div class="relative inline-block">
-                                    <div>
-                                        <button type="button" class="action-menu-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none" id="menu-button-${
-                                          room.id
-                                        }">
-                                            <i class="fas fa-ellipsis-v"></i>
-                                        </button>
-                                    </div>
-                                    <div id="action-menu-${
-                                      room.id
-                                    }" class="origin-top-right absolute right-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-10" role="menu">
-                                        <div class="py-1" role="none">
-                                            <a href="#" data-room='${JSON.stringify(
-                                              room
-                                            )}' class="edit-room-link text-blue-600 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Edit</a>
-                                            <a href="#" data-name="${
-                                              room.name
-                                            }" class="view-schedule-link text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Lihat Jadwal</a>
-                                            <a href="#" data-id="${
-                                              room.id
-                                            }" class="delete-room-link text-red-600 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Hapus</a>
-                                        </div>
-                                    </div>
-                                </div>
+                                <button type="button" class="action-menu-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none" data-room-id="${
+                                  room.id
+                                }" data-room-name="${
+                          room.name
+                        }" data-room-data='${JSON.stringify(room)}'>
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
                             </td>
                         </tr>`
                       )
@@ -1342,94 +1336,76 @@
               openRoomModal("create", {}, managerOptionsHTML)
             );
 
-          container.addEventListener("click", (e) => {
-            const target = e.target;
-            const actionButton = target.closest(".action-menu-btn");
+          // Global listener for action menu and its items
+          document.body.addEventListener("click", (e) => {
+            const globalMenu = document.getElementById("global-action-menu");
 
-            if (actionButton) {
-              const menuId = actionButton.id.replace(
-                "menu-button-",
-                "action-menu-"
+            // Handle clicking the three-dot button
+            if (e.target.closest(".action-menu-btn")) {
+              e.preventDefault();
+              const button = e.target.closest(".action-menu-btn");
+              const roomData = JSON.parse(button.dataset.roomData);
+              const roomName = button.dataset.roomName;
+              const roomId = button.dataset.roomId;
+
+              const menuItemsContainer = document.getElementById(
+                "global-action-menu-items"
               );
-              const menu = document.getElementById(menuId);
+              menuItemsContainer.innerHTML = `
+                        <a href="#" data-room='${JSON.stringify(
+                          roomData
+                        )}' class="edit-room-link text-blue-600 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Edit</a>
+                        <a href="#" data-name="${roomName}" class="view-schedule-link text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Lihat Jadwal</a>
+                        <a href="#" data-id="${roomId}" class="delete-room-link text-red-600 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Hapus</a>
+                    `;
 
-              if (menu) {
-                const isHidden = menu.classList.contains("hidden");
+              const rect = button.getBoundingClientRect();
+              globalMenu.style.left = `${rect.left + window.scrollX}px`;
+              globalMenu.style.top = `${rect.bottom + window.scrollY}px`;
+              globalMenu.classList.remove("hidden");
 
-                document
-                  .querySelectorAll('[id^="action-menu-"]')
-                  .forEach((m) => {
-                    if (m.id !== menuId) {
-                      m.classList.add("hidden");
-                    }
-                  });
+              // Handle clicking an item within the global menu
+            } else if (e.target.closest("#global-action-menu")) {
+              const editLink = e.target.closest(".edit-room-link");
+              if (editLink) {
+                e.preventDefault();
+                openRoomModal(
+                  "edit",
+                  JSON.parse(editLink.dataset.room),
+                  managerOptionsHTML
+                );
+              }
 
-                menu.classList.toggle("hidden");
-
-                if (!menu.classList.contains("hidden")) {
-                  const buttonRect = actionButton.getBoundingClientRect();
-                  const menuRect = menu.getBoundingClientRect();
-
-                  menu.classList.remove(
-                    "bottom-full",
-                    "origin-bottom-right",
-                    "mb-2"
-                  );
-                  menu.classList.add("origin-top-right", "mt-2");
-
-                  if (
-                    buttonRect.bottom + menuRect.height >
-                    window.innerHeight
-                  ) {
-                    menu.classList.remove("origin-top-right", "mt-2");
-                    menu.classList.add(
-                      "bottom-full",
-                      "origin-bottom-right",
-                      "mb-2"
-                    );
-                  }
+              const deleteLink = e.target.closest(".delete-room-link");
+              if (deleteLink) {
+                e.preventDefault();
+                const roomId = deleteLink.dataset.id;
+                if (confirm("Apakah Anda yakin ingin menghapus ruangan ini?")) {
+                  api
+                    .post("/api/management", {
+                      action: "deleteRoom",
+                      payload: { roomId },
+                    })
+                    .then((res) => {
+                      alert(res.message);
+                      renderRuanganManagementView(container);
+                    })
+                    .catch((err) => alert(`Gagal menghapus: ${err.message}`));
                 }
               }
-            } else if (!target.closest('[id^="action-menu-"]')) {
-              document
-                .querySelectorAll('[id^="action-menu-"]')
-                .forEach((menu) => menu.classList.add("hidden"));
-            }
 
-            const editLink = target.closest(".edit-room-link");
-            if (editLink) {
-              e.preventDefault();
-              openRoomModal(
-                "edit",
-                JSON.parse(editLink.dataset.room),
-                managerOptionsHTML
-              );
-            }
-
-            const deleteLink = target.closest(".delete-room-link");
-            if (deleteLink) {
-              e.preventDefault();
-              const roomId = deleteLink.dataset.id;
-              if (confirm("Apakah Anda yakin ingin menghapus ruangan ini?")) {
-                api
-                  .post("/api/management", {
-                    action: "deleteRoom",
-                    payload: { roomId },
-                  })
-                  .then((res) => {
-                    alert(res.message);
-                    renderRuanganManagementView(container);
-                  })
-                  .catch((err) => alert(`Gagal menghapus: ${err.message}`));
+              const viewScheduleLink = e.target.closest(".view-schedule-link");
+              if (viewScheduleLink) {
+                e.preventDefault();
+                renderRuanganScheduleView_Management(
+                  viewScheduleLink.dataset.name
+                );
               }
-            }
+              globalMenu.classList.add("hidden"); // Hide menu after action
 
-            const viewScheduleLink = target.closest(".view-schedule-link");
-            if (viewScheduleLink) {
-              e.preventDefault();
-              renderRuanganScheduleView_Management(
-                viewScheduleLink.dataset.name
-              );
+              // Hide menu if clicking anywhere else
+            } else {
+              globalMenu.classList.add("hidden");
             }
           });
         } catch (error) {
