@@ -41,7 +41,7 @@
         /* Properti dasar: selalu flex, tapi dikontrol oleh opacity dan visibility */
         position: fixed;
         inset: 0;
-        background-color: rgba(0, 0, 0, 0); /* Hitam dengan opasitas 20% */
+        background-color: rgba(0, 0, 0, 0.1); /* Hitam dengan opasitas 20% */
         display: flex;
         flex-direction: column; /* Mengatur agar teks di bawah SVG */
         align-items: center;
@@ -125,6 +125,62 @@
           stroke-dashoffset: -156px;
         }
       }
+      /* BARU: CSS untuk Animasi Border di Form Login */
+      @property --angle {
+        syntax: "<angle>";
+        initial-value: 0deg;
+        inherits: false;
+      }
+
+      .card {
+        background: #1f2937; /* Warna latar belakang solid, sedikit lebih gelap dari border */
+        color: #d1d5db; /* Warna teks default (abu-abu terang) */
+        position: relative;
+        padding: 2rem;
+        border-radius: 1rem;
+        text-align: center;
+      }
+
+      /* Lapisan untuk border gradasi utama */
+      .card::before,
+      .card::after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 100%;
+        height: 100%;
+        border-radius: 1rem;
+        z-index: -1;
+        animation: 4s spin linear infinite;
+
+        /* Gradasi warna sesuai permintaan Anda */
+        background-image: conic-gradient(
+          from var(--angle),
+          #1f2937,
+          /* Slate-800 */ #d97706,
+          /* Amber-600 */ #10b981,
+          /* Emerald-500 */ #ef4444,
+          /* Red-500 */ #1f2937 /* Kembali ke warna awal */
+        );
+        padding: 3px; /* Ketebalan border */
+      }
+
+      /* Lapisan untuk efek glow/blur di belakang border */
+      .card::before {
+        filter: blur(1.5rem);
+        opacity: 0.7;
+      }
+
+      @keyframes spin {
+        from {
+          --angle: 0deg;
+        }
+        to {
+          --angle: 360deg;
+        }
+      }
     </style>
   </head>
   <body class="bg-gray-100">
@@ -154,23 +210,21 @@
         Browser Anda tidak mendukung tag video.
       </video>
 
-      <div
-        class="login-form-container w-full max-w-md p-8 space-y-6 rounded-2xl shadow-lg"
-      >
+      <div class="card w-full max-w-md">
         <div class="text-center">
           <img
             src="logo.png"
             alt="Logo GKI Kutisari"
             class="w-16 h-16 mx-auto mb-4"
           />
-          <h2 class="text-2xl font-bold text-gray-900">
+          <h2 class="text-2xl font-bold text-white">
             Sistem Informasi GKI Kutisari
           </h2>
         </div>
 
         <form id="login-form" class="space-y-6">
           <div>
-            <label for="email" class="block text-sm font-medium text-gray-700"
+            <label for="email" class="block text-sm font-medium text-gray-300"
               >Email</label
             >
             <input
