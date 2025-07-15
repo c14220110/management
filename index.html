@@ -36,163 +36,7 @@
       .modal {
         transition: opacity 0.25s ease;
       }
-      /* BARU: CSS untuk Animasi Loading Overlay */
-      /* Kita tidak butuh background-particles atau body styling dari file asli Anda */
-
-      .loading-container {
-        text-align: center;
-        color: white;
-      }
-      .church-loader {
-        width: 120px;
-        height: 120px;
-        margin: 0 auto 20px;
-        position: relative;
-        animation: church-pulse 2s ease-in-out infinite;
-      }
-      @keyframes church-pulse {
-        0%,
-        100% {
-          transform: scale(1);
-        }
-        50% {
-          transform: scale(1.1);
-        }
-      }
-      .church-building {
-        width: 120px;
-        height: 120px;
-        position: relative;
-        margin: 0 auto;
-      }
-      .church-base {
-        width: 80px;
-        height: 60px;
-        background: rgba(255, 255, 255, 0.9);
-        border-radius: 5px;
-        position: absolute;
-        bottom: 0;
-        left: 50%;
-        transform: translateX(-50%);
-        animation: building-glow 3s ease-in-out infinite;
-      }
-      @keyframes building-glow {
-        0%,
-        100% {
-          box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
-        }
-        50% {
-          box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
-        }
-      }
-      .church-roof {
-        width: 0;
-        height: 0;
-        border-left: 45px solid transparent;
-        border-right: 45px solid transparent;
-        border-bottom: 35px solid rgba(255, 255, 255, 0.9);
-        position: absolute;
-        bottom: 55px;
-        left: 50%;
-        transform: translateX(-50%);
-        animation: roof-bounce 2s ease-in-out infinite;
-      }
-      @keyframes roof-bounce {
-        0%,
-        100% {
-          transform: translateX(-50%) translateY(0px);
-        }
-        50% {
-          transform: translateX(-50%) translateY(-5px);
-        }
-      }
-      .church-tower {
-        width: 30px;
-        height: 40px;
-        background: rgba(255, 255, 255, 0.9);
-        border-radius: 3px;
-        position: absolute;
-        bottom: 60px;
-        left: 50%;
-        transform: translateX(-50%);
-      }
-      .church-tower-roof {
-        width: 0;
-        height: 0;
-        border-left: 18px solid transparent;
-        border-right: 18px solid transparent;
-        border-bottom: 20px solid rgba(255, 255, 255, 0.9);
-        position: absolute;
-        bottom: 100px;
-        left: 50%;
-        transform: translateX(-50%);
-      }
-      .church-cross {
-        position: absolute;
-        bottom: 115px;
-        left: 50%;
-        transform: translateX(-50%);
-        color: rgba(255, 255, 255, 0.9);
-        font-size: 24px;
-        animation: cross-glow 2s ease-in-out infinite;
-      }
-      @keyframes cross-glow {
-        0%,
-        100% {
-          text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
-          transform: translateX(-50%) scale(1);
-        }
-        50% {
-          text-shadow: 0 0 20px rgba(255, 255, 255, 1);
-          transform: translateX(-50%) scale(1.2);
-        }
-      }
-      .loading-text {
-        font-size: 1.8rem;
-        font-weight: 600;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
-        animation: text-fade 2s ease-in-out infinite;
-      }
-      @keyframes text-fade {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.7;
-        }
-      }
-      .loading-dots {
-        margin: 20px 0;
-      }
-      .dot {
-        display: inline-block;
-        width: 8px;
-        height: 8px;
-        background: white;
-        border-radius: 50%;
-        margin: 0 3px;
-        animation: dot-bounce 1.4s ease-in-out infinite;
-      }
-      .dot:nth-child(2) {
-        animation-delay: 0.2s;
-      }
-      .dot:nth-child(3) {
-        animation-delay: 0.4s;
-      }
-      @keyframes dot-bounce {
-        0%,
-        80%,
-        100% {
-          transform: scale(0.8);
-          opacity: 0.5;
-        }
-        40% {
-          transform: scale(1.2);
-          opacity: 1;
-        }
-      }
-      /* GANTI DENGAN VERSI INI */
+      /* BARU: CSS untuk Animasi Loading SVG */
       #page-loader {
         /* Properti dasar: selalu flex, tapi dikontrol oleh opacity dan visibility */
         position: fixed;
@@ -201,25 +45,90 @@
           17,
           24,
           39,
-          0.75
-        ); /* bg-gray-900 bg-opacity-75 */
+          0.85
+        ); /* bg-gray-900 bg-opacity-85, sedikit lebih gelap */
         display: flex;
+        flex-direction: column; /* Mengatur agar teks di bawah SVG */
         align-items: center;
         justify-content: center;
         z-index: 50;
         transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
       }
-
-      /* Class untuk menyembunyikan loader */
       .loader-hidden {
         opacity: 0;
         visibility: hidden;
       }
-
-      /* Class untuk menampilkan loader */
       .loader-visible {
         opacity: 1;
         visibility: visible;
+      }
+
+      /* Style untuk SVG dari file Anda */
+      #page-loader svg {
+        overflow: visible;
+        width: 100px;
+        height: 150px;
+      }
+      #page-loader svg g {
+        animation: slide 2s linear infinite;
+      }
+      #page-loader svg g:nth-child(2) {
+        animation-delay: 0.5s;
+      }
+      #page-loader svg g:nth-child(2) path {
+        animation-delay: 0.5s;
+        stroke-dasharray: 0px 158px;
+        stroke-dashoffset: 1px;
+      }
+      #page-loader svg path {
+        stroke: url(#gradient);
+        stroke-width: 20px;
+        stroke-linecap: round;
+        fill: none;
+        stroke-dasharray: 0 157px;
+        stroke-dashoffset: 0;
+        animation: escalade 2s cubic-bezier(0.8, 0, 0.2, 1) infinite;
+      }
+      .loading-text {
+        margin-top: 20px;
+        color: #d97706; /* amber-600 */
+        font-size: 16px;
+        font-weight: 500;
+        opacity: 0.8;
+        animation: pulse 2s ease-in-out infinite;
+      }
+
+      /* Keyframes dari file Anda */
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.8;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+      @keyframes slide {
+        0% {
+          transform: translateY(-50px);
+        }
+        100% {
+          transform: translateY(50px);
+        }
+      }
+      @keyframes escalade {
+        0% {
+          stroke-dasharray: 0 157px;
+          stroke-dashoffset: 0;
+        }
+        50% {
+          stroke-dasharray: 157px 157px;
+          stroke-dashoffset: 0;
+        }
+        100% {
+          stroke-dasharray: 157px 157px;
+          stroke-dashoffset: -156px;
+        }
       }
     </style>
   </head>
@@ -1921,27 +1830,21 @@
       </div>
     </div>
     <div id="page-loader" class="loader-hidden">
-      <div class="loading-container">
-        <div class="church-loader">
-          <div class="church-building">
-            <div class="church-base">
-              <div class="church-window"></div>
-              <div class="church-window"></div>
-              <div class="church-window"></div>
-              <div class="church-door"></div>
-            </div>
-            <div class="church-roof"></div>
-            <div class="church-tower"></div>
-            <div class="church-tower-roof"></div>
-            <div class="church-cross">✠</div>
-          </div>
-        </div>
-        <div class="loading-text">Memuat Data</div>
-        <div class="loading-dots">
-          <span class="dot"></span><span class="dot"></span
-          ><span class="dot"></span>
-        </div>
-      </div>
+      <svg>
+        <g>
+          <path d="M 50,100 A 1,1 0 0 1 50,0" />
+        </g>
+        <g>
+          <path d="M 50,75 A 1,1 0 0 0 50,-25" />
+        </g>
+        <defs>
+          <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color: #fca5a5; stop-opacity: 1" />
+            <stop offset="100%" style="stop-color: #4f46e5; stop-opacity: 1" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div class="loading-text">Sedang memuat data...</div>
     </div>
   </body>
 </html>
