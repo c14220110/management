@@ -1303,7 +1303,7 @@
                           "<i>Belum diatur</i>"
                         }</td>
                         <td class="p-3 whitespace-nowrap text-center">
-                            <div class="relative inline-block text-left">
+                            <div class="relative inline-block">
                                 <div>
                                     <button type="button" class="action-menu-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none" id="menu-button-${
                                       room.id
@@ -1344,24 +1344,64 @@
             const target = e.target;
             const actionButton = target.closest(".action-menu-btn");
 
-            document
-              .querySelectorAll('[id^="action-menu-"]')
-              .forEach((menu) => {
-                if (
-                  !actionButton ||
-                  !menu.id.endsWith(actionButton.id.split("-").pop())
-                ) {
-                  menu.classList.add("hidden");
-                }
-              });
-
+            // Logic to handle menu toggling and positioning
             if (actionButton) {
               const menuId = actionButton.id.replace(
                 "menu-button-",
                 "action-menu-"
               );
               const menu = document.getElementById(menuId);
-              if (menu) menu.classList.toggle("hidden");
+
+              if (menu) {
+                const isHidden = menu.classList.contains("hidden");
+
+                // Hide all other open menus first
+                document
+                  .querySelectorAll('[id^="action-menu-"]')
+                  .forEach((m) => {
+                    if (m.id !== menuId) {
+                      m.classList.add("hidden");
+                    }
+                  });
+
+                // Toggle the current menu
+                menu.classList.toggle("hidden");
+
+                // If the menu is now visible, check its position
+                if (!isHidden) {
+                  const buttonRect = actionButton.getBoundingClientRect();
+                  const menuRect = menu.getBoundingClientRect();
+                  const tableContainer =
+                    container.querySelector(".overflow-x-auto");
+                  const containerRect = tableContainer.getBoundingClientRect();
+
+                  // Reset position classes
+                  menu.classList.remove(
+                    "bottom-full",
+                    "origin-bottom-right",
+                    "mb-2"
+                  );
+                  menu.classList.add("origin-top-right", "mt-2");
+
+                  // Check if menu overflows the container viewport
+                  if (
+                    buttonRect.bottom + menuRect.height >
+                    containerRect.bottom
+                  ) {
+                    menu.classList.remove("origin-top-right", "mt-2");
+                    menu.classList.add(
+                      "bottom-full",
+                      "origin-bottom-right",
+                      "mb-2"
+                    );
+                  }
+                }
+              }
+            } else if (!target.closest('[id^="action-menu-"]')) {
+              // Hide all menus if clicking outside
+              document
+                .querySelectorAll('[id^="action-menu-"]')
+                .forEach((menu) => menu.classList.add("hidden"));
             }
 
             const editLink = target.closest(".edit-room-link");
