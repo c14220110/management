@@ -133,6 +133,23 @@
     </style>
   </head>
   <body class="bg-gray-100">
+    <div id="page-loader" class="loader-hidden">
+      <svg>
+        <g>
+          <path d="M 50,100 A 1,1 0 0 1 50,0" />
+        </g>
+        <g>
+          <path d="M 50,75 A 1,1 0 0 0 50,-25" />
+        </g>
+        <defs>
+          <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color: #fca5a5; stop-opacity: 1" />
+            <stop offset="100%" style="stop-color: #4f46e5; stop-opacity: 1" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div class="loading-text">Sedang memuat data...</div>
+    </div>
     <div
       id="login-screen"
       class="relative flex items-center justify-center h-screen overflow-hidden"
@@ -278,23 +295,17 @@
 
     <template id="barang-template">
       <h1 class="text-3xl font-bold text-gray-800 mb-6">Peminjaman Barang</h1>
-      <div id="barang-content-area">
-        <p>Memuat data barang...</p>
-      </div>
+      <div id="barang-content-area"></div>
     </template>
 
     <template id="ruangan-template">
       <h1 class="text-3xl font-bold text-gray-800 mb-6">Reservasi Ruangan</h1>
-      <div id="ruangan-content-area">
-        <p>Memuat data ruangan...</p>
-      </div>
+      <div id="ruangan-content-area"></div>
     </template>
 
     <template id="user-management-template">
       <h1 class="text-3xl font-bold text-gray-800 mb-6">Manajemen Pengguna</h1>
-      <div id="user-management-content-area">
-        <p>Memuat data pengguna...</p>
-      </div>
+      <div id="user-management-content-area"></div>
     </template>
 
     <script>
@@ -807,7 +818,6 @@
       // Fungsi untuk menampilkan daftar semua barang dalam bentuk kartu
       async function renderBarangListView() {
         const container = document.getElementById("barang-content-area");
-        container.innerHTML = `<p>Memuat daftar barang...</p>`;
 
         try {
           const assets = await api.get("/api/assets");
@@ -1828,23 +1838,6 @@
           ></p>
         </form>
       </div>
-    </div>
-    <div id="page-loader" class="loader-hidden">
-      <svg>
-        <g>
-          <path d="M 50,100 A 1,1 0 0 1 50,0" />
-        </g>
-        <g>
-          <path d="M 50,75 A 1,1 0 0 0 50,-25" />
-        </g>
-        <defs>
-          <linearGradient id="gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" style="stop-color: #fca5a5; stop-opacity: 1" />
-            <stop offset="100%" style="stop-color: #4f46e5; stop-opacity: 1" />
-          </linearGradient>
-        </defs>
-      </svg>
-      <div class="loading-text">Sedang memuat data...</div>
     </div>
   </body>
 </html>
