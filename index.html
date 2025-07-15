@@ -1288,9 +1288,9 @@
             .map((m) => `<option value="${m.id}">${m.full_name}</option>`)
             .join("");
 
-          container.innerHTML = `<div class="flex justify-end mb-4"><button id="add-room-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700"><i class="fas fa-plus mr-2"></i>Tambah Ruangan</button></div>
+          container.innerHTML = `<div class="flex justify-end mb-4"><button id="add-room-btn" class="bg-[#d97706] text-white font-bold py-2 px-4 rounded-md hover:bg-[#b46504]"><i class="fas fa-plus mr-2"></i>Tambah Ruangan</button></div>
             <div class="bg-white p-4 rounded-lg shadow-md overflow-x-auto">
-                <table class="min-w-full"><thead class="bg-gray-100"><tr><th class="text-left p-3">Nama Ruangan</th><th class="text-left p-3">Lokasi</th><th class="text-left p-3">Kapasitas</th><th class="text-left p-3">Penanggung Jawab</th><th class="text-left p-3">Aksi</th></tr></thead>
+                <table class="min-w-full"><thead class="bg-gray-100"><tr><th class="text-left p-3">Nama Ruangan</th><th class="text-left p-3">Lokasi</th><th class="text-left p-3">Kapasitas</th><th class="text-left p-3">Penanggung Jawab</th><th class="text-center p-3">Aksi</th></tr></thead>
                 <tbody id="room-table-body">${rooms
                   .map(
                     (room) => `
@@ -1302,7 +1302,7 @@
                           room.penanggung_jawab?.full_name ||
                           "<i>Belum diatur</i>"
                         }</td>
-                        <td class="p-3 whitespace-nowrap text-right">
+                        <td class="p-3 whitespace-nowrap text-center">
                             <div class="relative inline-block text-left">
                                 <div>
                                     <button type="button" class="action-menu-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none" id="menu-button-${
