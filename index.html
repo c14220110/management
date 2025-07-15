@@ -201,65 +201,60 @@
       </svg>
       <div class="loading-text">Sedang memuat data...</div>
     </div>
-    <div
-      id="login-screen"
-      class="relative flex items-center justify-center h-screen overflow-hidden"
-    >
-      <video autoplay muted loop id="login-video-bg">
-        <source src="bg.mp4" type="video/mp4" />
-        Browser Anda tidak mendukung tag video.
-      </video>
+    <div id="login-screen">
+      <div class="background"></div>
+      <div class="floating-shapes">
+        <div class="shape"></div>
+        <div class="shape"></div>
+        <div class="shape"></div>
+      </div>
+      <div class="cursor-follower"></div>
 
-      <div class="card w-full max-w-md">
-        <div class="text-center">
-          <img
-            src="logo.png"
-            alt="Logo GKI Kutisari"
-            class="w-16 h-16 mx-auto mb-4"
-          />
-          <h2 class="text-2xl font-bold text-white">
-            Sistem Informasi GKI Kutisari
-          </h2>
+      <div class="container">
+        <div class="login-card">
+          <div class="logo-container">
+            <img src="logo.png" alt="Logo GKI Kutisari" class="logo" />
+          </div>
+          <h1 class="title">Sistem Informasi GKI Kutisari</h1>
+
+          <form id="login-form" autocomplete="off">
+            <div class="form-group">
+              <label for="email">Email</label>
+              <div class="input-wrapper">
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  class="form-control"
+                  required
+                  value="harisgay@gmail.com"
+                />
+                <div class="input-ripple"></div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="password">Password</label>
+              <div class="input-wrapper">
+                <input
+                  type="password"
+                  id="password"
+                  name="password"
+                  class="form-control"
+                  required
+                  value="123"
+                />
+                <div class="input-ripple"></div>
+              </div>
+            </div>
+            <button type="submit" class="login-btn">
+              <span class="btn-text">Login</span>
+            </button>
+            <p
+              id="login-feedback"
+              class="mt-4 text-sm text-center text-red-600 font-semibold"
+            ></p>
+          </form>
         </div>
-
-        <form id="login-form" class="space-y-6">
-          <div>
-            <label for="email" class="block text-sm font-medium text-gray-300"
-              >Email</label
-            >
-            <input
-              id="email"
-              type="email"
-              required
-              class="w-full px-4 py-2 mt-1 bg-white/50 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-              value="harisgay@gmail.com"
-            />
-          </div>
-          <div>
-            <label
-              for="password"
-              class="block text-sm font-medium text-gray-700"
-              >Password</label
-            >
-            <input
-              id="password"
-              type="password"
-              required
-              class="w-full px-4 py-2 mt-1 bg-white/50 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-              value="123"
-            />
-          </div>
-          <button
-            type="submit"
-            class="w-full py-3 mt-6 font-semibold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 transition-colors"
-          >
-            Login
-          </button>
-          <p
-            id="login-feedback"
-            class="mt-2 text-sm text-center text-red-700 font-semibold"
-          ></p>
-        </form>
       </div>
     </div>
 
