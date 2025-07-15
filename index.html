@@ -41,7 +41,7 @@
         /* Properti dasar: selalu flex, tapi dikontrol oleh opacity dan visibility */
         position: fixed;
         inset: 0;
-        background-color: rgba(0, 0, 0, 0.1); /* Hitam dengan opasitas 20% */
+        background-color: rgba(0, 0, 0, 0); /* Hitam dengan opasitas 20% */
         display: flex;
         flex-direction: column; /* Mengatur agar teks di bawah SVG */
         align-items: center;
@@ -125,62 +125,6 @@
           stroke-dashoffset: -156px;
         }
       }
-      /* BARU: CSS untuk Animasi Border di Form Login */
-      @property --angle {
-        syntax: "<angle>";
-        initial-value: 0deg;
-        inherits: false;
-      }
-
-      .card {
-        background: #1f2937; /* Warna latar belakang solid, sedikit lebih gelap dari border */
-        color: #d1d5db; /* Warna teks default (abu-abu terang) */
-        position: relative;
-        padding: 2rem;
-        border-radius: 1rem;
-        text-align: center;
-      }
-
-      /* Lapisan untuk border gradasi utama */
-      .card::before,
-      .card::after {
-        content: "";
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        width: 100%;
-        height: 100%;
-        border-radius: 1rem;
-        z-index: -1;
-        animation: 4s spin linear infinite;
-
-        /* Gradasi warna sesuai permintaan Anda */
-        background-image: conic-gradient(
-          from var(--angle),
-          #1f2937,
-          /* Slate-800 */ #d97706,
-          /* Amber-600 */ #10b981,
-          /* Emerald-500 */ #ef4444,
-          /* Red-500 */ #1f2937 /* Kembali ke warna awal */
-        );
-        padding: 3px; /* Ketebalan border */
-      }
-
-      /* Lapisan untuk efek glow/blur di belakang border */
-      .card::before {
-        filter: blur(1.5rem);
-        opacity: 0.7;
-      }
-
-      @keyframes spin {
-        from {
-          --angle: 0deg;
-        }
-        to {
-          --angle: 360deg;
-        }
-      }
     </style>
   </head>
   <body class="bg-gray-100">
@@ -201,60 +145,67 @@
       </svg>
       <div class="loading-text">Sedang memuat data...</div>
     </div>
-    <div id="login-screen">
-      <div class="background"></div>
-      <div class="floating-shapes">
-        <div class="shape"></div>
-        <div class="shape"></div>
-        <div class="shape"></div>
-      </div>
-      <div class="cursor-follower"></div>
+    <div
+      id="login-screen"
+      class="relative flex items-center justify-center h-screen overflow-hidden"
+    >
+      <video autoplay muted loop id="login-video-bg">
+        <source src="bg.mp4" type="video/mp4" />
+        Browser Anda tidak mendukung tag video.
+      </video>
 
-      <div class="container">
-        <div class="login-card">
-          <div class="logo-container">
-            <img src="logo.png" alt="Logo GKI Kutisari" class="logo" />
-          </div>
-          <h1 class="title">Sistem Informasi GKI Kutisari</h1>
-
-          <form id="login-form" autocomplete="off">
-            <div class="form-group">
-              <label for="email">Email</label>
-              <div class="input-wrapper">
-                <input
-                  type="email"
-                  id="email"
-                  name="email"
-                  class="form-control"
-                  required
-                  value="harisgay@gmail.com"
-                />
-                <div class="input-ripple"></div>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="password">Password</label>
-              <div class="input-wrapper">
-                <input
-                  type="password"
-                  id="password"
-                  name="password"
-                  class="form-control"
-                  required
-                  value="123"
-                />
-                <div class="input-ripple"></div>
-              </div>
-            </div>
-            <button type="submit" class="login-btn">
-              <span class="btn-text">Login</span>
-            </button>
-            <p
-              id="login-feedback"
-              class="mt-4 text-sm text-center text-red-600 font-semibold"
-            ></p>
-          </form>
+      <div
+        class="login-form-container w-full max-w-md p-8 space-y-6 rounded-2xl shadow-lg"
+      >
+        <div class="text-center">
+          <img
+            src="logo.png"
+            alt="Logo GKI Kutisari"
+            class="w-16 h-16 mx-auto mb-4"
+          />
+          <h2 class="text-2xl font-bold text-gray-900">
+            Sistem Informasi GKI Kutisari
+          </h2>
         </div>
+
+        <form id="login-form" class="space-y-6">
+          <div>
+            <label for="email" class="block text-sm font-medium text-gray-700"
+              >Email</label
+            >
+            <input
+              id="email"
+              type="email"
+              required
+              class="w-full px-4 py-2 mt-1 bg-white/50 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              value="harisgay@gmail.com"
+            />
+          </div>
+          <div>
+            <label
+              for="password"
+              class="block text-sm font-medium text-gray-700"
+              >Password</label
+            >
+            <input
+              id="password"
+              type="password"
+              required
+              class="w-full px-4 py-2 mt-1 bg-white/50 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+              value="123"
+            />
+          </div>
+          <button
+            type="submit"
+            class="w-full py-3 mt-6 font-semibold text-white bg-blue-600 rounded-lg shadow-md hover:bg-blue-700 transition-colors"
+          >
+            Login
+          </button>
+          <p
+            id="login-feedback"
+            class="mt-2 text-sm text-center text-red-700 font-semibold"
+          ></p>
+        </form>
       </div>
     </div>
 
