@@ -412,7 +412,7 @@
                 id="email"
                 name="email"
                 required
-                value="harisgay@gmail.com"
+                value="haris@gmail.com"
               />
             </div>
           </div>
@@ -1712,17 +1712,15 @@
             )
             .join("");
         }
-        document
-          .querySelectorAll(".edit-user-btn")
-          .forEach((btn) =>
-            btn.addEventListener("click", () =>
-              openUserModal("edit", {
-                id: btn.dataset.id,
-                name: btn.dataset.name,
-                email: btn.dataset.email,
-              })
-            )
-          );
+        document.querySelectorAll(".edit-user-btn").forEach((btn) =>
+          btn.addEventListener("click", () =>
+            openUserModal("edit", {
+              id: btn.dataset.id,
+              name: btn.dataset.name,
+              email: btn.dataset.email,
+            })
+          )
+        );
         document.querySelectorAll(".delete-user-btn").forEach((btn) =>
           btn.addEventListener("click", async () => {
             if (confirm("Apakah Anda yakin ingin menghapus user ini?")) {
