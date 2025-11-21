@@ -2005,6 +2005,339 @@
           .getElementById("room-modal-form")
           .addEventListener("submit", handleRoomFormSubmit);
       });
+      // ============================================================
+      // WEBSITE GKI PAGE - JAVASCRIPT LOGIC
+      // ============================================================
+
+      let websiteContentData = {
+        hero: { title: "", subtitle: "" },
+        schedules: { title: "", subtitle: "", items: [] },
+      };
+
+      async function loadWebsiteContent() {
+        try {
+          const response = await fetch("/api/website-content");
+          if (!response.ok) throw new Error("Gagal memuat konten website");
+
+          const data = await response.json();
+          websiteContentData = data;
+
+          // Populate hero fields
+          const heroTitle = document.getElementById("heroTitle");
+          const heroSubtitle = document.getElementById("heroSubtitle");
+          if (heroTitle) heroTitle.value = data.hero?.title || "";
+          if (heroSubtitle) heroSubtitle.value = data.hero?.subtitle || "";
+
+          // Populate schedules fields
+          const schedulesTitle = document.getElementById("schedulesTitle");
+          const schedulesSubtitle =
+            document.getElementById("schedulesSubtitle");
+          if (schedulesTitle)
+            schedulesTitle.value = data.schedules?.title || "";
+          if (schedulesSubtitle)
+            schedulesSubtitle.value = data.schedules?.subtitle || "";
+
+          // Render schedule cards
+          renderScheduleCards();
+
+          // Attach event listeners
+          attachWebsiteGkiEventListeners();
+        } catch (error) {
+          showNotification(
+            "Gagal memuat konten website: " + error.message,
+            "error"
+          );
+        }
+      }
+
+      function renderScheduleCards() {
+        const container = document.getElementById("scheduleCardsContainer");
+        if (!container) return;
+
+        container.innerHTML = "";
+
+        const items = websiteContentData.schedules?.items || [];
+
+        if (items.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+              <i class="fas fa-calendar-times text-4xl mb-3"></i>
+              <p>Belum ada jadwal. Klik "Tambah Jadwal" untuk mulai.</p>
+            </div>
+          `;
+          return;
+        }
+
+        items.forEach((item, index) => {
+          const card = document.createElement("div");
+          card.className = "bg-gray-50 border border-gray-200 rounded-lg p-4";
+          card.innerHTML = `
+            <div class="flex items-start gap-4">
+              <!-- Move Buttons -->
+              <div class="flex flex-col gap-1">
+                <button
+                  onclick="moveSchedule(${index}, 'up')"
+                  class="p-2 hover:bg-gray-200 rounded transition text-gray-600 ${
+                    index === 0 ? "opacity-30 cursor-not-allowed" : ""
+                  }"
+                  ${index === 0 ? "disabled" : ""}
+                  title="Pindah ke atas"
+                >
+                  <i class="fas fa-chevron-up"></i>
+                </button>
+                <button
+                  onclick="moveSchedule(${index}, 'down')"
+                  class="p-2 hover:bg-gray-200 rounded transition text-gray-600 ${
+                    index === items.length - 1
+                      ? "opacity-30 cursor-not-allowed"
+                      : ""
+                  }"
+                  ${index === items.length - 1 ? "disabled" : ""}
+                  title="Pindah ke bawah"
+                >
+                  <i class="fas fa-chevron-down"></i>
+                </button>
+              </div>
+
+              <!-- Form Fields -->
+              <div class="flex-1 space-y-3">
+                <div>
+                  <label class="block text-xs font-semibold text-gray-700 mb-1">
+                    Nama Ibadah/Kegiatan
+                  </label>
+                  <input
+                    type="text"
+                    value="${item.name || ""}"
+                    onchange="updateScheduleItem(${index}, 'name', this.value)"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    placeholder="Ibadah Umum I"
+                    maxlength="50"
+                  />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-700 mb-1">
+                    Waktu
+                  </label>
+                  <input
+                    type="text"
+                    value="${item.time || ""}"
+                    onchange="updateScheduleItem(${index}, 'time', this.value)"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    placeholder="Setiap Minggu, 07:00 WIB"
+                    maxlength="100"
+                  />
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-700 mb-1">
+                    Deskripsi
+                  </label>
+                  <textarea
+                    onchange="updateScheduleItem(${index}, 'description', this.value)"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    rows="2"
+                    placeholder="Deskripsi singkat tentang ibadah/kegiatan ini..."
+                    maxlength="150"
+                  >${item.description || ""}</textarea>
+                </div>
+              </div>
+
+              <!-- Delete Button -->
+              <button
+                onclick="deleteSchedule(${index})"
+                class="p-2 hover:bg-red-100 text-red-600 rounded transition ${
+                  items.length === 1 ? "opacity-30 cursor-not-allowed" : ""
+                }"
+                title="Hapus jadwal"
+                ${items.length === 1 ? "disabled" : ""}
+              >
+                <i class="fas fa-trash-alt"></i>
+              </button>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+
+        // Update add button state
+        updateAddButtonState();
+      }
+
+      function updateScheduleItem(index, field, value) {
+        if (!websiteContentData.schedules.items[index]) return;
+        websiteContentData.schedules.items[index][field] = value;
+      }
+
+      function moveSchedule(index, direction) {
+        const items = websiteContentData.schedules.items;
+        if (direction === "up" && index > 0) {
+          [items[index], items[index - 1]] = [items[index - 1], items[index]];
+          renderScheduleCards();
+        } else if (direction === "down" && index < items.length - 1) {
+          [items[index], items[index + 1]] = [items[index + 1], items[index]];
+          renderScheduleCards();
+        }
+      }
+
+      function deleteSchedule(index) {
+        const items = websiteContentData.schedules.items;
+        if (items.length <= 1) {
+          showNotification("Minimal harus ada 1 jadwal!", "error");
+          return;
+        }
+
+        if (confirm("Yakin ingin menghapus jadwal ini?")) {
+          items.splice(index, 1);
+          renderScheduleCards();
+          showNotification("Jadwal berhasil dihapus", "success");
+        }
+      }
+
+      function updateAddButtonState() {
+        const addBtn = document.getElementById("addScheduleBtn");
+        if (!addBtn) return;
+
+        const items = websiteContentData.schedules.items;
+        if (items.length >= 5) {
+          addBtn.disabled = true;
+          addBtn.classList.add("opacity-50", "cursor-not-allowed");
+        } else {
+          addBtn.disabled = false;
+          addBtn.classList.remove("opacity-50", "cursor-not-allowed");
+        }
+      }
+
+      function attachWebsiteGkiEventListeners() {
+        // Add Schedule Button
+        const addBtn = document.getElementById("addScheduleBtn");
+        if (addBtn) {
+          addBtn.onclick = () => {
+            const items = websiteContentData.schedules.items;
+            if (items.length >= 5) {
+              showNotification("Maksimal 5 jadwal!", "error");
+              return;
+            }
+
+            items.push({
+              id: Date.now().toString(),
+              name: "",
+              time: "",
+              description: "",
+            });
+            renderScheduleCards();
+            showNotification(
+              "Jadwal baru ditambahkan. Isi semua field lalu simpan.",
+              "success"
+            );
+          };
+        }
+
+        // Save Button
+        const saveBtn = document.getElementById("saveWebsiteBtn");
+        if (saveBtn) {
+          saveBtn.onclick = async () => {
+            const originalHTML = saveBtn.innerHTML;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = `
+              <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Menyimpan...
+            `;
+
+            try {
+              // Get latest values from form
+              const heroTitle = document.getElementById("heroTitle");
+              const heroSubtitle = document.getElementById("heroSubtitle");
+              const schedulesTitle = document.getElementById("schedulesTitle");
+              const schedulesSubtitle =
+                document.getElementById("schedulesSubtitle");
+
+              if (heroTitle) websiteContentData.hero.title = heroTitle.value;
+              if (heroSubtitle)
+                websiteContentData.hero.subtitle = heroSubtitle.value;
+              if (schedulesTitle)
+                websiteContentData.schedules.title = schedulesTitle.value;
+              if (schedulesSubtitle)
+                websiteContentData.schedules.subtitle = schedulesSubtitle.value;
+
+              // Validation
+              if (
+                !websiteContentData.hero.title ||
+                !websiteContentData.hero.subtitle
+              ) {
+                throw new Error("Judul dan sub judul hero harus diisi!");
+              }
+              if (websiteContentData.schedules.items.length === 0) {
+                throw new Error("Minimal harus ada 1 jadwal!");
+              }
+
+              // Validate each schedule item
+              for (
+                let i = 0;
+                i < websiteContentData.schedules.items.length;
+                i++
+              ) {
+                const item = websiteContentData.schedules.items[i];
+                if (!item.name || !item.time || !item.description) {
+                  throw new Error(`Jadwal #${i + 1}: Semua field harus diisi!`);
+                }
+              }
+
+              // Save hero
+              const heroResponse = await fetch("/api/website-content", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+                body: JSON.stringify({
+                  contentKey: "hero",
+                  contentData: websiteContentData.hero,
+                }),
+              });
+
+              if (!heroResponse.ok) {
+                const errorData = await heroResponse.json();
+                throw new Error(
+                  errorData.error || "Gagal menyimpan hero section"
+                );
+              }
+
+              // Save schedules
+              const schedulesResponse = await fetch("/api/website-content", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+                body: JSON.stringify({
+                  contentKey: "schedules",
+                  contentData: websiteContentData.schedules,
+                }),
+              });
+
+              if (!schedulesResponse.ok) {
+                const errorData = await schedulesResponse.json();
+                throw new Error(errorData.error || "Gagal menyimpan jadwal");
+              }
+
+              showNotification(
+                "✅ Konten website berhasil disimpan!",
+                "success"
+              );
+            } catch (error) {
+              showNotification("❌ " + error.message, "error");
+            } finally {
+              saveBtn.disabled = false;
+              saveBtn.innerHTML = originalHTML;
+            }
+          };
+        }
+      }
+
+      // ============================================================
+      // END WEBSITE GKI PAGE LOGIC
+      // ============================================================
     </script>
   </body>
 </html>
