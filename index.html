@@ -1975,6 +1975,16 @@
         .addEventListener("click", logout);
       window.addEventListener("hashchange", router);
 
+      // Handle navigation dengan data-page attribute
+      document.addEventListener("click", (e) => {
+        const navLink = e.target.closest("[data-page]");
+        if (navLink) {
+          e.preventDefault();
+          const page = navLink.getAttribute("data-page");
+          window.location.hash = page;
+        }
+      });
+
       document.addEventListener("DOMContentLoaded", () => {
         if (localStorage.getItem("authToken")) {
           loginScreen.style.display = "none";
