@@ -602,19 +602,27 @@
             </div>
 
             <div class="mt-4">
-              <label for="heroVideoUrl" class="block text-sm font-medium mb-1">
-                Path / URL Video Hero
+              <label
+                for="heroVideoFile"
+                class="block text-sm font-semibold text-gray-700 mb-2"
+              >
+                Video Hero
               </label>
               <input
-                id="heroVideoUrl"
-                type="text"
-                class="border rounded px-3 py-2 text-sm w-full"
-                placeholder="contoh: assets/bg_gki.mp4 atau https://..."
+                id="heroVideoFile"
+                type="file"
+                accept="video/mp4,video/webm,video/ogg"
+                class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               />
               <p class="mt-1 text-xs text-gray-500">
-                Pastikan file video di path tersebut sudah di-upload dan
-                ukurannya tidak melebihi 10 MB.
+                Format MP4/WebM/Ogg, ukuran maksimum 10 MB.
               </p>
+              <video
+                id="heroVideoPreview"
+                class="mt-3 w-full max-h-64 rounded-lg shadow-sm hidden"
+                controls
+                muted
+              ></video>
             </div>
           </div>
         </div>
@@ -2036,9 +2044,16 @@
       // ============================================================
 
       let websiteContentData = {
-        hero: { title: "", subtitle: "" },
+        hero: {
+          title: "",
+          subtitle: "",
+          videoUrl: "assets/bg_gki.mp4",
+        },
         schedules: { title: "", subtitle: "", items: [] },
       };
+
+      // File video baru yang dipilih tapi belum di-upload
+      let pendingHeroVideoFile = null;
 
       async function loadWebsiteContent() {
         try {
@@ -2053,6 +2068,52 @@
           const heroSubtitle = document.getElementById("heroSubtitle");
           if (heroTitle) heroTitle.value = data.hero?.title || "";
           if (heroSubtitle) heroSubtitle.value = data.hero?.subtitle || "";
+
+          // === Hero video: preview & input file ===
+          const heroVideoPreview = document.getElementById("heroVideoPreview");
+          const heroVideoFileInput = document.getElementById("heroVideoFile");
+
+          const currentVideoUrl =
+            data.hero?.videoUrl ||
+            websiteContentData.hero.videoUrl ||
+            "assets/bg_gki.mp4";
+
+          websiteContentData.hero.videoUrl = currentVideoUrl;
+
+          if (heroVideoPreview && currentVideoUrl) {
+            heroVideoPreview.src = currentVideoUrl;
+            heroVideoPreview.classList.remove("hidden");
+          }
+
+          if (heroVideoFileInput) {
+            heroVideoFileInput.value = "";
+            heroVideoFileInput.onchange = () => {
+              const file = heroVideoFileInput.files[0];
+              if (!file) {
+                pendingHeroVideoFile = null;
+                return;
+              }
+
+              const maxBytes = 10 * 1024 * 1024; // 10 MB
+              if (file.size > maxBytes) {
+                const mb = (file.size / (1024 * 1024)).toFixed(2);
+                alert(
+                  `Ukuran video maksimal 10 MB.\nFile yang dipilih: ${mb} MB.`
+                );
+                heroVideoFileInput.value = "";
+                pendingHeroVideoFile = null;
+                return;
+              }
+
+              pendingHeroVideoFile = file;
+
+              if (heroVideoPreview) {
+                const blobUrl = URL.createObjectURL(file);
+                heroVideoPreview.src = blobUrl;
+                heroVideoPreview.classList.remove("hidden");
+              }
+            };
+          }
 
           // Populate schedules fields
           const schedulesTitle = document.getElementById("schedulesTitle");
@@ -2092,6 +2153,66 @@
           // Save Button
           const saveBtn = document.getElementById("saveWebsiteBtn");
           if (saveBtn) {
+            async function uploadHeroVideoIfNeeded() {
+              // Kalau tidak ada file baru → pakai URL lama apa adanya
+              if (!pendingHeroVideoFile) {
+                return websiteContentData.hero.videoUrl || "assets/bg_gki.mp4";
+              }
+
+              const file = pendingHeroVideoFile;
+              const maxBytes = 10 * 1024 * 1024;
+
+              if (file.size > maxBytes) {
+                throw new Error("Ukuran video maksimal 10 MB.");
+              }
+
+              const token = localStorage.getItem("authToken");
+              if (!token) {
+                throw new Error(
+                  "Token login tidak ditemukan. Silakan login ulang."
+                );
+              }
+
+              // Baca file sebagai base64
+              const base64Data = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const result = reader.result || "";
+                  const base64 = result.toString().split(",")[1] || "";
+                  resolve(base64);
+                };
+                reader.onerror = () =>
+                  reject(new Error("Gagal membaca file video."));
+                reader.readAsDataURL(file);
+              });
+
+              const resp = await fetch("/api/website-hero-video", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                  fileName: file.name,
+                  mimeType: file.type || "video/mp4",
+                  base64Data,
+                }),
+              });
+
+              const data = await resp.json().catch(() => ({}));
+
+              if (!resp.ok) {
+                throw new Error(
+                  data.error || "Gagal mengunggah video hero ke server."
+                );
+              }
+
+              const url = data.url;
+              pendingHeroVideoFile = null;
+              websiteContentData.hero.videoUrl = url;
+              return url;
+            }
+
             saveBtn.onclick = async () => {
               const originalHTML = saveBtn.innerHTML;
               saveBtn.disabled = true;
@@ -2145,6 +2266,12 @@
                     );
                   }
                 }
+
+                // Upload video kalau ada file baru
+                const newVideoUrl = await uploadHeroVideoIfNeeded();
+                websiteContentData.hero.videoUrl = newVideoUrl;
+
+                console.log("🔄 Saving hero:", websiteContentData.hero);
 
                 // Save hero
                 console.log("🔄 Saving hero:", websiteContentData.hero);
