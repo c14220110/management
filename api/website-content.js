@@ -32,7 +32,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // POST/PUT: Update konten website (hanya admin)
+  // POST/PUT: Update konten website (hanya admin/management)
   else if (req.method === "POST" || req.method === "PUT") {
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) {
@@ -47,7 +47,7 @@ export default async function handler(req, res) {
       }
     );
 
-    // Verifikasi user adalah admin
+    // Verifikasi user adalah admin/management
     const {
       data: { user },
     } = await authSupabase.auth.getUser();
@@ -65,9 +65,9 @@ export default async function handler(req, res) {
       !profile ||
       (profile.role !== "management" && profile.role !== "admin")
     ) {
-      return res
-        .status(403)
-        .json({ error: "Hanya admin yang dapat mengubah konten website." });
+      return res.status(403).json({
+        error: "Hanya management/admin yang dapat mengubah konten website.",
+      });
     }
 
     // Update konten
