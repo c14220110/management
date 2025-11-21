@@ -1,21 +1,19 @@
 // File: /api/website-content.js
 import { createClient } from "@supabase/supabase-js";
 
-export default async function handler(req, res) {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseKey) {
-    return res
-      .status(500)
-      .json({ error: "SUPABASE_URL atau SUPABASE_ANON_KEY belum diset." });
+export default async function handler(req, res) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return res.status(500).json({
+      error: "SUPABASE_URL atau SUPABASE_ANON_KEY belum diset di environment.",
+    });
   }
 
-  // =========================
-  // GET: publik, tanpa login
-  // =========================
+  // ========== GET: dipakai publik (church profile) ==========
   if (req.method === "GET") {
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     try {
       const { data, error } = await supabase
@@ -30,7 +28,7 @@ export default async function handler(req, res) {
         formatted[row.content_key] = row.content_data;
       });
 
-      // Pastikan selalu ada struktur hero + schedules
+      // Fallback default kalau DB masih kosong
       const result = {
         hero: {
           title:
@@ -57,22 +55,19 @@ export default async function handler(req, res) {
     }
   }
 
-  // ======================================
-  // POST / PUT: hanya management / admin
-  // ======================================
+  // ========== POST / PUT: hanya untuk management / admin ==========
   if (req.method === "POST" || req.method === "PUT") {
     const token = req.headers.authorization?.split(" ")[1];
     if (!token) {
       return res.status(401).json({ error: "Token dibutuhkan." });
     }
 
-    // Client dengan Authorization TOKEN → dipakai untuk auth + query
-    const supabase = createClient(supabaseUrl, supabaseKey, {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
 
     try {
-      // 1) Verifikasi user
+      // 1) Ambil user dari token
       const {
         data: { user },
         error: userError,
@@ -82,46 +77,59 @@ export default async function handler(req, res) {
         throw new Error("Token tidak valid.");
       }
 
-      // 2) Cek role di tabel profiles
+      // 2) Ambil role dari tabel profiles (pola sama dengan login.js)
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
 
-      if (profileError) throw profileError;
+      // Kalau error tapi BUKAN "row not found"
+      if (profileError && profileError.code !== "PGRST116") {
+        throw new Error("Gagal mengambil data profil pengguna.");
+      }
 
-      if (
-        !profile ||
-        (profile.role !== "management" && profile.role !== "admin")
-      ) {
+      const userRole = profile?.role || "member";
+
+      if (userRole !== "management" && userRole !== "admin") {
         return res.status(403).json({
-          error: "Hanya management/admin yang dapat mengubah konten website.",
+          error:
+            "Hanya user dengan role management/admin yang dapat mengubah konten website.",
         });
       }
 
-      // 3) Validate body
-      const { contentKey, contentData } = req.body;
-      if (!contentKey || !contentData) {
-        return res
-          .status(400)
-          .json({ error: "contentKey dan contentData dibutuhkan." });
+      // 3) Ambil body, dukung 2 gaya penamaan key
+      const { contentKey, contentData, content_key, content_data } =
+        req.body || {};
+
+      const finalKey = contentKey || content_key;
+      const finalData = contentData || content_data;
+
+      if (!finalKey || !finalData) {
+        return res.status(400).json({
+          error:
+            "contentKey/content_key dan contentData/content_data dibutuhkan.",
+          body: req.body || null,
+        });
       }
 
-      // 4) UPSERT → kalau belum ada row, akan INSERT
+      // 4) UPSERT berdasarkan content_key
       const payload = {
-        content_key: contentKey,
-        content_data: contentData,
+        content_key: finalKey,
+        content_data: finalData,
         updated_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase
+      const { error: upsertError } = await supabase
         .from("website_content")
         .upsert(payload, { onConflict: "content_key" });
 
-      if (error) throw error;
+      if (upsertError) throw upsertError;
 
-      return res.status(200).json({ message: "Konten berhasil disimpan!" });
+      return res.status(200).json({
+        message: "Konten berhasil disimpan!",
+        key: finalKey,
+      });
     } catch (error) {
       return res.status(500).json({
         error: "Gagal menyimpan konten.",
@@ -130,6 +138,7 @@ export default async function handler(req, res) {
     }
   }
 
+  // ========== Method lain ditolak ==========
   res.setHeader("Allow", ["GET", "POST", "PUT"]);
   return res.status(405).json({ error: "Method Not Allowed" });
 }
