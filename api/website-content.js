@@ -61,7 +61,10 @@ export default async function handler(req, res) {
       .eq("id", user.id)
       .single();
 
-    if (!profile || profile.role !== "admin") {
+    if (
+      !profile ||
+      (profile.role !== "management" && profile.role !== "admin")
+    ) {
       return res
         .status(403)
         .json({ error: "Hanya admin yang dapat mengubah konten website." });
