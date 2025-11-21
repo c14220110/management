@@ -5,7 +5,10 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-// Client publik untuk GET (dipakai church profile)
+// Video default di church profile
+const DEFAULT_HERO_VIDEO = "assets/bg_gki.mp4";
+
+// Client publik untuk GET (dipakai church profile & halaman management)
 function getPublicClient() {
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
@@ -92,20 +95,24 @@ export default async function handler(req, res) {
         formatted[row.content_key] = row.content_data;
       });
 
+      const heroData = formatted.hero || {};
+      const schedulesData = formatted.schedules || {};
+
       const result = {
         hero: {
-          title:
-            formatted.hero?.title ?? "Selamat Datang di GKI Kutisari Indah",
+          title: heroData.title ?? "Selamat Datang di GKI Kutisari Indah",
           subtitle:
-            formatted.hero?.subtitle ??
+            heroData.subtitle ??
             "Gereja yang bertumbuh dalam Iman, Kasih, dan Pelayanan bagi sesama.",
+          // 🔥 baru: videoUrl ikut dikirim
+          videoUrl: heroData.videoUrl ?? DEFAULT_HERO_VIDEO,
         },
         schedules: {
-          title: formatted.schedules?.title ?? "Jadwal Ibadah & Kegiatan",
+          title: schedulesData.title ?? "Jadwal Ibadah & Kegiatan",
           subtitle:
-            formatted.schedules?.subtitle ??
+            schedulesData.subtitle ??
             "Kami mengundang Anda untuk bersekutu bersama kami. Berikut adalah jadwal kegiatan rutin kami.",
-          items: formatted.schedules?.items ?? [],
+          items: schedulesData.items ?? [],
         },
       };
 
