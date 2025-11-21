@@ -3,17 +3,81 @@ import { createClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+
+// Client publik untuk GET (dipakai church profile)
+function getPublicClient() {
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
+
+// Client admin untuk POST/PUT (server-side)
+function getServiceClient() {
+  return createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+}
+
+// Verifikasi user = management / admin
+async function requireManagement(req, res) {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.split(" ")[1]
+    : null;
+
+  if (!token) {
+    res.status(401).json({ error: "Token dibutuhkan." });
+    return null;
+  }
+
+  const supabase = getServiceClient();
+
+  // Ambil user dari token (via service key)
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser(token);
+
+  if (userError || !user) {
+    res.status(401).json({ error: "Token tidak valid." });
+    return null;
+  }
+
+  // Ambil role dari tabel profiles
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError && profileError.code !== "PGRST116") {
+    res.status(500).json({
+      error: "Gagal mengambil data profil pengguna.",
+      details: profileError.message,
+    });
+    return null;
+  }
+
+  const role = profile?.role || "member";
+  if (role !== "management" && role !== "admin") {
+    res.status(403).json({
+      error:
+        "Hanya user dengan role management/admin yang dapat mengubah konten website.",
+    });
+    return null;
+  }
+
+  return { supabase, user, role };
+}
 
 export default async function handler(req, res) {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !SUPABASE_SERVICE_KEY) {
     return res.status(500).json({
-      error: "SUPABASE_URL atau SUPABASE_ANON_KEY belum diset di environment.",
+      error:
+        "SUPABASE_URL / SUPABASE_ANON_KEY / SUPABASE_SERVICE_KEY belum diset di environment.",
     });
   }
 
-  // ========== GET: dipakai publik (church profile) ==========
+  // ======== GET: untuk church profile (tanpa login) ========
   if (req.method === "GET") {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabase = getPublicClient();
 
     try {
       const { data, error } = await supabase
@@ -28,7 +92,6 @@ export default async function handler(req, res) {
         formatted[row.content_key] = row.content_data;
       });
 
-      // Fallback default kalau DB masih kosong
       const result = {
         hero: {
           title:
@@ -55,50 +118,14 @@ export default async function handler(req, res) {
     }
   }
 
-  // ========== POST / PUT: hanya untuk management / admin ==========
+  // ======== POST/PUT: hanya management/admin ========
   if (req.method === "POST" || req.method === "PUT") {
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) {
-      return res.status(401).json({ error: "Token dibutuhkan." });
-    }
+    const ctx = await requireManagement(req, res);
+    if (!ctx) return; // kalau gagal verifikasi, response sudah dikirim
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
+    const { supabase } = ctx; // ini client dengan SERVICE_KEY
 
     try {
-      // 1) Ambil user dari token
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        throw new Error("Token tidak valid.");
-      }
-
-      // 2) Ambil role dari tabel profiles (pola sama dengan login.js)
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      // Kalau error tapi BUKAN "row not found"
-      if (profileError && profileError.code !== "PGRST116") {
-        throw new Error("Gagal mengambil data profil pengguna.");
-      }
-
-      const userRole = profile?.role || "member";
-
-      if (userRole !== "management" && userRole !== "admin") {
-        return res.status(403).json({
-          error:
-            "Hanya user dengan role management/admin yang dapat mengubah konten website.",
-        });
-      }
-
-      // 3) Ambil body, dukung 2 gaya penamaan key
       const { contentKey, contentData, content_key, content_data } =
         req.body || {};
 
@@ -109,11 +136,9 @@ export default async function handler(req, res) {
         return res.status(400).json({
           error:
             "contentKey/content_key dan contentData/content_data dibutuhkan.",
-          body: req.body || null,
         });
       }
 
-      // 4) UPSERT berdasarkan content_key
       const payload = {
         content_key: finalKey,
         content_data: finalData,
@@ -132,13 +157,12 @@ export default async function handler(req, res) {
       });
     } catch (error) {
       return res.status(500).json({
-        error: "Gagal menyimpan konten.",
-        details: error.message,
+        error: "Gagal menyimpan konten: " + error.message,
       });
     }
   }
 
-  // ========== Method lain ditolak ==========
+  // ======== Method lain ========
   res.setHeader("Allow", ["GET", "POST", "PUT"]);
   return res.status(405).json({ error: "Method Not Allowed" });
 }
