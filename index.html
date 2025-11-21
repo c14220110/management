@@ -541,6 +541,140 @@
       <div id="user-management-content-area"></div>
     </template>
 
+    <template id="website-gki-template">
+      <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-8">
+          <div>
+            <h1 class="text-3xl font-bold text-gray-800">Kelola Website GKI</h1>
+            <p class="text-gray-600 mt-2">
+              Ubah konten hero dan jadwal ibadah yang tampil di website publik
+            </p>
+          </div>
+          <button
+            id="saveWebsiteBtn"
+            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg transition flex items-center gap-2"
+          >
+            <i class="fas fa-save"></i>
+            Simpan Perubahan
+          </button>
+        </div>
+
+        <!-- Hero Section Editor -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div class="flex items-center gap-3 mb-4">
+            <i class="fas fa-home text-blue-600 text-xl"></i>
+            <h2 class="text-xl font-bold text-gray-800">
+              Hero Section (Beranda)
+            </h2>
+          </div>
+          <p class="text-sm text-gray-600 mb-6">
+            Teks utama yang muncul pertama kali saat pengunjung membuka website
+          </p>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                Judul Utama
+              </label>
+              <input
+                type="text"
+                id="heroTitle"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Selamat Datang di GKI Kutisari Indah"
+                maxlength="100"
+              />
+              <p class="text-xs text-gray-500 mt-1">Maksimal 100 karakter</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                Sub Judul
+              </label>
+              <textarea
+                id="heroSubtitle"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows="3"
+                placeholder="Gereja yang bertumbuh dalam Iman, Kasih, dan Pelayanan bagi sesama."
+                maxlength="200"
+              ></textarea>
+              <p class="text-xs text-gray-500 mt-1">Maksimal 200 karakter</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Schedules Section Editor -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <i class="fas fa-calendar-alt text-blue-600 text-xl"></i>
+              <h2 class="text-xl font-bold text-gray-800">
+                Jadwal Ibadah & Kegiatan
+              </h2>
+            </div>
+            <button
+              id="addScheduleBtn"
+              class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg transition flex items-center gap-2"
+            >
+              <i class="fas fa-plus"></i>
+              Tambah Jadwal
+            </button>
+          </div>
+
+          <p class="text-sm text-gray-600 mb-6">
+            Kelola jadwal ibadah yang tampil di section jadwal
+          </p>
+
+          <div class="space-y-4 mb-6">
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                Judul Section
+              </label>
+              <input
+                type="text"
+                id="schedulesTitle"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Jadwal Ibadah & Kegiatan"
+                maxlength="100"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                Sub Judul
+              </label>
+              <textarea
+                id="schedulesSubtitle"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                rows="2"
+                placeholder="Kami mengundang Anda untuk bersekutu bersama kami. Berikut adalah jadwal kegiatan rutin kami."
+                maxlength="300"
+              ></textarea>
+            </div>
+          </div>
+
+          <!-- Schedule Cards Container -->
+          <div class="space-y-4 mb-4" id="scheduleCardsContainer">
+            <!-- Schedule cards will be dynamically inserted here -->
+          </div>
+
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div class="flex gap-3">
+              <i class="fas fa-info-circle text-blue-600 mt-1"></i>
+              <div class="text-sm text-blue-800">
+                <strong>Petunjuk:</strong>
+                <ul class="list-disc list-inside mt-2 space-y-1">
+                  <li>Minimal harus ada 1 jadwal, maksimal 5 jadwal</li>
+                  <li>Gunakan tombol ↑↓ untuk mengatur urutan tampilan</li>
+                  <li>Pastikan semua field diisi sebelum menyimpan</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
     <!-- Modals -->
     <div
       id="user-modal"
@@ -869,7 +1003,7 @@
             loadDashboardPage();
             break;
           case "#barang":
-            loadBarangPage();
+            loadBarangPage(); //baru
             break;
           case "#ruangan":
             loadRuanganPage();
@@ -881,6 +1015,15 @@
               contentArea.innerHTML = `<h1 class="text-2xl text-red-600">Akses Ditolak</h1>`;
             }
             break;
+          case "#website-gki":
+            if (localStorage.getItem("userRole") === "management") {
+              loadWebsiteGkiPage();
+            } else {
+              contentArea.innerHTML =
+                '<h1 class="text-2xl text-red-600">Akses Ditolak</h1>';
+            }
+            break;
+
           default:
             window.location.hash = "#dashboard";
             loadDashboardPage();
@@ -971,6 +1114,23 @@
           await refreshUserTable();
         } catch (error) {
           contentArea.innerHTML = `<p class="text-red-500">Terjadi error saat memuat halaman user: ${error.message}</p>`;
+        } finally {
+          hideLoader();
+        }
+      }
+
+      async function loadWebsiteGkiPage() {
+        showLoader();
+        try {
+          contentArea.innerHTML = "";
+          const template = document
+            .getElementById("website-gki-template")
+            .content.cloneNode(true);
+          contentArea.appendChild(template);
+
+          await loadWebsiteContent();
+        } catch (error) {
+          contentArea.innerHTML = `<p class="text-red-500">Terjadi error saat memuat halaman website: ${error.message}</p>`;
         } finally {
           hideLoader();
         }
