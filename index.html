@@ -615,7 +615,7 @@
                 class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
               />
               <p class="mt-1 text-xs text-gray-500">
-                Format MP4/WebM/Ogg, ukuran maksimum 10 MB.
+                Format MP4/WebM/Ogg, ukuran maksimum ±4 MB (dibatasi server).
               </p>
               <video
                 id="heroVideoPreview"
@@ -2047,7 +2047,7 @@
         hero: {
           title: "",
           subtitle: "",
-          videoUrl: "assets/bg_gki.mp4",
+          videoUrl: "",
         },
         schedules: { title: "", subtitle: "", items: [] },
       };
@@ -2094,11 +2094,12 @@
                 return;
               }
 
-              const maxBytes = 10 * 1024 * 1024; // 10 MB
+              // Batas praktis untuk Vercel (body JSON + base64)
+              const maxBytes = 4 * 1024 * 1024; // ~4 MB
               if (file.size > maxBytes) {
                 const mb = (file.size / (1024 * 1024)).toFixed(2);
                 alert(
-                  `Ukuran video maksimal 10 MB.\nFile yang dipilih: ${mb} MB.`
+                  `Untuk saat ini ukuran video maksimal sekitar 4 MB.\nFile yang dipilih: ${mb} MB.\nSilakan kompres / pilih video yang lebih kecil.`
                 );
                 heroVideoFileInput.value = "";
                 pendingHeroVideoFile = null;
@@ -2160,10 +2161,13 @@
               }
 
               const file = pendingHeroVideoFile;
-              const maxBytes = 10 * 1024 * 1024;
+              // Batas praktis untuk menghindari 413 di Vercel
+              const maxBytes = 4 * 1024 * 1024;
 
               if (file.size > maxBytes) {
-                throw new Error("Ukuran video maksimal 10 MB.");
+                throw new Error(
+                  "Ukuran video terlalu besar untuk server saat ini (maks ±4 MB)."
+                );
               }
 
               const token = localStorage.getItem("authToken");
