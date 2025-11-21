@@ -2050,146 +2050,147 @@
           // Render schedule cards
           renderScheduleCards();
 
-          // === Attach Event Listeners (Inline) ===
+          // === Attach Event Listeners (MUST be inside loadWebsiteContent) ===
 
           // Add Schedule Button
-          setTimeout(() => {
-            const addBtn = document.getElementById("addScheduleBtn");
-            if (addBtn) {
-              addBtn.onclick = () => {
-                const items = websiteContentData.schedules.items;
-                if (items.length >= 5) {
-                  alert("Maksimal 5 jadwal!");
-                  return;
+          const addBtn = document.getElementById("addScheduleBtn");
+          if (addBtn) {
+            addBtn.onclick = () => {
+              const items = websiteContentData.schedules.items;
+              if (items.length >= 5) {
+                alert("Maksimal 5 jadwal!");
+                return;
+              }
+
+              items.push({
+                id: Date.now().toString(),
+                name: "",
+                time: "",
+                description: "",
+              });
+              renderScheduleCards();
+              alert("Jadwal baru ditambahkan. Isi semua field lalu simpan.");
+            };
+          }
+
+          // Save Button
+          const saveBtn = document.getElementById("saveWebsiteBtn");
+          if (saveBtn) {
+            saveBtn.onclick = async () => {
+              const originalHTML = saveBtn.innerHTML;
+              saveBtn.disabled = true;
+              saveBtn.innerHTML = `
+              <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Menyimpan...
+            `;
+
+              try {
+                // Get latest values from form
+                const heroTitle = document.getElementById("heroTitle");
+                const heroSubtitle = document.getElementById("heroSubtitle");
+                const schedulesTitle =
+                  document.getElementById("schedulesTitle");
+                const schedulesSubtitle =
+                  document.getElementById("schedulesSubtitle");
+
+                if (heroTitle) websiteContentData.hero.title = heroTitle.value;
+                if (heroSubtitle)
+                  websiteContentData.hero.subtitle = heroSubtitle.value;
+                if (schedulesTitle)
+                  websiteContentData.schedules.title = schedulesTitle.value;
+                if (schedulesSubtitle)
+                  websiteContentData.schedules.subtitle =
+                    schedulesSubtitle.value;
+
+                // Validation
+                if (
+                  !websiteContentData.hero.title ||
+                  !websiteContentData.hero.subtitle
+                ) {
+                  throw new Error("Judul dan sub judul hero harus diisi!");
+                }
+                if (websiteContentData.schedules.items.length === 0) {
+                  throw new Error("Minimal harus ada 1 jadwal!");
                 }
 
-                items.push({
-                  id: Date.now().toString(),
-                  name: "",
-                  time: "",
-                  description: "",
+                // Validate each schedule item
+                for (
+                  let i = 0;
+                  i < websiteContentData.schedules.items.length;
+                  i++
+                ) {
+                  const item = websiteContentData.schedules.items[i];
+                  if (!item.name || !item.time || !item.description) {
+                    throw new Error(
+                      `Jadwal #${i + 1}: Semua field harus diisi!`
+                    );
+                  }
+                }
+
+                // Save hero
+                console.log("Saving hero:", websiteContentData.hero);
+                const heroResponse = await fetch("/api/website-content", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${localStorage.getItem(
+                      "authToken"
+                    )}`,
+                  },
+                  body: JSON.stringify({
+                    contentKey: "hero",
+                    contentData: websiteContentData.hero,
+                  }),
                 });
-                renderScheduleCards();
-                alert("Jadwal baru ditambahkan. Isi semua field lalu simpan.");
-              };
-            }
 
-            // Save Button
-            const saveBtn = document.getElementById("saveWebsiteBtn");
-            if (saveBtn) {
-              saveBtn.onclick = async () => {
-                const originalHTML = saveBtn.innerHTML;
-                saveBtn.disabled = true;
-                saveBtn.innerHTML = `
-                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Menyimpan...
-              `;
+                console.log("Hero response status:", heroResponse.status);
 
-                try {
-                  // Get latest values from form
-                  const heroTitle = document.getElementById("heroTitle");
-                  const heroSubtitle = document.getElementById("heroSubtitle");
-                  const schedulesTitle =
-                    document.getElementById("schedulesTitle");
-                  const schedulesSubtitle =
-                    document.getElementById("schedulesSubtitle");
-
-                  if (heroTitle)
-                    websiteContentData.hero.title = heroTitle.value;
-                  if (heroSubtitle)
-                    websiteContentData.hero.subtitle = heroSubtitle.value;
-                  if (schedulesTitle)
-                    websiteContentData.schedules.title = schedulesTitle.value;
-                  if (schedulesSubtitle)
-                    websiteContentData.schedules.subtitle =
-                      schedulesSubtitle.value;
-
-                  // Validation
-                  if (
-                    !websiteContentData.hero.title ||
-                    !websiteContentData.hero.subtitle
-                  ) {
-                    throw new Error("Judul dan sub judul hero harus diisi!");
-                  }
-                  if (websiteContentData.schedules.items.length === 0) {
-                    throw new Error("Minimal harus ada 1 jadwal!");
-                  }
-
-                  // Validate each schedule item
-                  for (
-                    let i = 0;
-                    i < websiteContentData.schedules.items.length;
-                    i++
-                  ) {
-                    const item = websiteContentData.schedules.items[i];
-                    if (!item.name || !item.time || !item.description) {
-                      throw new Error(
-                        `Jadwal #${i + 1}: Semua field harus diisi!`
-                      );
-                    }
-                  }
-
-                  // Save hero
-                  const heroResponse = await fetch("/api/website-content", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${localStorage.getItem(
-                        "authToken"
-                      )}`,
-                    },
-                    body: JSON.stringify({
-                      contentKey: "hero",
-                      contentData: websiteContentData.hero,
-                    }),
-                  });
-
-                  if (!heroResponse.ok) {
-                    const errorData = await heroResponse.json();
-                    throw new Error(
-                      errorData.error || "Gagal menyimpan hero section"
-                    );
-                  }
-
-                  // Save schedules
-                  const schedulesResponse = await fetch(
-                    "/api/website-content",
-                    {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${localStorage.getItem(
-                          "authToken"
-                        )}`,
-                      },
-                      body: JSON.stringify({
-                        contentKey: "schedules",
-                        contentData: websiteContentData.schedules,
-                      }),
-                    }
+                if (!heroResponse.ok) {
+                  const errorData = await heroResponse.json();
+                  throw new Error(
+                    errorData.error || "Gagal menyimpan hero section"
                   );
-
-                  if (!schedulesResponse.ok) {
-                    const errorData = await schedulesResponse.json();
-                    throw new Error(
-                      errorData.error || "Gagal menyimpan jadwal"
-                    );
-                  }
-
-                  alert("✅ Konten website berhasil disimpan!");
-                } catch (error) {
-                  alert("❌ " + error.message);
-                  console.error("Error saving:", error);
-                } finally {
-                  saveBtn.disabled = false;
-                  saveBtn.innerHTML = originalHTML;
                 }
-              };
-            }
-          }, 100); // Delay 100ms untuk memastikan DOM sudah ready
+
+                // Save schedules
+                console.log("Saving schedules:", websiteContentData.schedules);
+                const schedulesResponse = await fetch("/api/website-content", {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${localStorage.getItem(
+                      "authToken"
+                    )}`,
+                  },
+                  body: JSON.stringify({
+                    contentKey: "schedules",
+                    contentData: websiteContentData.schedules,
+                  }),
+                });
+
+                console.log(
+                  "Schedules response status:",
+                  schedulesResponse.status
+                );
+
+                if (!schedulesResponse.ok) {
+                  const errorData = await schedulesResponse.json();
+                  throw new Error(errorData.error || "Gagal menyimpan jadwal");
+                }
+
+                alert("✅ Konten website berhasil disimpan!");
+              } catch (error) {
+                alert("❌ " + error.message);
+                console.error("Error saving:", error);
+              } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalHTML;
+              }
+            };
+          } // Delay 100ms untuk memastikan DOM sudah ready
         } catch (error) {
           showNotification(
             "Gagal memuat konten website: " + error.message,
