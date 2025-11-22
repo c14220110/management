@@ -696,6 +696,247 @@
             </div>
           </div>
         </div>
+        <!-- About Section Editor -->
+        <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+          <div class="flex items-center gap-3 mb-4">
+            <i class="fas fa-info-circle text-blue-600 text-xl"></i>
+            <h2 class="text-xl font-bold text-gray-800">
+              Section "Tentang Kami"
+            </h2>
+          </div>
+          <p class="text-sm text-gray-600 mb-6">
+            Konten yang tampil di bagian "Mengenal GKI Kutisari Indah" dan
+            gambar gedung gereja.
+          </p>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Kolom teks -->
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  Label Kecil (Badge)
+                </label>
+                <input
+                  type="text"
+                  id="aboutBadge"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="TENTANG KAMI"
+                  maxlength="50"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  Judul Utama
+                </label>
+                <input
+                  type="text"
+                  id="aboutHeading"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Mengenal GKI Kutisari Indah"
+                  maxlength="100"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  Paragraf 1
+                </label>
+                <textarea
+                  id="aboutParagraph1"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows="3"
+                  maxlength="300"
+                  placeholder="Komunitas yang bertumbuh dalam pengenalan akan Kristus, saling mengasihi, dan melayani."
+                ></textarea>
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  Paragraf 2
+                </label>
+                <textarea
+                  id="aboutParagraph2"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows="3"
+                  maxlength="300"
+                  placeholder="Visi kami: gereja yang relevan, berdampak, dan menjadi berkat."
+                ></textarea>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    Teks Tombol
+                  </label>
+                  <input
+                    type="text"
+                    id="aboutCtaText"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Visi, Misi & Sejarah"
+                    maxlength="50"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    URL Tombol
+                  </label>
+                  <input
+                    type="text"
+                    id="aboutCtaUrl"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="# atau link halaman lain"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Kolom gambar -->
+            <div class="space-y-3">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                URL Gambar Gedung Gereja
+              </label>
+              <input
+                type="text"
+                id="aboutImageUrl"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="assets/gedung_gereja.jpg"
+              />
+              <p class="text-xs text-gray-500">
+                Untuk saat ini isi dengan path/URL gambar yang sudah Anda upload
+                (misalnya di folder <code>assets</code>).
+              </p>
+              <img
+                id="aboutImagePreview"
+                class="mt-3 w-full max-h-64 object-cover rounded-lg shadow-sm hidden"
+                alt="Preview gambar gedung gereja"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Pastor Section Editor -->
+        <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+          <div class="flex items-center gap-3 mb-4">
+            <i class="fas fa-user-tie text-blue-600 text-xl"></i>
+            <h2 class="text-xl font-bold text-gray-800">
+              Section "Profil Gembala Sidang"
+            </h2>
+          </div>
+          <p class="text-sm text-gray-600 mb-6">
+            Konten yang tampil di bagian profil gembala, termasuk foto, nomor
+            telepon dan link "Hubungi Pendeta".
+          </p>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Kolom teks -->
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  Label Kecil (Badge)
+                </label>
+                <input
+                  type="text"
+                  id="pastorBadge"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="PROFIL GEMBALA SIDANG"
+                  maxlength="50"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  Nama Gembala
+                </label>
+                <input
+                  type="text"
+                  id="pastorName"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Pdt. William Suryajaya"
+                  maxlength="100"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  Nomor Telepon
+                </label>
+                <input
+                  type="text"
+                  id="pastorPhone"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="087808786969"
+                  maxlength="30"
+                />
+                <p class="text-xs text-gray-500 mt-1">
+                  Akan dipakai untuk teks dan juga link <code>tel:</code> di
+                  website publik.
+                </p>
+              </div>
+
+              <div>
+                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                  Deskripsi Singkat
+                </label>
+                <textarea
+                  id="pastorDescription"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows="3"
+                  maxlength="300"
+                  placeholder="Gembala sidang yang memimpin dengan dedikasi dan kasih, membimbing jemaat dalam pertumbuhan rohani."
+                ></textarea>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    Teks Tombol
+                  </label>
+                  <input
+                    type="text"
+                    id="pastorButtonText"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Hubungi Pendeta"
+                    maxlength="50"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-gray-700 mb-2">
+                    URL Tombol (WhatsApp / lainnya)
+                  </label>
+                  <input
+                    type="text"
+                    id="pastorWhatsappUrl"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="https://wa.me/6287808786969"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Kolom gambar -->
+            <div class="space-y-3">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                URL Foto Gembala
+              </label>
+              <input
+                type="text"
+                id="pastorImageUrl"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="assets/pastor.jpg"
+              />
+              <p class="text-xs text-gray-500">
+                Untuk saat ini isi dengan path/URL foto yang sudah Anda upload
+                (misalnya di folder <code>assets</code>).
+              </p>
+              <img
+                id="pastorImagePreview"
+                class="mt-3 w-full max-h-64 object-cover rounded-lg shadow-sm hidden"
+                alt="Preview foto gembala"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </template>
 
@@ -2049,7 +2290,29 @@
           subtitle: "",
           videoUrl: "",
         },
-        schedules: { title: "", subtitle: "", items: [] },
+        schedules: {
+          title: "",
+          subtitle: "",
+          items: [],
+        },
+        about: {
+          badge: "",
+          heading: "",
+          paragraph1: "",
+          paragraph2: "",
+          ctaText: "",
+          ctaUrl: "",
+          imageUrl: "",
+        },
+        pastor: {
+          badge: "",
+          name: "",
+          phone: "",
+          description: "",
+          whatsappUrl: "",
+          buttonText: "",
+          imageUrl: "",
+        },
       };
 
       // File video baru yang dipilih tapi belum di-upload
@@ -2061,23 +2324,65 @@
           if (!response.ok) throw new Error("Gagal memuat konten website");
 
           const data = await response.json();
-          websiteContentData = data;
 
-          // Populate hero fields
-          const heroTitle = document.getElementById("heroTitle");
-          const heroSubtitle = document.getElementById("heroSubtitle");
-          if (heroTitle) heroTitle.value = data.hero?.title || "";
-          if (heroSubtitle) heroSubtitle.value = data.hero?.subtitle || "";
+          // === Normalisasi HERO, SCHEDULES, ABOUT, PASTOR ===
+          websiteContentData.hero = {
+            title: data.hero?.title ?? "Selamat Datang di GKI Kutisari Indah",
+            subtitle:
+              data.hero?.subtitle ??
+              "Gereja yang bertumbuh dalam Iman, Kasih, dan Pelayanan bagi sesama.",
+            videoUrl: data.hero?.videoUrl ?? "assets/bg_gki.mp4",
+          };
 
-          // === Hero video: preview & input file ===
+          websiteContentData.schedules = {
+            title: data.schedules?.title ?? "Jadwal Ibadah & Kegiatan",
+            subtitle:
+              data.schedules?.subtitle ??
+              "Kami mengundang Anda untuk bersekutu bersama kami. Berikut adalah jadwal kegiatan rutin kami.",
+            items: data.schedules?.items ?? [],
+          };
+
+          websiteContentData.about = {
+            badge: data.about?.badge ?? "TENTANG KAMI",
+            heading: data.about?.heading ?? "Mengenal GKI Kutisari Indah",
+            paragraph1:
+              data.about?.paragraph1 ??
+              "Komunitas yang bertumbuh dalam pengenalan akan Kristus, saling mengasihi, dan melayani.",
+            paragraph2:
+              data.about?.paragraph2 ??
+              "Visi kami: gereja yang relevan, berdampak, dan menjadi berkat.",
+            ctaText: data.about?.ctaText ?? "Visi, Misi & Sejarah",
+            ctaUrl: data.about?.ctaUrl ?? "#",
+            imageUrl: data.about?.imageUrl ?? "assets/gedung_gereja.jpg",
+          };
+
+          websiteContentData.pastor = {
+            badge: data.pastor?.badge ?? "PROFIL GEMBALA SIDANG",
+            name: data.pastor?.name ?? "Pdt. William Suryajaya",
+            phone: data.pastor?.phone ?? "087808786969",
+            description:
+              data.pastor?.description ??
+              "Gembala sidang yang memimpin dengan dedikasi dan kasih, membimbing jemaat dalam pertumbuhan rohani.",
+            whatsappUrl:
+              data.pastor?.whatsappUrl ?? "https://wa.me/6287808786969",
+            buttonText: data.pastor?.buttonText ?? "Hubungi Pendeta",
+            imageUrl: data.pastor?.imageUrl ?? "assets/pastor.jpg",
+          };
+
+          // === Populate HERO ===
+          const heroTitleInput = document.getElementById("heroTitle");
+          const heroSubtitleInput = document.getElementById("heroSubtitle");
+          if (heroTitleInput)
+            heroTitleInput.value = websiteContentData.hero.title || "";
+          if (heroSubtitleInput)
+            heroSubtitleInput.value = websiteContentData.hero.subtitle || "";
+
+          // Hero video: preview & input file
           const heroVideoPreview = document.getElementById("heroVideoPreview");
           const heroVideoFileInput = document.getElementById("heroVideoFile");
 
           const currentVideoUrl =
-            data.hero?.videoUrl ||
-            websiteContentData.hero.videoUrl ||
-            "assets/bg_gki.mp4";
-
+            websiteContentData.hero.videoUrl || "assets/bg_gki.mp4";
           websiteContentData.hero.videoUrl = currentVideoUrl;
 
           if (heroVideoPreview && currentVideoUrl) {
@@ -2094,7 +2399,6 @@
                 return;
               }
 
-              // Batas praktis untuk Vercel (body JSON + base64)
               const maxBytes = 4 * 1024 * 1024; // ~4 MB
               if (file.size > maxBytes) {
                 const mb = (file.size / (1024 * 1024)).toFixed(2);
@@ -2116,21 +2420,116 @@
             };
           }
 
-          // Populate schedules fields
-          const schedulesTitle = document.getElementById("schedulesTitle");
-          const schedulesSubtitle =
+          // === Populate SCHEDULES ===
+          const schedulesTitleInput = document.getElementById("schedulesTitle");
+          const schedulesSubtitleInput =
             document.getElementById("schedulesSubtitle");
-          if (schedulesTitle)
-            schedulesTitle.value = data.schedules?.title || "";
-          if (schedulesSubtitle)
-            schedulesSubtitle.value = data.schedules?.subtitle || "";
+          if (schedulesTitleInput)
+            schedulesTitleInput.value =
+              websiteContentData.schedules.title || "";
+          if (schedulesSubtitleInput)
+            schedulesSubtitleInput.value =
+              websiteContentData.schedules.subtitle || "";
 
-          // Render schedule cards
+          // === Populate ABOUT ===
+          const aboutBadgeInput = document.getElementById("aboutBadge");
+          const aboutHeadingInput = document.getElementById("aboutHeading");
+          const aboutParagraph1Input =
+            document.getElementById("aboutParagraph1");
+          const aboutParagraph2Input =
+            document.getElementById("aboutParagraph2");
+          const aboutCtaTextInput = document.getElementById("aboutCtaText");
+          const aboutCtaUrlInput = document.getElementById("aboutCtaUrl");
+          const aboutImageUrlInput = document.getElementById("aboutImageUrl");
+          const aboutImagePreview =
+            document.getElementById("aboutImagePreview");
+
+          if (aboutBadgeInput)
+            aboutBadgeInput.value = websiteContentData.about.badge || "";
+          if (aboutHeadingInput)
+            aboutHeadingInput.value = websiteContentData.about.heading || "";
+          if (aboutParagraph1Input)
+            aboutParagraph1Input.value =
+              websiteContentData.about.paragraph1 || "";
+          if (aboutParagraph2Input)
+            aboutParagraph2Input.value =
+              websiteContentData.about.paragraph2 || "";
+          if (aboutCtaTextInput)
+            aboutCtaTextInput.value = websiteContentData.about.ctaText || "";
+          if (aboutCtaUrlInput)
+            aboutCtaUrlInput.value = websiteContentData.about.ctaUrl || "";
+          if (aboutImageUrlInput) {
+            aboutImageUrlInput.value = websiteContentData.about.imageUrl || "";
+            aboutImageUrlInput.oninput = () => {
+              const url = aboutImageUrlInput.value.trim();
+              if (aboutImagePreview) {
+                if (url) {
+                  aboutImagePreview.src = url;
+                  aboutImagePreview.classList.remove("hidden");
+                } else {
+                  aboutImagePreview.classList.add("hidden");
+                }
+              }
+            };
+          }
+          if (aboutImagePreview && websiteContentData.about.imageUrl) {
+            aboutImagePreview.src = websiteContentData.about.imageUrl;
+            aboutImagePreview.classList.remove("hidden");
+          }
+
+          // === Populate PASTOR ===
+          const pastorBadgeInput = document.getElementById("pastorBadge");
+          const pastorNameInput = document.getElementById("pastorName");
+          const pastorPhoneInput = document.getElementById("pastorPhone");
+          const pastorDescriptionInput =
+            document.getElementById("pastorDescription");
+          const pastorWhatsappUrlInput =
+            document.getElementById("pastorWhatsappUrl");
+          const pastorButtonTextInput =
+            document.getElementById("pastorButtonText");
+          const pastorImageUrlInput = document.getElementById("pastorImageUrl");
+          const pastorImagePreview =
+            document.getElementById("pastorImagePreview");
+
+          if (pastorBadgeInput)
+            pastorBadgeInput.value = websiteContentData.pastor.badge || "";
+          if (pastorNameInput)
+            pastorNameInput.value = websiteContentData.pastor.name || "";
+          if (pastorPhoneInput)
+            pastorPhoneInput.value = websiteContentData.pastor.phone || "";
+          if (pastorDescriptionInput)
+            pastorDescriptionInput.value =
+              websiteContentData.pastor.description || "";
+          if (pastorWhatsappUrlInput)
+            pastorWhatsappUrlInput.value =
+              websiteContentData.pastor.whatsappUrl || "";
+          if (pastorButtonTextInput)
+            pastorButtonTextInput.value =
+              websiteContentData.pastor.buttonText || "";
+          if (pastorImageUrlInput) {
+            pastorImageUrlInput.value =
+              websiteContentData.pastor.imageUrl || "";
+            pastorImageUrlInput.oninput = () => {
+              const url = pastorImageUrlInput.value.trim();
+              if (pastorImagePreview) {
+                if (url) {
+                  pastorImagePreview.src = url;
+                  pastorImagePreview.classList.remove("hidden");
+                } else {
+                  pastorImagePreview.classList.add("hidden");
+                }
+              }
+            };
+          }
+          if (pastorImagePreview && websiteContentData.pastor.imageUrl) {
+            pastorImagePreview.src = websiteContentData.pastor.imageUrl;
+            pastorImagePreview.classList.remove("hidden");
+          }
+
+          // === Render cards jadwal ===
           renderScheduleCards();
 
-          // === Attach Event Listeners ===
-
-          // Add Schedule Button
+          // === Tombol Tambah Jadwal ===
           const addBtn = document.getElementById("addScheduleBtn");
           if (addBtn) {
             addBtn.onclick = () => {
@@ -2151,17 +2550,15 @@
             };
           }
 
-          // Save Button
+          // === Tombol Simpan ===
           const saveBtn = document.getElementById("saveWebsiteBtn");
           if (saveBtn) {
             async function uploadHeroVideoIfNeeded() {
-              // Kalau tidak ada file baru → pakai URL lama apa adanya
               if (!pendingHeroVideoFile) {
                 return websiteContentData.hero.videoUrl || "assets/bg_gki.mp4";
               }
 
               const file = pendingHeroVideoFile;
-              // Batas praktis untuk menghindari 413 di Vercel
               const maxBytes = 4 * 1024 * 1024;
 
               if (file.size > maxBytes) {
@@ -2177,7 +2574,6 @@
                 );
               }
 
-              // Baca file sebagai base64
               const base64Data = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = () => {
@@ -2203,15 +2599,14 @@
                 }),
               });
 
-              const data = await resp.json().catch(() => ({}));
-
+              const uploadResult = await resp.json().catch(() => ({}));
               if (!resp.ok) {
                 throw new Error(
-                  data.error || "Gagal mengunggah video hero ke server."
+                  uploadResult.error || "Gagal mengunggah video hero ke server."
                 );
               }
 
-              const url = data.url;
+              const url = uploadResult.url;
               pendingHeroVideoFile = null;
               websiteContentData.hero.videoUrl = url;
               return url;
@@ -2221,15 +2616,15 @@
               const originalHTML = saveBtn.innerHTML;
               saveBtn.disabled = true;
               saveBtn.innerHTML = `
-                <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Menyimpan...
-              `;
+          <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          Menyimpan...
+        `;
 
               try {
-                // Get latest values from form
+                // Ambil nilai terbaru dari form
                 const heroTitle = document.getElementById("heroTitle");
                 const heroSubtitle = document.getElementById("heroSubtitle");
                 const schedulesTitle =
@@ -2246,7 +2641,73 @@
                   websiteContentData.schedules.subtitle =
                     schedulesSubtitle.value;
 
-                // Validation
+                // ABOUT
+                const aboutBadgeInput2 = document.getElementById("aboutBadge");
+                const aboutHeadingInput2 =
+                  document.getElementById("aboutHeading");
+                const aboutParagraph1Input2 =
+                  document.getElementById("aboutParagraph1");
+                const aboutParagraph2Input2 =
+                  document.getElementById("aboutParagraph2");
+                const aboutCtaTextInput2 =
+                  document.getElementById("aboutCtaText");
+                const aboutCtaUrlInput2 =
+                  document.getElementById("aboutCtaUrl");
+                const aboutImageUrlInput2 =
+                  document.getElementById("aboutImageUrl");
+
+                if (aboutBadgeInput2)
+                  websiteContentData.about.badge = aboutBadgeInput2.value;
+                if (aboutHeadingInput2)
+                  websiteContentData.about.heading = aboutHeadingInput2.value;
+                if (aboutParagraph1Input2)
+                  websiteContentData.about.paragraph1 =
+                    aboutParagraph1Input2.value;
+                if (aboutParagraph2Input2)
+                  websiteContentData.about.paragraph2 =
+                    aboutParagraph2Input2.value;
+                if (aboutCtaTextInput2)
+                  websiteContentData.about.ctaText = aboutCtaTextInput2.value;
+                if (aboutCtaUrlInput2)
+                  websiteContentData.about.ctaUrl = aboutCtaUrlInput2.value;
+                if (aboutImageUrlInput2)
+                  websiteContentData.about.imageUrl = aboutImageUrlInput2.value;
+
+                // PASTOR
+                const pastorBadgeInput2 =
+                  document.getElementById("pastorBadge");
+                const pastorNameInput2 = document.getElementById("pastorName");
+                const pastorPhoneInput2 =
+                  document.getElementById("pastorPhone");
+                const pastorDescriptionInput2 =
+                  document.getElementById("pastorDescription");
+                const pastorWhatsappUrlInput2 =
+                  document.getElementById("pastorWhatsappUrl");
+                const pastorButtonTextInput2 =
+                  document.getElementById("pastorButtonText");
+                const pastorImageUrlInput2 =
+                  document.getElementById("pastorImageUrl");
+
+                if (pastorBadgeInput2)
+                  websiteContentData.pastor.badge = pastorBadgeInput2.value;
+                if (pastorNameInput2)
+                  websiteContentData.pastor.name = pastorNameInput2.value;
+                if (pastorPhoneInput2)
+                  websiteContentData.pastor.phone = pastorPhoneInput2.value;
+                if (pastorDescriptionInput2)
+                  websiteContentData.pastor.description =
+                    pastorDescriptionInput2.value;
+                if (pastorWhatsappUrlInput2)
+                  websiteContentData.pastor.whatsappUrl =
+                    pastorWhatsappUrlInput2.value;
+                if (pastorButtonTextInput2)
+                  websiteContentData.pastor.buttonText =
+                    pastorButtonTextInput2.value;
+                if (pastorImageUrlInput2)
+                  websiteContentData.pastor.imageUrl =
+                    pastorImageUrlInput2.value;
+
+                // Validasi minimal (tetap sama untuk hero & jadwal)
                 if (
                   !websiteContentData.hero.title ||
                   !websiteContentData.hero.subtitle
@@ -2257,7 +2718,6 @@
                   throw new Error("Minimal harus ada 1 jadwal!");
                 }
 
-                // Validate each schedule item
                 for (
                   let i = 0;
                   i < websiteContentData.schedules.items.length;
@@ -2275,60 +2735,70 @@
                 const newVideoUrl = await uploadHeroVideoIfNeeded();
                 websiteContentData.hero.videoUrl = newVideoUrl;
 
-                console.log("🔄 Saving hero:", websiteContentData.hero);
+                // === Simpan ke /api/website-content ===
+                const authHeader = {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+                };
 
-                // Save hero
-                console.log("🔄 Saving hero:", websiteContentData.hero);
+                // Hero
                 const heroResponse = await fetch("/api/website-content", {
                   method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${localStorage.getItem(
-                      "authToken"
-                    )}`,
-                  },
+                  headers: authHeader,
                   body: JSON.stringify({
                     contentKey: "hero",
                     contentData: websiteContentData.hero,
                   }),
                 });
-
-                console.log("✅ Hero response status:", heroResponse.status);
-
                 if (!heroResponse.ok) {
-                  const errorData = await heroResponse.json();
-                  throw new Error(
-                    errorData.error || "Gagal menyimpan hero section"
-                  );
+                  const err = await heroResponse.json().catch(() => ({}));
+                  throw new Error(err.error || "Gagal menyimpan hero section");
                 }
 
-                // Save schedules
-                console.log(
-                  "🔄 Saving schedules:",
-                  websiteContentData.schedules
-                );
+                // Schedules
                 const schedulesResponse = await fetch("/api/website-content", {
                   method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${localStorage.getItem(
-                      "authToken"
-                    )}`,
-                  },
+                  headers: authHeader,
                   body: JSON.stringify({
                     contentKey: "schedules",
                     contentData: websiteContentData.schedules,
                   }),
                 });
-
-                console.log(
-                  "✅ Schedules response status:",
-                  schedulesResponse.status
-                );
-
                 if (!schedulesResponse.ok) {
-                  const errorData = await schedulesResponse.json();
-                  throw new Error(errorData.error || "Gagal menyimpan jadwal");
+                  const err = await schedulesResponse.json().catch(() => ({}));
+                  throw new Error(err.error || "Gagal menyimpan jadwal");
+                }
+
+                // About
+                const aboutResponse = await fetch("/api/website-content", {
+                  method: "POST",
+                  headers: authHeader,
+                  body: JSON.stringify({
+                    contentKey: "about",
+                    contentData: websiteContentData.about,
+                  }),
+                });
+                if (!aboutResponse.ok) {
+                  const err = await aboutResponse.json().catch(() => ({}));
+                  throw new Error(
+                    err.error || "Gagal menyimpan section Tentang Kami"
+                  );
+                }
+
+                // Pastor
+                const pastorResponse = await fetch("/api/website-content", {
+                  method: "POST",
+                  headers: authHeader,
+                  body: JSON.stringify({
+                    contentKey: "pastor",
+                    contentData: websiteContentData.pastor,
+                  }),
+                });
+                if (!pastorResponse.ok) {
+                  const err = await pastorResponse.json().catch(() => ({}));
+                  throw new Error(
+                    err.error || "Gagal menyimpan Profil Gembala Sidang"
+                  );
                 }
 
                 alert("✅ Konten website berhasil disimpan!");

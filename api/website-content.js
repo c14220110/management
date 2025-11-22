@@ -97,6 +97,8 @@ export default async function handler(req, res) {
 
       const heroData = formatted.hero || {};
       const schedulesData = formatted.schedules || {};
+      const aboutData = formatted.about || {};
+      const pastorData = formatted.pastor || {};
 
       const result = {
         hero: {
@@ -104,7 +106,7 @@ export default async function handler(req, res) {
           subtitle:
             heroData.subtitle ??
             "Gereja yang bertumbuh dalam Iman, Kasih, dan Pelayanan bagi sesama.",
-          // 🔥 baru: videoUrl ikut dikirim
+          // videoUrl ikut dikirim
           videoUrl: heroData.videoUrl ?? DEFAULT_HERO_VIDEO,
         },
         schedules: {
@@ -114,10 +116,36 @@ export default async function handler(req, res) {
             "Kami mengundang Anda untuk bersekutu bersama kami. Berikut adalah jadwal kegiatan rutin kami.",
           items: schedulesData.items ?? [],
         },
+        about: {
+          taglineLabel: aboutData.taglineLabel ?? "TENTANG KAMI",
+          title: aboutData.title ?? "Mengenal GKI Kutisari Indah",
+          paragraph1:
+            aboutData.paragraph1 ??
+            "Komunitas yang bertumbuh dalam pengenalan akan Kristus, saling mengasihi, dan melayani.",
+          paragraph2:
+            aboutData.paragraph2 ??
+            "Visi kami: gereja yang relevan, berdampak, dan menjadi berkat.",
+          buttonLabel: aboutData.buttonLabel ?? "Visi, Misi & Sejarah",
+          buttonHref: aboutData.buttonHref ?? "#",
+          imageUrl: aboutData.imageUrl ?? "assets/gedung_gereja.jpg",
+        },
+        pastor: {
+          taglineLabel: pastorData.taglineLabel ?? "PROFIL GEMBALA SIDANG",
+          name: pastorData.name ?? "Pdt. William Suryajaya",
+          phoneDisplay: pastorData.phoneDisplay ?? "087808786969",
+          phoneHref: pastorData.phoneHref ?? "tel:087808786969",
+          description:
+            pastorData.description ??
+            "Gembala sidang yang memimpin dengan dedikasi dan kasih, membimbing jemaat dalam pertumbuhan rohani.",
+          buttonLabel: pastorData.buttonLabel ?? "Hubungi Pendeta",
+          buttonHref: pastorData.buttonHref ?? "https://wa.me/6287808786969",
+          imageUrl: pastorData.imageUrl ?? "assets/pastor.jpg",
+        },
       };
 
       return res.status(200).json(result);
     } catch (error) {
+      console.error("GET /api/website-content error:", error);
       return res.status(500).json({
         error: "Gagal mengambil konten website.",
         details: error.message,
@@ -163,6 +191,7 @@ export default async function handler(req, res) {
         key: finalKey,
       });
     } catch (error) {
+      console.error("POST/PUT /api/website-content error:", error);
       return res.status(500).json({
         error: "Gagal menyimpan konten: " + error.message,
       });
