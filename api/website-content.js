@@ -95,6 +95,7 @@ export default async function handler(req, res) {
         formatted[row.content_key] = row.content_data;
       });
 
+      // setelah const formatted = {...}
       const heroData = formatted.hero || {};
       const schedulesData = formatted.schedules || {};
       const aboutData = formatted.about || {};
@@ -106,7 +107,6 @@ export default async function handler(req, res) {
           subtitle:
             heroData.subtitle ??
             "Gereja yang bertumbuh dalam Iman, Kasih, dan Pelayanan bagi sesama.",
-          // videoUrl ikut dikirim
           videoUrl: heroData.videoUrl ?? DEFAULT_HERO_VIDEO,
         },
         schedules: {
@@ -117,28 +117,27 @@ export default async function handler(req, res) {
           items: schedulesData.items ?? [],
         },
         about: {
-          taglineLabel: aboutData.taglineLabel ?? "TENTANG KAMI",
-          title: aboutData.title ?? "Mengenal GKI Kutisari Indah",
+          badge: aboutData.badge ?? "TENTANG KAMI",
+          heading: aboutData.heading ?? "Mengenal GKI Kutisari Indah",
           paragraph1:
             aboutData.paragraph1 ??
             "Komunitas yang bertumbuh dalam pengenalan akan Kristus, saling mengasihi, dan melayani.",
           paragraph2:
             aboutData.paragraph2 ??
             "Visi kami: gereja yang relevan, berdampak, dan menjadi berkat.",
-          buttonLabel: aboutData.buttonLabel ?? "Visi, Misi & Sejarah",
-          buttonHref: aboutData.buttonHref ?? "#",
+          ctaText: aboutData.ctaText ?? "Visi, Misi & Sejarah",
+          ctaUrl: aboutData.ctaUrl ?? "#",
           imageUrl: aboutData.imageUrl ?? "assets/gedung_gereja.jpg",
         },
         pastor: {
-          taglineLabel: pastorData.taglineLabel ?? "PROFIL GEMBALA SIDANG",
+          badge: pastorData.badge ?? "PROFIL GEMBALA SIDANG",
           name: pastorData.name ?? "Pdt. William Suryajaya",
-          phoneDisplay: pastorData.phoneDisplay ?? "087808786969",
-          phoneHref: pastorData.phoneHref ?? "tel:087808786969",
+          phone: pastorData.phone ?? "087808786969",
           description:
             pastorData.description ??
             "Gembala sidang yang memimpin dengan dedikasi dan kasih, membimbing jemaat dalam pertumbuhan rohani.",
-          buttonLabel: pastorData.buttonLabel ?? "Hubungi Pendeta",
-          buttonHref: pastorData.buttonHref ?? "https://wa.me/6287808786969",
+          whatsappUrl: pastorData.whatsappUrl ?? "https://wa.me/6287808786969",
+          buttonText: pastorData.buttonText ?? "Hubungi Pendeta",
           imageUrl: pastorData.imageUrl ?? "assets/pastor.jpg",
         },
       };

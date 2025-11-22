@@ -553,7 +553,7 @@
           </div>
           <button
             id="saveWebsiteBtn"
-            class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg transition flex items-center gap-2"
+            class="bg-[#d97706] hover:bg-[#b45309] text-white font-semibold px-6 py-3 rounded-lg transition flex items-center gap-2"
           >
             <i class="fas fa-save"></i>
             Simpan Perubahan
@@ -638,7 +638,7 @@
             </div>
             <button
               id="addScheduleBtn"
-              class="bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg transition flex items-center gap-2"
+              class="bg-[#d97706] hover:bg-[#b45309] text-white font-semibold px-4 py-2 rounded-lg transition flex items-center gap-2"
             >
               <i class="fas fa-plus"></i>
               Tambah Jadwal
@@ -1011,7 +1011,7 @@
             </button>
             <button
               type="submit"
-              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              class="px-4 py-2 bg-[#d97706] text-white rounded-md hover:bg-[#b45309]"
             >
               Simpan
             </button>
@@ -1090,7 +1090,7 @@
             </button>
             <button
               type="submit"
-              class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              class="px-4 py-2 bg-[#d97706] text-white rounded-md hover:bg-[#b45309]"
             >
               Simpan
             </button>
@@ -1385,7 +1385,7 @@
           const container = document.getElementById(
             "user-management-content-area"
           );
-          container.innerHTML = `<div class="flex justify-end mb-4"><button id="add-user-btn" class="bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700"><i class="fas fa-plus mr-2"></i>Tambah User Member</button></div>
+          container.innerHTML = `<div class="flex justify-end mb-4"><button id="add-user-btn" class="bg-[#d97706] text-white font-bold py-2 px-4 rounded-md hover:bg-[#b45309]"><i class="fas fa-plus mr-2"></i>Tambah User Member</button></div>
             <div class="bg-white p-4 rounded-lg shadow-md"><table class="min-w-full"><thead class="bg-gray-100"><tr><th class="text-left p-3">Nama Lengkap</th><th class="text-left p-3">Email</th><th class="text-left p-3">Aksi</th></tr></thead><tbody id="user-table-body"></tbody></table></div>`;
           document
             .getElementById("add-user-btn")
@@ -1723,7 +1723,7 @@
             "borrow-section-container"
           );
           if (localStorage.getItem("userRole") === "member") {
-            borrowContainer.innerHTML = `<button id="show-borrow-form-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700">Pinjam Barang Ini</button>
+            borrowContainer.innerHTML = `<button id="show-borrow-form-btn" class="w-full bg-[#d97706] text-white font-bold py-2 px-4 rounded-md hover:bg-[#b45309]">Pinjam Barang Ini</button>
                 <form id="detail-borrow-form" class="hidden mt-4 space-y-4">
                     <div><label for="loan_date" class="block text-sm font-medium text-gray-700">Waktu Pinjam</label><input type="datetime-local" id="loan_date" required class="w-full p-2 border border-gray-300 rounded-md"></div>
                     <div><label for="due_date" class="block text-sm font-medium text-gray-700">Waktu Kembali</label><input type="datetime-local" id="due_date" required class="w-full p-2 border border-gray-300 rounded-md"></div>
@@ -1956,7 +1956,7 @@
             "reservation-section-container"
           );
           if (localStorage.getItem("userRole") === "member") {
-            reservationContainer.innerHTML = `<button id="show-reservation-form-btn" class="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700">Reservasi Ruangan Ini</button>
+            reservationContainer.innerHTML = `<button id="show-reservation-form-btn" class="w-full bg-[#d97706] text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700">Reservasi Ruangan Ini</button>
                 <form id="detail-reservation-form" class="hidden mt-4 space-y-4">
                     <div><label for="res-event-name" class="block text-sm font-medium text-gray-700">Nama Kegiatan</label><input type="text" id="res-event-name" required class="w-full p-2 border border-gray-300 rounded-md"></div>
                     <div><label for="res-start-time" class="block text-sm font-medium text-gray-700">Waktu Mulai</label><input type="datetime-local" id="res-start-time" required class="w-full p-2 border border-gray-300 rounded-md"></div>
