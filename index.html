@@ -2358,7 +2358,7 @@
           reader.readAsDataURL(file);
         });
 
-        const resp = await fetch("/api/website-image-upload", {
+        const resp = await fetch("/api/website-hero-video", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -2368,7 +2368,7 @@
             fileName: file.name,
             mimeType: file.type || "image/jpeg",
             base64Data,
-            target,
+            target, // "about" atau "pastor"
           }),
         });
 

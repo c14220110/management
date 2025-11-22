@@ -1,15 +1,24 @@
 // File: /api/website-hero-video.js
 import { createClient } from "@supabase/supabase-js";
 
+export const config = {
+  api: {
+    // Naikkan batas body agar bisa kirim file sampai ~10MB
+    bodyParser: {
+      sizeLimit: "12mb",
+    },
+  },
+};
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-const BUCKET_NAME = "website-assets"; // Pastikan bucket ini ADA di Supabase (public)
+const BUCKET_NAME = "website-assets"; // pastikan bucket ini ada (public)
 
 function getServiceClient() {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 }
 
-// Copas pola verifikasi dari website-content.js
+// Verifikasi role: management / admin
 async function requireManagement(req, res) {
   const authHeader = req.headers.authorization || "";
   const token = authHeader.startsWith("Bearer ")
@@ -51,7 +60,7 @@ async function requireManagement(req, res) {
   if (role !== "management" && role !== "admin") {
     res.status(403).json({
       error:
-        "Hanya user dengan role management/admin yang dapat mengunggah video hero.",
+        "Hanya user dengan role management/admin yang dapat mengunggah media.",
     });
     return null;
   }
@@ -76,7 +85,7 @@ export default async function handler(req, res) {
   const { supabase } = ctx;
 
   try {
-    const { fileName, mimeType, base64Data } = req.body || {};
+    const { fileName, mimeType, base64Data, target } = req.body || {};
 
     if (!fileName || !mimeType || !base64Data) {
       return res.status(400).json({
@@ -84,32 +93,41 @@ export default async function handler(req, res) {
       });
     }
 
-    // Bersihkan prefix data URL jika ada
+    // target: hero / about / pastor
+    const folder =
+      target && ["hero", "about", "pastor"].includes(target) ? target : "hero";
+
+    // Bersihkan prefix data URL kalau ada
     const base64 = base64Data.includes(",")
       ? base64Data.split(",").pop()
       : base64Data;
 
     const fileBuffer = Buffer.from(base64, "base64");
-    const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+
+    const isImage = mimeType.startsWith("image/");
+    const MAX_BYTES = isImage ? 2 * 1024 * 1024 : 10 * 1024 * 1024;
 
     if (fileBuffer.length > MAX_BYTES) {
       return res.status(400).json({
-        error: "Ukuran file melebihi 10 MB.",
+        error: isImage
+          ? "Ukuran gambar melebihi 2 MB."
+          : "Ukuran video melebihi 10 MB.",
       });
     }
 
-    const ext = (fileName.split(".").pop() || "").toLowerCase() || "mp4";
+    const ext = (fileName.split(".").pop() || "").toLowerCase();
     const safeName = fileName.replace(/\s+/g, "-").toLowerCase();
-    const path = `hero/${Date.now()}-${safeName}`;
+    const path = `${folder}/${Date.now()}-${safeName || "media"}`;
 
     const { error: uploadError } = await supabase.storage
       .from(BUCKET_NAME)
       .upload(path, fileBuffer, {
-        contentType: mimeType,
+        contentType: mimeType || (isImage ? "image/jpeg" : "video/mp4"),
         upsert: true,
       });
 
     if (uploadError) {
+      console.error("Supabase upload error:", uploadError);
       throw uploadError;
     }
 
@@ -121,9 +139,9 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ url: publicUrl });
   } catch (error) {
-    console.error("Upload hero video error:", error);
+    console.error("Upload media error:", error);
     return res.status(500).json({
-      error: "Gagal mengunggah video hero.",
+      error: "Gagal mengunggah media.",
       details: error.message,
     });
   }
