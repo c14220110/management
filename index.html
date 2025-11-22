@@ -792,24 +792,31 @@
             </div>
 
             <!-- Kolom gambar -->
-            <div class="space-y-3">
-              <label class="block text-sm font-semibold text-gray-700 mb-2">
-                URL Gambar Gedung Gereja
+            <div class="space-y-2">
+              <label class="block text-sm font-medium text-gray-700">
+                Foto Gedung Gereja (maks. 2 MB)
               </label>
+
               <input
-                type="text"
-                id="aboutImageUrl"
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="assets/gedung_gereja.jpg"
+                type="file"
+                id="aboutImageFile"
+                accept="image/*"
+                class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
+
+              <!-- Hidden input untuk menyimpan URL, dipakai JS & API -->
+              <input type="hidden" id="aboutImageUrl" />
+
               <p class="text-xs text-gray-500">
-                Untuk saat ini isi dengan path/URL gambar yang sudah Anda upload
-                (misalnya di folder <code>assets</code>).
+                Pilih file gambar. Setelah diunggah, URL akan otomatis
+                tersimpan.
               </p>
+
               <img
                 id="aboutImagePreview"
-                class="mt-3 w-full max-h-64 object-cover rounded-lg shadow-sm hidden"
-                alt="Preview gambar gedung gereja"
+                src=""
+                alt="Preview Gedung Gereja"
+                class="mt-2 rounded-lg shadow-sm max-h-40 object-cover hidden"
               />
             </div>
           </div>
@@ -915,24 +922,31 @@
             </div>
 
             <!-- Kolom gambar -->
-            <div class="space-y-3">
-              <label class="block text-sm font-semibold text-gray-700 mb-2">
-                URL Foto Gembala
+            <div class="space-y-2">
+              <label class="block text-sm font-medium text-gray-700">
+                Foto Gembala Sidang (maks. 2 MB)
               </label>
+
               <input
-                type="text"
-                id="pastorImageUrl"
-                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="assets/pastor.jpg"
+                type="file"
+                id="pastorImageFile"
+                accept="image/*"
+                class="block w-full text-sm text-gray-900 border border-gray-300 rounded-lg cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
+
+              <!-- Hidden input untuk menyimpan URL, dipakai JS & API -->
+              <input type="hidden" id="pastorImageUrl" />
+
               <p class="text-xs text-gray-500">
-                Untuk saat ini isi dengan path/URL foto yang sudah Anda upload
-                (misalnya di folder <code>assets</code>).
+                Pilih file gambar. Setelah diunggah, URL akan otomatis
+                tersimpan.
               </p>
+
               <img
                 id="pastorImagePreview"
-                class="mt-3 w-full max-h-64 object-cover rounded-lg shadow-sm hidden"
-                alt="Preview foto gembala"
+                src=""
+                alt="Foto Gembala"
+                class="mt-2 rounded-lg shadow-sm max-h-40 object-cover hidden"
               />
             </div>
           </div>
@@ -2318,6 +2332,105 @@
       // File video baru yang dipilih tapi belum di-upload
       let pendingHeroVideoFile = null;
 
+      // Helper: upload gambar ke /api/website-image-upload
+      async function uploadWebsiteImage(target, file) {
+        const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+        if (!file) {
+          throw new Error("File gambar tidak ditemukan.");
+        }
+        if (file.size > MAX_BYTES) {
+          throw new Error("Ukuran gambar melebihi 2 MB.");
+        }
+
+        const token = localStorage.getItem("authToken");
+        if (!token) {
+          throw new Error(
+            "Token login tidak ditemukan. Silakan login ulang kemudian coba lagi."
+          );
+        }
+
+        // File -> Base64
+        const base64Data = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () =>
+            reject(new Error("Gagal membaca file gambar (FileReader error)."));
+          reader.readAsDataURL(file);
+        });
+
+        const resp = await fetch("/api/website-image-upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            fileName: file.name,
+            mimeType: file.type || "image/jpeg",
+            base64Data,
+            target,
+          }),
+        });
+
+        const result = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          throw new Error(result.error || "Gagal mengunggah gambar.");
+        }
+
+        if (!result.url) {
+          throw new Error("Server tidak mengembalikan URL gambar.");
+        }
+
+        return result.url;
+      }
+
+      // Helper: pasang event change ke input file + update hidden + preview
+      function setupImageUploader(
+        sectionKey,
+        fileInputId,
+        urlInputId,
+        previewId
+      ) {
+        const fileInput = document.getElementById(fileInputId);
+        const urlInput = document.getElementById(urlInputId);
+        const preview = document.getElementById(previewId);
+
+        if (!fileInput) return;
+
+        fileInput.value = "";
+
+        fileInput.onchange = async () => {
+          const file = fileInput.files && fileInput.files[0];
+          if (!file) return;
+
+          try {
+            const url = await uploadWebsiteImage(sectionKey, file);
+
+            if (urlInput) {
+              urlInput.value = url;
+            }
+            if (preview) {
+              preview.src = url;
+              preview.classList.remove("hidden");
+            }
+
+            // sinkronkan dengan objek websiteContentData kalau ada
+            if (
+              typeof websiteContentData === "object" &&
+              websiteContentData[sectionKey]
+            ) {
+              websiteContentData[sectionKey].imageUrl = url;
+            }
+
+            alert("✅ Gambar berhasil diunggah.");
+          } catch (err) {
+            console.error(err);
+            alert("❌ " + (err.message || "Gagal mengunggah gambar."));
+            fileInput.value = "";
+          }
+        };
+      }
+
       async function loadWebsiteContent() {
         try {
           const response = await fetch("/api/website-content");
@@ -2525,6 +2638,20 @@
             pastorImagePreview.src = websiteContentData.pastor.imageUrl;
             pastorImagePreview.classList.remove("hidden");
           }
+
+          setupImageUploader(
+            "about",
+            "aboutImageFile",
+            "aboutImageUrl",
+            "aboutImagePreview"
+          );
+
+          setupImageUploader(
+            "pastor",
+            "pastorImageFile",
+            "pastorImageUrl",
+            "pastorImagePreview"
+          );
 
           // === Render cards jadwal ===
           renderScheduleCards();
