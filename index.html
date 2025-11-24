@@ -563,7 +563,7 @@
         <!-- Hero Section Editor -->
         <div class="bg-white rounded-lg shadow-md p-6 mb-6">
           <div class="flex items-center gap-3 mb-4">
-            <i class="fas fa-home text-blue-600 text-xl"></i>
+            <i class="fas fa-home text-amber-600 text-xl"></i>
             <h2 class="text-xl font-bold text-gray-800">
               Hero Section (Beranda)
             </h2>
@@ -612,7 +612,7 @@
                 id="heroVideoFile"
                 type="file"
                 accept="video/mp4,video/webm,video/ogg"
-                class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                class="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-amber-50 file:text-blue-700 hover:file:bg-blue-100"
               />
               <p class="mt-1 text-xs text-gray-500">
                 Format MP4/WebM/Ogg, ukuran maksimum ±4 MB (dibatasi server).
@@ -631,7 +631,7 @@
         <div class="bg-white rounded-lg shadow-md p-6">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-3">
-              <i class="fas fa-calendar-alt text-blue-600 text-xl"></i>
+              <i class="fas fa-calendar-alt text-amber-600 text-xl"></i>
               <h2 class="text-xl font-bold text-gray-800">
                 Jadwal Ibadah & Kegiatan
               </h2>
@@ -682,9 +682,9 @@
             <!-- Schedule cards will be dynamically inserted here -->
           </div>
 
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div class="bg-amber-50 border border-blue-200 rounded-lg p-4">
             <div class="flex gap-3">
-              <i class="fas fa-info-circle text-blue-600 mt-1"></i>
+              <i class="fas fa-info-circle text-amber-600 mt-1"></i>
               <div class="text-sm text-blue-800">
                 <strong>Petunjuk:</strong>
                 <ul class="list-disc list-inside mt-2 space-y-1">
@@ -699,7 +699,7 @@
         <!-- About Section Editor -->
         <div class="bg-white rounded-lg shadow-md p-6 mt-6">
           <div class="flex items-center gap-3 mb-4">
-            <i class="fas fa-info-circle text-blue-600 text-xl"></i>
+            <i class="fas fa-info-circle text-amber-600 text-xl"></i>
             <h2 class="text-xl font-bold text-gray-800">
               Section "Tentang Kami"
             </h2>
@@ -825,7 +825,7 @@
         <!-- Pastor Section Editor -->
         <div class="bg-white rounded-lg shadow-md p-6 mt-6">
           <div class="flex items-center gap-3 mb-4">
-            <i class="fas fa-user-tie text-blue-600 text-xl"></i>
+            <i class="fas fa-user-tie text-amber-600 text-xl"></i>
             <h2 class="text-xl font-bold text-gray-800">
               Section "Profil Gembala Sidang"
             </h2>
@@ -1676,7 +1676,7 @@
             ),
           }));
           container.innerHTML = `<div class="bg-white p-6 rounded-lg shadow-md">
-                <button id="back-to-list-btn" class="mb-4 text-blue-600 hover:underline"><i class="fas fa-arrow-left mr-2"></i>Kembali ke Daftar</button>
+                <button id="back-to-list-btn" class="mb-4 text-amber-600 hover:underline"><i class="fas fa-arrow-left mr-2"></i>Kembali ke Daftar</button>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="md:col-span-1">
                         <img src="${
@@ -1743,7 +1743,7 @@
                 "detail-borrow-feedback"
               );
               feedback.textContent = "Mengirim...";
-              feedback.className = "text-center font-semibold text-blue-600";
+              feedback.className = "text-center font-semibold text-amber-600";
               try {
                 await api.post("/api/assets", {
                   asset_id: assetId,
@@ -1832,7 +1832,7 @@
               menuItemsContainer.innerHTML = `
                         <a href="#" data-room='${JSON.stringify(
                           roomData
-                        )}' class="edit-room-link text-blue-600 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Edit</a>
+                        )}' class="edit-room-link text-amber-600 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Edit</a>
                         <a href="#" data-name="${roomName}" class="view-schedule-link text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Lihat Jadwal</a>
                         <a href="#" data-id="${roomId}" class="delete-room-link text-red-600 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Hapus</a>
                     `;
@@ -1928,7 +1928,7 @@
             borderColor: "#3b82f6",
           }));
           container.innerHTML = `<div class="bg-white p-6 rounded-lg shadow-md">
-                <button id="back-to-room-list-btn" class="mb-4 text-blue-600 hover:underline"><i class="fas fa-arrow-left mr-2"></i>Kembali ke Daftar Ruangan</button>
+                <button id="back-to-room-list-btn" class="mb-4 text-amber-600 hover:underline"><i class="fas fa-arrow-left mr-2"></i>Kembali ke Daftar Ruangan</button>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="md:col-span-1"><h2 class="text-2xl font-bold">${roomName}</h2><p class="text-gray-600 mt-2">Gunakan kalender di sebelah kanan untuk melihat jadwal yang sudah terisi.</p><div id="reservation-section-container" class="mt-6"></div></div>
                     <div class="md:col-span-2"><h3 class="text-xl font-semibold mb-2">Kalender Reservasi</h3><div id="detail-calendar" class="w-full h-full"></div></div>
@@ -1980,7 +1980,7 @@
                 "detail-reservation-feedback"
               );
               feedback.textContent = "Mengirim...";
-              feedback.className = "text-center font-semibold text-blue-600";
+              feedback.className = "text-center font-semibold text-amber-600";
               try {
                 await api.post("/api/rooms", {
                   room_name: roomName,
@@ -2022,7 +2022,7 @@
 
           container.innerHTML = `
                 <div class="bg-white p-6 rounded-lg shadow-md">
-                    <button id="back-to-management-view-btn" class="mb-4 text-blue-600 hover:underline"><i class="fas fa-arrow-left mr-2"></i>Kembali ke Manajemen Ruangan</button>
+                    <button id="back-to-management-view-btn" class="mb-4 text-amber-600 hover:underline"><i class="fas fa-arrow-left mr-2"></i>Kembali ke Manajemen Ruangan</button>
                     <h2 class="text-2xl font-bold mb-4">Jadwal untuk ${roomName}</h2>
                     <div id="management-schedule-calendar" class="w-full h-full"></div>
                 </div>

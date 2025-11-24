@@ -13,7 +13,7 @@ function getPublicClient() {
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
-// Client admin untuk POST/PUT (server-side)
+// Client admin untuk POST/PUT (server-side, pakai SERVICE KEY)
 function getServiceClient() {
   return createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 }
@@ -92,14 +92,14 @@ export default async function handler(req, res) {
 
       const formatted = {};
       (data || []).forEach((row) => {
-        formatted[row.content_key] = row.content_data;
+        formatted[row.content_key] = row.content_data || {};
       });
 
-      // setelah const formatted = {...}
       const heroData = formatted.hero || {};
       const schedulesData = formatted.schedules || {};
       const aboutData = formatted.about || {};
       const pastorData = formatted.pastor || {};
+      const contactData = formatted.contact || {};
 
       const result = {
         hero: {
@@ -139,6 +139,21 @@ export default async function handler(req, res) {
           whatsappUrl: pastorData.whatsappUrl ?? "https://wa.me/6287808786969",
           buttonText: pastorData.buttonText ?? "Hubungi Pendeta",
           imageUrl: pastorData.imageUrl ?? "assets/pastor.jpg",
+        },
+        contact: {
+          title: contactData.title ?? "Hubungi & Kunjungi Kami",
+          subtitle:
+            contactData.subtitle ?? "Kami senang dapat terhubung dengan Anda.",
+          addressTitle: contactData.addressTitle ?? "Alamat Gereja",
+          addressText:
+            contactData.addressText ??
+            "Jl. Raya Kutisari Indah No.139, Kutisari, Kec. Tenggilis Mejoyo, Surabaya, Jawa Timur 60291",
+          officeTitle: contactData.officeTitle ?? "Kantor Gereja",
+          officeText:
+            contactData.officeText ??
+            "Hubungi kami untuk informasi umum & administrasi.",
+          whatsappLabel: contactData.whatsappLabel ?? "WhatsApp Kantor",
+          whatsappUrl: contactData.whatsappUrl ?? "https://wa.me/6281332240711",
         },
       };
 
