@@ -93,9 +93,10 @@ export default async function handler(req, res) {
       });
     }
 
-    // target: hero / about / pastor
-    const folder =
-      target && ["hero", "about", "pastor"].includes(target) ? target : "hero";
+    // target: hero / about / pastor / transport
+    const allowedTargets = ["hero", "about", "pastor", "transport"];
+
+    const folder = target && allowedTargets.includes(target) ? target : "hero";
 
     // Bersihkan prefix data URL kalau ada
     const base64 = base64Data.includes(",")

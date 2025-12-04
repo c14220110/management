@@ -39,7 +39,7 @@ async function renderTransportMemberListView() {
   try {
     const transports = await api.get("/api/member?resource=transports");
 
-    if (transports.length === 0) {
+    if (!transports || transports.length === 0) {
       container.innerHTML = `<p class="text-gray-500">Belum ada kendaraan terdaftar.</p>`;
       return;
     }
@@ -49,7 +49,9 @@ async function renderTransportMemberListView() {
         ${transports
           .map(
             (t) => `
-          <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition cursor-pointer" onclick="renderTransportDetailView('${t.id}')">
+          <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition cursor-pointer" onclick="renderTransportDetailView('${
+            t.id
+          }')">
             <div class="h-40 bg-gray-200 flex items-center justify-center overflow-hidden">
               ${
                 t.image_url
@@ -61,8 +63,12 @@ async function renderTransportMemberListView() {
               <h3 class="text-lg font-bold text-gray-800">${t.vehicle_name}</h3>
               <p class="text-sm text-gray-500">${t.plate_number}</p>
               <div class="mt-2 flex items-center gap-4 text-sm text-gray-600">
-                <span><i class="fas fa-users mr-1"></i> ${t.capacity} orang</span>
-                <span><i class="fas fa-calendar-alt mr-1"></i> ${t.vehicle_year}</span>
+                <span><i class="fas fa-users mr-1"></i> ${
+                  t.capacity
+                } orang</span>
+                <span><i class="fas fa-calendar-alt mr-1"></i> ${
+                  t.vehicle_year
+                }</span>
               </div>
               ${
                 t.driver_name
@@ -94,16 +100,6 @@ async function renderTransportDetailView(transportId) {
       return;
     }
 
-    // Get schedule for this transport
-    const loans = await api.post("/api/management", {
-      action: "getPendingTransportLoans",
-    }).catch(() => []);
-
-    // Get all loans for calendar (approved + pending)
-    const allLoansResponse = await fetch("/api/member?resource=transports", {
-      headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
-    });
-
     container.innerHTML = `
       <button onclick="renderTransportMemberListView()" class="mb-4 text-[#d97706] hover:underline">
         <i class="fas fa-arrow-left mr-2"></i>Kembali ke Daftar
@@ -119,21 +115,48 @@ async function renderTransportDetailView(transportId) {
                 : `<i class="fas fa-shuttle-van text-6xl text-gray-400"></i>`
             }
           </div>
-          <h2 class="text-2xl font-bold text-gray-800 mb-2">${transport.vehicle_name}</h2>
+          <h2 class="text-2xl font-bold text-gray-800 mb-2">${
+            transport.vehicle_name
+          }</h2>
           <p class="text-lg text-gray-600 mb-4">${transport.plate_number}</p>
           
           <div class="space-y-2 text-sm text-gray-600">
-            <p><i class="fas fa-users w-6"></i> Kapasitas: ${transport.capacity} orang</p>
-            <p><i class="fas fa-calendar-alt w-6"></i> Tahun: ${transport.vehicle_year}</p>
+            <p><i class="fas fa-users w-6"></i> Kapasitas: ${
+              transport.capacity
+            } orang</p>
+            <p><i class="fas fa-calendar-alt w-6"></i> Tahun: ${
+              transport.vehicle_year
+            }</p>
             <p><i class="fas fa-tachometer-alt w-6"></i> Odometer: ${transport.odometer_km.toLocaleString()} km</p>
-            ${transport.driver_name ? `<p><i class="fas fa-id-badge w-6"></i> Sopir: ${transport.driver_name}</p>` : ""}
-            ${transport.driver_whatsapp ? `<p><i class="fab fa-whatsapp w-6"></i> WA Sopir: <a href="https://wa.me/${transport.driver_whatsapp.replace(/\D/g, "")}" target="_blank" class="text-green-600 hover:underline">${transport.driver_whatsapp}</a></p>` : ""}
-            ${transport.person_in_charge ? `<p><i class="fas fa-user-tie w-6"></i> PIC: ${transport.person_in_charge.full_name}</p>` : ""}
-            ${transport.notes ? `<p class="mt-2 p-2 bg-yellow-50 rounded"><i class="fas fa-sticky-note mr-2"></i>${transport.notes}</p>` : ""}
+            ${
+              transport.driver_name
+                ? `<p><i class="fas fa-id-badge w-6"></i> Sopir: ${transport.driver_name}</p>`
+                : ""
+            }
+            ${
+              transport.driver_whatsapp
+                ? `<p><i class="fab fa-whatsapp w-6"></i> WA Sopir: <a href="https://wa.me/${transport.driver_whatsapp.replace(
+                    /\D/g,
+                    ""
+                  )}" target="_blank" class="text-green-600 hover:underline">${
+                    transport.driver_whatsapp
+                  }</a></p>`
+                : ""
+            }
+            ${
+              transport.person_in_charge
+                ? `<p><i class="fas fa-user-tie w-6"></i> PIC: ${transport.person_in_charge.full_name}</p>`
+                : ""
+            }
+            ${
+              transport.notes
+                ? `<p class="mt-2 p-2 bg-yellow-50 rounded"><i class="fas fa-sticky-note mr-2"></i>${transport.notes}</p>`
+                : ""
+            }
           </div>
         </div>
         
-        <!-- Kalendar & Form -->
+        <!-- Kalender & Form -->
         <div class="bg-white rounded-lg shadow-md p-6">
           <h3 class="text-lg font-bold text-gray-800 mb-4">Jadwal Peminjaman</h3>
           <div id="transport-calendar" class="mb-6"></div>
@@ -176,7 +199,9 @@ async function renderTransportDetailView(transportId) {
             
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Penumpang</label>
-              <input type="number" id="transport-borrow-passengers" min="1" max="${transport.capacity}" value="1"
+              <input type="number" id="transport-borrow-passengers" min="1" max="${
+                transport.capacity
+              }" value="1"
                 class="w-full p-2 border border-gray-300 rounded-md" />
             </div>
             
@@ -188,10 +213,8 @@ async function renderTransportDetailView(transportId) {
       </div>
     `;
 
-    // Initialize FullCalendar
     await initTransportCalendar(transportId);
 
-    // Form handler
     document
       .getElementById("transport-borrow-form")
       .addEventListener("submit", handleTransportBorrowSubmit);
@@ -206,7 +229,6 @@ async function initTransportCalendar(transportId) {
   const calendarEl = document.getElementById("transport-calendar");
   if (!calendarEl) return;
 
-  // Fetch loans for this transport
   let events = [];
   try {
     const response = await fetch(
@@ -247,10 +269,12 @@ async function initTransportCalendar(transportId) {
       right: "dayGridMonth,timeGridWeek",
     },
     height: 400,
-    events: events,
-    eventClick: function (info) {
+    events,
+    eventClick(info) {
       alert(
-        `${info.event.title}\n${new Date(info.event.start).toLocaleString()} - ${new Date(info.event.end).toLocaleString()}`
+        `${info.event.title}\n${new Date(
+          info.event.start
+        ).toLocaleString()} - ${new Date(info.event.end).toLocaleString()}`
       );
     },
   });
@@ -269,9 +293,11 @@ async function handleTransportBorrowSubmit(e) {
       borrow_end: document.getElementById("transport-borrow-end").value,
       purpose: document.getElementById("transport-borrow-purpose").value,
       origin: document.getElementById("transport-borrow-origin").value,
-      destination: document.getElementById("transport-borrow-destination").value,
+      destination: document.getElementById("transport-borrow-destination")
+        .value,
       passengers_count: parseInt(
-        document.getElementById("transport-borrow-passengers").value
+        document.getElementById("transport-borrow-passengers").value,
+        10
       ),
     };
 
@@ -295,7 +321,6 @@ let managementUserListForTransport = [];
 async function renderTransportManagementView() {
   const container = document.getElementById("transportasi-content-area");
 
-  // Load users for PIC dropdown
   try {
     managementUserListForTransport = await api.post("/api/management", {
       action: "getUsers",
@@ -324,7 +349,6 @@ async function renderTransportManagementView() {
 }
 
 async function showTransportManagementTab(tab) {
-  // Update tab buttons
   document.getElementById("tab-transport-list").className =
     tab === "list"
       ? "px-4 py-2 rounded-md bg-[#d97706] text-white font-semibold"
@@ -372,7 +396,7 @@ async function renderTransportCrudView() {
           </thead>
           <tbody>
             ${
-              transports.length === 0
+              !transports || transports.length === 0
                 ? `<tr><td colspan="7" class="p-4 text-center text-gray-500">Belum ada data kendaraan.</td></tr>`
                 : transports
                     .map(
@@ -385,7 +409,9 @@ async function renderTransportCrudView() {
                   <td class="p-3">${t.person_in_charge?.full_name || "-"}</td>
                   <td class="p-3">${t.driver_name || "-"}</td>
                   <td class="p-3 whitespace-nowrap">
-                    <button onclick='openTransportModal("edit", ${JSON.stringify(t).replace(/'/g, "\\'")})' 
+                    <button onclick='openTransportModal("edit", ${JSON.stringify(
+                      t
+                    ).replace(/'/g, "\\'")})' 
                       class="text-blue-500 hover:underline mr-3">Edit</button>
                     <button onclick="deleteTransportation('${t.id}')" 
                       class="text-red-500 hover:underline">Hapus</button>
@@ -430,27 +456,43 @@ async function renderTransportPendingView() {
           </thead>
           <tbody>
             ${
-              pendingLoans.length === 0
+              !pendingLoans || pendingLoans.length === 0
                 ? `<tr><td colspan="6" class="p-4 text-center text-gray-500">Tidak ada permintaan menunggu.</td></tr>`
                 : pendingLoans
                     .map(
                       (loan) => `
                 <tr class="border-b hover:bg-gray-50">
-                  <td class="p-3 font-medium">${loan.profiles?.full_name || "-"}</td>
-                  <td class="p-3">${loan.transportations?.vehicle_name || "-"}<br><span class="text-xs text-gray-500">${loan.transportations?.plate_number || ""}</span></td>
+                  <td class="p-3 font-medium">${
+                    loan.profiles?.full_name || "-"
+                  }</td>
+                  <td class="p-3">
+                    ${loan.transportations?.vehicle_name || "-"}<br>
+                    <span class="text-xs text-gray-500">${
+                      loan.transportations?.plate_number || ""
+                    }</span>
+                  </td>
                   <td class="p-3 text-sm">
                     ${new Date(loan.borrow_start).toLocaleString("id-ID")}<br>
                     <span class="text-gray-500">s/d</span><br>
                     ${new Date(loan.borrow_end).toLocaleString("id-ID")}
                   </td>
                   <td class="p-3">${loan.purpose || "-"}</td>
-                  <td class="p-3 text-sm">${loan.origin || "-"} → ${loan.destination || "-"}<br><span class="text-xs text-gray-500">${loan.passengers_count || 1} org</span></td>
+                  <td class="p-3 text-sm">
+                    ${loan.origin || "-"} → ${loan.destination || "-"}<br>
+                    <span class="text-xs text-gray-500">${
+                      loan.passengers_count || 1
+                    } org</span>
+                  </td>
                   <td class="p-3 whitespace-nowrap">
-                    <button onclick="updateTransportLoanStatus('${loan.id}', 'Disetujui')" 
+                    <button onclick="updateTransportLoanStatus('${
+                      loan.id
+                    }', 'Disetujui')" 
                       class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 mr-2">
                       <i class="fas fa-check"></i> Setujui
                     </button>
-                    <button onclick="updateTransportLoanStatus('${loan.id}', 'Ditolak')" 
+                    <button onclick="updateTransportLoanStatus('${
+                      loan.id
+                    }', 'Ditolak')" 
                       class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">
                       <i class="fas fa-times"></i> Tolak
                     </button>
@@ -472,7 +514,15 @@ async function renderTransportPendingView() {
 }
 
 async function updateTransportLoanStatus(loanId, newStatus) {
-  if (!confirm(`Yakin ingin ${newStatus === "Disetujui" ? "menyetujui" : "menolak"} peminjaman ini?`)) return;
+  if (
+    !confirm(
+      `Yakin ingin ${
+        newStatus === "Disetujui" ? "menyetujui" : "menolak"
+      } peminjaman ini?`
+    )
+  ) {
+    return;
+  }
 
   showLoader();
   try {
@@ -490,7 +540,6 @@ async function updateTransportLoanStatus(loanId, newStatus) {
 }
 
 function openTransportModal(mode, data = {}) {
-  // Create modal if not exists
   let modal = document.getElementById("transport-modal");
   if (!modal) {
     modal = document.createElement("div");
@@ -546,9 +595,44 @@ function openTransportModal(mode, data = {}) {
               <input type="date" id="transport-modal-next-service" class="w-full p-2 border border-gray-300 rounded-md" />
             </div>
             <div class="md:col-span-2">
-              <label class="block text-sm font-medium text-gray-700 mb-1">URL Gambar</label>
-              <input type="url" id="transport-modal-image" placeholder="https://..." class="w-full p-2 border border-gray-300 rounded-md" />
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Foto Kendaraan (maks. 2 MB)
+              </label>
+
+              <div class="flex items-center gap-4">
+                <!-- Preview -->
+                <div class="w-32 h-20 bg-gray-100 rounded-md flex items-center justify-center overflow-hidden">
+                  <img
+                    id="transport-modal-image-preview"
+                    src=""
+                    alt="Preview Kendaraan"
+                    class="w-full h-full object-cover hidden"
+                  />
+                  <i
+                    id="transport-modal-image-placeholder"
+                    class="fas fa-shuttle-van text-3xl text-gray-400"
+                  ></i>
+                </div>
+
+                <!-- Input file + hidden URL -->
+                <div class="flex-1 space-y-2">
+                  <input
+                    type="file"
+                    id="transport-modal-image-file"
+                    accept="image/*"
+                    class="block w-full text-sm text-gray-900 border border-gray-300 rounded-md cursor-pointer bg-gray-50 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                  />
+
+                  <!-- Hidden: URL dari server disimpan di sini -->
+                  <input type="hidden" id="transport-modal-image" />
+
+                  <p class="text-xs text-gray-500">
+                    Pilih file untuk mengunggah foto. Jika tidak diisi, foto akan dibiarkan kosong atau tetap.
+                  </p>
+                </div>
+              </div>
             </div>
+
             <div class="md:col-span-2">
               <label class="block text-sm font-medium text-gray-700 mb-1">Catatan</label>
               <textarea id="transport-modal-notes" rows="2" class="w-full p-2 border border-gray-300 rounded-md"></textarea>
@@ -562,34 +646,100 @@ function openTransportModal(mode, data = {}) {
       </div>
     `;
     document.body.appendChild(modal);
-    document
-      .getElementById("transport-modal-form")
-      .addEventListener("submit", handleTransportFormSubmit);
+
+    const form = document.getElementById("transport-modal-form");
+    if (form) {
+      form.addEventListener("submit", handleTransportFormSubmit);
+    }
+
+    const imageFileInput = document.getElementById(
+      "transport-modal-image-file"
+    );
+    const imagePreview = document.getElementById(
+      "transport-modal-image-preview"
+    );
+    const imagePlaceholder = document.getElementById(
+      "transport-modal-image-placeholder"
+    );
+
+    if (imageFileInput) {
+      imageFileInput.addEventListener("change", () => {
+        const file =
+          imageFileInput.files && imageFileInput.files.length > 0
+            ? imageFileInput.files[0]
+            : null;
+        if (file && imagePreview && imagePlaceholder) {
+          const blobUrl = URL.createObjectURL(file);
+          imagePreview.src = blobUrl;
+          imagePreview.classList.remove("hidden");
+          imagePlaceholder.classList.add("hidden");
+        } else if (imagePreview && imagePlaceholder) {
+          imagePreview.src = "";
+          imagePreview.classList.add("hidden");
+          imagePlaceholder.classList.remove("hidden");
+        }
+      });
+    }
   }
 
   // Populate PIC dropdown
   const picSelect = document.getElementById("transport-modal-pic");
   picSelect.innerHTML = `<option value="">Pilih PIC...</option>`;
   managementUserListForTransport.forEach((u) => {
-    picSelect.innerHTML += `<option value="${u.id}">${u.full_name || u.email}</option>`;
+    picSelect.innerHTML += `<option value="${u.id}">${
+      u.full_name || u.email
+    }</option>`;
   });
 
-  // Fill form
+  // Fill form fields
   document.getElementById("transport-modal-title").textContent =
     mode === "edit" ? "Edit Kendaraan" : "Tambah Kendaraan Baru";
   document.getElementById("transport-modal-id").value = data.id || "";
-  document.getElementById("transport-modal-name").value = data.vehicle_name || "";
-  document.getElementById("transport-modal-plate").value = data.plate_number || "";
-  document.getElementById("transport-modal-year").value = data.vehicle_year || new Date().getFullYear();
-  document.getElementById("transport-modal-odometer").value = data.odometer_km || 0;
-  document.getElementById("transport-modal-capacity").value = data.capacity || 7;
-  document.getElementById("transport-modal-pic").value = data.person_in_charge_id || "";
-  document.getElementById("transport-modal-driver").value = data.driver_name || "";
-  document.getElementById("transport-modal-driver-wa").value = data.driver_whatsapp || "";
-  document.getElementById("transport-modal-last-service").value = data.last_service_at || "";
-  document.getElementById("transport-modal-next-service").value = data.next_service_at || "";
+  document.getElementById("transport-modal-name").value =
+    data.vehicle_name || "";
+  document.getElementById("transport-modal-plate").value =
+    data.plate_number || "";
+  document.getElementById("transport-modal-year").value =
+    data.vehicle_year || new Date().getFullYear();
+  document.getElementById("transport-modal-odometer").value =
+    data.odometer_km || 0;
+  document.getElementById("transport-modal-capacity").value =
+    data.capacity || 7;
+  document.getElementById("transport-modal-pic").value =
+    data.person_in_charge_id || "";
+  document.getElementById("transport-modal-driver").value =
+    data.driver_name || "";
+  document.getElementById("transport-modal-driver-wa").value =
+    data.driver_whatsapp || "";
+  document.getElementById("transport-modal-last-service").value =
+    data.last_service_at || "";
+  document.getElementById("transport-modal-next-service").value =
+    data.next_service_at || "";
   document.getElementById("transport-modal-image").value = data.image_url || "";
   document.getElementById("transport-modal-notes").value = data.notes || "";
+
+  const imageFileInput = document.getElementById("transport-modal-image-file");
+  const imagePreview = document.getElementById("transport-modal-image-preview");
+  const imagePlaceholder = document.getElementById(
+    "transport-modal-image-placeholder"
+  );
+
+  if (imageFileInput) {
+    imageFileInput.value = "";
+  }
+
+  const existingImageUrl = data.image_url || "";
+  if (imagePreview && imagePlaceholder) {
+    if (existingImageUrl) {
+      imagePreview.src = existingImageUrl;
+      imagePreview.classList.remove("hidden");
+      imagePlaceholder.classList.add("hidden");
+    } else {
+      imagePreview.src = "";
+      imagePreview.classList.add("hidden");
+      imagePlaceholder.classList.remove("hidden");
+    }
+  }
 
   modal.classList.remove("hidden");
   modal.classList.add("flex");
@@ -603,6 +753,58 @@ function closeTransportModal() {
   }
 }
 
+// Helper upload gambar kendaraan via /api/website-hero-video
+async function uploadTransportImage(file) {
+  const MAX_BYTES = 2 * 1024 * 1024; // 2 MB
+
+  if (!file) {
+    throw new Error("File gambar tidak ditemukan.");
+  }
+  if (file.size > MAX_BYTES) {
+    throw new Error("Ukuran gambar melebihi 2 MB.");
+  }
+
+  const token = localStorage.getItem("authToken");
+  if (!token) {
+    throw new Error(
+      "Token login tidak ditemukan. Silakan login ulang kemudian coba lagi."
+    );
+  }
+
+  const base64Data = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () =>
+      reject(new Error("Gagal membaca file gambar (FileReader error)."));
+    reader.readAsDataURL(file);
+  });
+
+  const resp = await fetch("/api/website-hero-video", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      fileName: file.name,
+      mimeType: file.type || "image/jpeg",
+      base64Data,
+      target: "transport",
+    }),
+  });
+
+  const result = await resp.json().catch(() => ({}));
+  if (!resp.ok) {
+    throw new Error(result.error || "Gagal mengunggah gambar kendaraan.");
+  }
+
+  if (!result.url) {
+    throw new Error("Server tidak mengembalikan URL gambar.");
+  }
+
+  return result.url;
+}
+
 async function handleTransportFormSubmit(e) {
   e.preventDefault();
   showLoader();
@@ -610,24 +812,60 @@ async function handleTransportFormSubmit(e) {
   const transportId = document.getElementById("transport-modal-id").value;
   const action = transportId ? "updateTransportation" : "createTransportation";
 
-  const payload = {
-    vehicle_name: document.getElementById("transport-modal-name").value,
-    plate_number: document.getElementById("transport-modal-plate").value,
-    vehicle_year: parseInt(document.getElementById("transport-modal-year").value),
-    odometer_km: parseInt(document.getElementById("transport-modal-odometer").value) || 0,
-    capacity: parseInt(document.getElementById("transport-modal-capacity").value),
-    person_in_charge_id: document.getElementById("transport-modal-pic").value,
-    driver_name: document.getElementById("transport-modal-driver").value || null,
-    driver_whatsapp: document.getElementById("transport-modal-driver-wa").value || null,
-    last_service_at: document.getElementById("transport-modal-last-service").value || null,
-    next_service_at: document.getElementById("transport-modal-next-service").value || null,
-    image_url: document.getElementById("transport-modal-image").value || null,
-    notes: document.getElementById("transport-modal-notes").value || null,
-  };
-
-  if (transportId) payload.transportId = transportId;
-
   try {
+    const imageFileInput = document.getElementById(
+      "transport-modal-image-file"
+    );
+    const imageUrlInput = document.getElementById("transport-modal-image");
+
+    let imageUrl = imageUrlInput ? imageUrlInput.value.trim() : "";
+    const file =
+      imageFileInput && imageFileInput.files && imageFileInput.files.length > 0
+        ? imageFileInput.files[0]
+        : null;
+
+    // Kalau ada file baru → upload dulu, pakai URL hasil upload
+    if (file) {
+      imageUrl = await uploadTransportImage(file);
+      if (imageUrlInput) {
+        imageUrlInput.value = imageUrl;
+      }
+    }
+
+    const payload = {
+      vehicle_name: document.getElementById("transport-modal-name").value,
+      plate_number: document.getElementById("transport-modal-plate").value,
+      vehicle_year: parseInt(
+        document.getElementById("transport-modal-year").value,
+        10
+      ),
+      odometer_km:
+        parseInt(
+          document.getElementById("transport-modal-odometer").value,
+          10
+        ) || 0,
+      capacity: parseInt(
+        document.getElementById("transport-modal-capacity").value,
+        10
+      ),
+      person_in_charge_id:
+        document.getElementById("transport-modal-pic").value || null,
+      driver_name:
+        document.getElementById("transport-modal-driver").value || null,
+      driver_whatsapp:
+        document.getElementById("transport-modal-driver-wa").value || null,
+      last_service_at:
+        document.getElementById("transport-modal-last-service").value || null,
+      next_service_at:
+        document.getElementById("transport-modal-next-service").value || null,
+      image_url: imageUrl || null,
+      notes: document.getElementById("transport-modal-notes").value || null,
+    };
+
+    if (transportId) {
+      payload.transportId = transportId;
+    }
+
     const result = await api.post("/api/management", { action, payload });
     alert(result.message);
     closeTransportModal();
