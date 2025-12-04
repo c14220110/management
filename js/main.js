@@ -86,6 +86,7 @@ function closeGlobalActionMenu() {
   ensureGlobalActionMenuElements();
   if (globalActionMenuState.menuEl) {
     globalActionMenuState.menuEl.classList.add("hidden");
+    globalActionMenuState.menuEl.style.visibility = "";
   }
   if (globalActionMenuState.itemsEl) {
     globalActionMenuState.itemsEl.innerHTML = "";
@@ -126,14 +127,42 @@ function openGlobalActionMenu({ triggerElement, items = [] }) {
     return;
   }
 
-  const rect = triggerElement.getBoundingClientRect();
-  globalActionMenuState.menuEl.style.left = `${
-    rect.left + window.scrollX
-  }px`;
-  globalActionMenuState.menuEl.style.top = `${
-    rect.bottom + window.scrollY + 4
-  }px`;
+  // Prepare for measurement without flashing
+  globalActionMenuState.menuEl.style.visibility = "hidden";
   globalActionMenuState.menuEl.classList.remove("hidden");
+
+  const menuWidth = globalActionMenuState.menuEl.offsetWidth;
+  const menuHeight = globalActionMenuState.menuEl.offsetHeight;
+
+  const rect = triggerElement.getBoundingClientRect();
+  const viewportLeft = window.scrollX;
+  const viewportRight = window.scrollX + window.innerWidth;
+  const viewportTop = window.scrollY;
+  const viewportBottom = window.scrollY + window.innerHeight;
+
+  let left = rect.left + window.scrollX;
+  let top = rect.bottom + window.scrollY + 4;
+
+  const padding = 8;
+  const maxLeft = viewportRight - menuWidth - padding;
+  if (left > maxLeft) {
+    left = Math.max(viewportLeft + padding, maxLeft);
+  } else if (left < viewportLeft + padding) {
+    left = viewportLeft + padding;
+  }
+
+  if (top + menuHeight > viewportBottom - padding) {
+    const above = rect.top + window.scrollY - menuHeight - 4;
+    if (above >= viewportTop + padding) {
+      top = above;
+    } else {
+      top = viewportBottom - menuHeight - padding;
+    }
+  }
+
+  globalActionMenuState.menuEl.style.left = `${left}px`;
+  globalActionMenuState.menuEl.style.top = `${top}px`;
+  globalActionMenuState.menuEl.style.visibility = "visible";
 }
 
 window.openGlobalActionMenu = openGlobalActionMenu;
