@@ -81,7 +81,7 @@ async function uploadWebsiteImage(target, file) {
     reader.readAsDataURL(file);
   });
 
-  const resp = await fetch("/api/website?action=upload", {
+  const resp = await fetch("/api/website-hero-video", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -108,12 +108,7 @@ async function uploadWebsiteImage(target, file) {
 }
 
 // Helper: pasang event change ke input file + update hidden + preview
-function setupImageUploader(
-  sectionKey,
-  fileInputId,
-  urlInputId,
-  previewId
-) {
+function setupImageUploader(sectionKey, fileInputId, urlInputId, previewId) {
   const fileInput = document.getElementById(fileInputId);
   const urlInput = document.getElementById(urlInputId);
   const preview = document.getElementById(previewId);
@@ -156,7 +151,7 @@ function setupImageUploader(
 
 async function loadWebsiteContent() {
   try {
-    const response = await fetch("/api/website");
+    const response = await fetch("/api/website-content");
     if (!response.ok) throw new Error("Gagal memuat konten website");
 
     const data = await response.json();
@@ -199,8 +194,7 @@ async function loadWebsiteContent() {
       description:
         data.pastor?.description ??
         "Gembala sidang yang memimpin dengan dedikasi dan kasih, membimbing jemaat dalam pertumbuhan rohani.",
-      whatsappUrl:
-        data.pastor?.whatsappUrl ?? "https://wa.me/6287808786969",
+      whatsappUrl: data.pastor?.whatsappUrl ?? "https://wa.me/6287808786969",
       buttonText: data.pastor?.buttonText ?? "Hubungi Pendeta",
       imageUrl: data.pastor?.imageUrl ?? "assets/pastor.jpg",
     };
@@ -258,11 +252,9 @@ async function loadWebsiteContent() {
 
     // === Populate SCHEDULES ===
     const schedulesTitleInput = document.getElementById("schedulesTitle");
-    const schedulesSubtitleInput =
-      document.getElementById("schedulesSubtitle");
+    const schedulesSubtitleInput = document.getElementById("schedulesSubtitle");
     if (schedulesTitleInput)
-      schedulesTitleInput.value =
-        websiteContentData.schedules.title || "";
+      schedulesTitleInput.value = websiteContentData.schedules.title || "";
     if (schedulesSubtitleInput)
       schedulesSubtitleInput.value =
         websiteContentData.schedules.subtitle || "";
@@ -270,26 +262,21 @@ async function loadWebsiteContent() {
     // === Populate ABOUT ===
     const aboutBadgeInput = document.getElementById("aboutBadge");
     const aboutHeadingInput = document.getElementById("aboutHeading");
-    const aboutParagraph1Input =
-      document.getElementById("aboutParagraph1");
-    const aboutParagraph2Input =
-      document.getElementById("aboutParagraph2");
+    const aboutParagraph1Input = document.getElementById("aboutParagraph1");
+    const aboutParagraph2Input = document.getElementById("aboutParagraph2");
     const aboutCtaTextInput = document.getElementById("aboutCtaText");
     const aboutCtaUrlInput = document.getElementById("aboutCtaUrl");
     const aboutImageUrlInput = document.getElementById("aboutImageUrl");
-    const aboutImagePreview =
-      document.getElementById("aboutImagePreview");
+    const aboutImagePreview = document.getElementById("aboutImagePreview");
 
     if (aboutBadgeInput)
       aboutBadgeInput.value = websiteContentData.about.badge || "";
     if (aboutHeadingInput)
       aboutHeadingInput.value = websiteContentData.about.heading || "";
     if (aboutParagraph1Input)
-      aboutParagraph1Input.value =
-        websiteContentData.about.paragraph1 || "";
+      aboutParagraph1Input.value = websiteContentData.about.paragraph1 || "";
     if (aboutParagraph2Input)
-      aboutParagraph2Input.value =
-        websiteContentData.about.paragraph2 || "";
+      aboutParagraph2Input.value = websiteContentData.about.paragraph2 || "";
     if (aboutCtaTextInput)
       aboutCtaTextInput.value = websiteContentData.about.ctaText || "";
     if (aboutCtaUrlInput)
@@ -317,15 +304,11 @@ async function loadWebsiteContent() {
     const pastorBadgeInput = document.getElementById("pastorBadge");
     const pastorNameInput = document.getElementById("pastorName");
     const pastorPhoneInput = document.getElementById("pastorPhone");
-    const pastorDescriptionInput =
-      document.getElementById("pastorDescription");
-    const pastorWhatsappUrlInput =
-      document.getElementById("pastorWhatsappUrl");
-    const pastorButtonTextInput =
-      document.getElementById("pastorButtonText");
+    const pastorDescriptionInput = document.getElementById("pastorDescription");
+    const pastorWhatsappUrlInput = document.getElementById("pastorWhatsappUrl");
+    const pastorButtonTextInput = document.getElementById("pastorButtonText");
     const pastorImageUrlInput = document.getElementById("pastorImageUrl");
-    const pastorImagePreview =
-      document.getElementById("pastorImagePreview");
+    const pastorImagePreview = document.getElementById("pastorImagePreview");
 
     if (pastorBadgeInput)
       pastorBadgeInput.value = websiteContentData.pastor.badge || "";
@@ -340,11 +323,9 @@ async function loadWebsiteContent() {
       pastorWhatsappUrlInput.value =
         websiteContentData.pastor.whatsappUrl || "";
     if (pastorButtonTextInput)
-      pastorButtonTextInput.value =
-        websiteContentData.pastor.buttonText || "";
+      pastorButtonTextInput.value = websiteContentData.pastor.buttonText || "";
     if (pastorImageUrlInput) {
-      pastorImageUrlInput.value =
-        websiteContentData.pastor.imageUrl || "";
+      pastorImageUrlInput.value = websiteContentData.pastor.imageUrl || "";
       pastorImageUrlInput.oninput = () => {
         const url = pastorImageUrlInput.value.trim();
         if (pastorImagePreview) {
@@ -419,9 +400,7 @@ async function loadWebsiteContent() {
 
         const token = localStorage.getItem("authToken");
         if (!token) {
-          throw new Error(
-            "Token login tidak ditemukan. Silakan login ulang."
-          );
+          throw new Error("Token login tidak ditemukan. Silakan login ulang.");
         }
 
         const base64Data = await new Promise((resolve, reject) => {
@@ -431,12 +410,11 @@ async function loadWebsiteContent() {
             const base64 = result.toString().split(",")[1] || "";
             resolve(base64);
           };
-          reader.onerror = () =>
-            reject(new Error("Gagal membaca file video."));
+          reader.onerror = () => reject(new Error("Gagal membaca file video."));
           reader.readAsDataURL(file);
         });
 
-        const resp = await fetch("/api/website?action=upload", {
+        const resp = await fetch("/api/website-hero-video", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -477,8 +455,7 @@ async function loadWebsiteContent() {
           // Ambil nilai terbaru dari form
           const heroTitle = document.getElementById("heroTitle");
           const heroSubtitle = document.getElementById("heroSubtitle");
-          const schedulesTitle =
-            document.getElementById("schedulesTitle");
+          const schedulesTitle = document.getElementById("schedulesTitle");
           const schedulesSubtitle =
             document.getElementById("schedulesSubtitle");
 
@@ -488,34 +465,27 @@ async function loadWebsiteContent() {
           if (schedulesTitle)
             websiteContentData.schedules.title = schedulesTitle.value;
           if (schedulesSubtitle)
-            websiteContentData.schedules.subtitle =
-              schedulesSubtitle.value;
+            websiteContentData.schedules.subtitle = schedulesSubtitle.value;
 
           // ABOUT
           const aboutBadgeInput2 = document.getElementById("aboutBadge");
-          const aboutHeadingInput2 =
-            document.getElementById("aboutHeading");
+          const aboutHeadingInput2 = document.getElementById("aboutHeading");
           const aboutParagraph1Input2 =
             document.getElementById("aboutParagraph1");
           const aboutParagraph2Input2 =
             document.getElementById("aboutParagraph2");
-          const aboutCtaTextInput2 =
-            document.getElementById("aboutCtaText");
-          const aboutCtaUrlInput2 =
-            document.getElementById("aboutCtaUrl");
-          const aboutImageUrlInput2 =
-            document.getElementById("aboutImageUrl");
+          const aboutCtaTextInput2 = document.getElementById("aboutCtaText");
+          const aboutCtaUrlInput2 = document.getElementById("aboutCtaUrl");
+          const aboutImageUrlInput2 = document.getElementById("aboutImageUrl");
 
           if (aboutBadgeInput2)
             websiteContentData.about.badge = aboutBadgeInput2.value;
           if (aboutHeadingInput2)
             websiteContentData.about.heading = aboutHeadingInput2.value;
           if (aboutParagraph1Input2)
-            websiteContentData.about.paragraph1 =
-              aboutParagraph1Input2.value;
+            websiteContentData.about.paragraph1 = aboutParagraph1Input2.value;
           if (aboutParagraph2Input2)
-            websiteContentData.about.paragraph2 =
-              aboutParagraph2Input2.value;
+            websiteContentData.about.paragraph2 = aboutParagraph2Input2.value;
           if (aboutCtaTextInput2)
             websiteContentData.about.ctaText = aboutCtaTextInput2.value;
           if (aboutCtaUrlInput2)
@@ -524,11 +494,9 @@ async function loadWebsiteContent() {
             websiteContentData.about.imageUrl = aboutImageUrlInput2.value;
 
           // PASTOR
-          const pastorBadgeInput2 =
-            document.getElementById("pastorBadge");
+          const pastorBadgeInput2 = document.getElementById("pastorBadge");
           const pastorNameInput2 = document.getElementById("pastorName");
-          const pastorPhoneInput2 =
-            document.getElementById("pastorPhone");
+          const pastorPhoneInput2 = document.getElementById("pastorPhone");
           const pastorDescriptionInput2 =
             document.getElementById("pastorDescription");
           const pastorWhatsappUrlInput2 =
@@ -551,11 +519,9 @@ async function loadWebsiteContent() {
             websiteContentData.pastor.whatsappUrl =
               pastorWhatsappUrlInput2.value;
           if (pastorButtonTextInput2)
-            websiteContentData.pastor.buttonText =
-              pastorButtonTextInput2.value;
+            websiteContentData.pastor.buttonText = pastorButtonTextInput2.value;
           if (pastorImageUrlInput2)
-            websiteContentData.pastor.imageUrl =
-              pastorImageUrlInput2.value;
+            websiteContentData.pastor.imageUrl = pastorImageUrlInput2.value;
 
           // Validasi minimal (tetap sama untuk hero & jadwal)
           if (
@@ -568,16 +534,10 @@ async function loadWebsiteContent() {
             throw new Error("Minimal harus ada 1 jadwal!");
           }
 
-          for (
-            let i = 0;
-            i < websiteContentData.schedules.items.length;
-            i++
-          ) {
+          for (let i = 0; i < websiteContentData.schedules.items.length; i++) {
             const item = websiteContentData.schedules.items[i];
             if (!item.name || !item.time || !item.description) {
-              throw new Error(
-                `Jadwal #${i + 1}: Semua field harus diisi!`
-              );
+              throw new Error(`Jadwal #${i + 1}: Semua field harus diisi!`);
             }
           }
 
@@ -592,7 +552,7 @@ async function loadWebsiteContent() {
           };
 
           // Hero
-          const heroResponse = await fetch("/api/website", {
+          const heroResponse = await fetch("/api/website-content", {
             method: "POST",
             headers: authHeader,
             body: JSON.stringify({
@@ -606,7 +566,7 @@ async function loadWebsiteContent() {
           }
 
           // Schedules
-          const schedulesResponse = await fetch("/api/website", {
+          const schedulesResponse = await fetch("/api/website-content", {
             method: "POST",
             headers: authHeader,
             body: JSON.stringify({
@@ -620,7 +580,7 @@ async function loadWebsiteContent() {
           }
 
           // About
-          const aboutResponse = await fetch("/api/website", {
+          const aboutResponse = await fetch("/api/website-content", {
             method: "POST",
             headers: authHeader,
             body: JSON.stringify({
@@ -636,7 +596,7 @@ async function loadWebsiteContent() {
           }
 
           // Pastor
-          const pastorResponse = await fetch("/api/website", {
+          const pastorResponse = await fetch("/api/website-content", {
             method: "POST",
             headers: authHeader,
             body: JSON.stringify({
@@ -697,9 +657,7 @@ function renderScheduleCards() {
           </button>
           <button onclick="moveSchedule(${index}, 'down')" class="p-2 hover:bg-gray-200 rounded transition text-gray-600 ${
       index === items.length - 1 ? "opacity-30 cursor-not-allowed" : ""
-    }" ${
-      index === items.length - 1 ? "disabled" : ""
-    } title="Pindah ke bawah">
+    }" ${index === items.length - 1 ? "disabled" : ""} title="Pindah ke bawah">
             <i class="fas fa-chevron-down"></i>
           </button>
         </div>
