@@ -261,23 +261,20 @@ async function initTransportCalendar(transportId) {
     transportCalendarInstance.destroy();
   }
 
-  transportCalendarInstance = new FullCalendar.Calendar(calendarEl, {
-    initialView: "dayGridMonth",
-    headerToolbar: {
-      left: "prev,next today",
-      center: "title",
-      right: "dayGridMonth,timeGridWeek",
-    },
-    height: 400,
-    events,
-    eventClick(info) {
-      alert(
-        `${info.event.title}\n${new Date(
-          info.event.start
-        ).toLocaleString()} - ${new Date(info.event.end).toLocaleString()}`
-      );
-    },
-  });
+  transportCalendarInstance = new FullCalendar.Calendar(
+    calendarEl,
+    window.getResponsiveCalendarOptions({
+      locale: "id",
+      events,
+      eventClick(info) {
+        alert(
+          `${info.event.title}\n${new Date(
+            info.event.start
+          ).toLocaleString()} - ${new Date(info.event.end).toLocaleString()}`
+        );
+      },
+    })
+  );
 
   transportCalendarInstance.render();
 }

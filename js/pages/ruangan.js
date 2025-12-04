@@ -175,19 +175,16 @@ async function renderRuanganDetailView(roomName) {
           </div></div>`;
     const calendarEl = document.getElementById("detail-calendar");
     if (fullCalendarInstance) fullCalendarInstance.destroy();
-    fullCalendarInstance = new FullCalendar.Calendar(calendarEl, {
-      initialView: "timeGridWeek",
-      headerToolbar: {
-        left: "prev,next today",
-        center: "title",
-        right: "dayGridMonth,timeGridWeek,timeGridDay",
-      },
-      locale: "id",
-      events: calendarEvents,
-      eventDidMount: function (info) {
-        info.el.title = info.event.title;
-      },
-    });
+    fullCalendarInstance = new FullCalendar.Calendar(
+      calendarEl,
+      window.getResponsiveCalendarOptions({
+        locale: "id",
+        events: calendarEvents,
+        eventDidMount(info) {
+          info.el.title = info.event.title;
+        },
+      })
+    );
     fullCalendarInstance.render();
     document
       .getElementById("back-to-room-list-btn")
@@ -268,19 +265,16 @@ async function renderRuanganScheduleView_Management(roomName) {
     if (fullCalendarInstance) {
       fullCalendarInstance.destroy();
     }
-    fullCalendarInstance = new FullCalendar.Calendar(calendarEl, {
-      initialView: "timeGridWeek",
-      headerToolbar: {
-        left: "prev,next today",
-        center: "title",
-        right: "dayGridMonth,timeGridWeek,timeGridDay",
-      },
-      locale: "id",
-      events: calendarEvents,
-      eventDidMount: function (info) {
-        info.el.title = info.event.title;
-      },
-    });
+    fullCalendarInstance = new FullCalendar.Calendar(
+      calendarEl,
+      window.getResponsiveCalendarOptions({
+        locale: "id",
+        events: calendarEvents,
+        eventDidMount(info) {
+          info.el.title = info.event.title;
+        },
+      })
+    );
     fullCalendarInstance.render();
 
     document

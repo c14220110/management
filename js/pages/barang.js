@@ -4,6 +4,7 @@
  */
 
 let fullCalendarInstance;
+let calendarResizeObserver = null;
 
 const ASSET_QR_LIBRARY_URL =
   "https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js";
@@ -538,11 +539,11 @@ async function renderBarangDetailView(assetId, options = {}) {
               <p class="text-2xl font-bold text-gray-800">${
                 asset.asset_code || "Belum tersedia"
               }</p>
-            </div>
+              </div>
 
             <div class="space-y-2 text-sm text-gray-600">
               ${buildAssetInfoDetails(asset)}
-            </div>
+              </div>
 
             <div class="bg-gray-50 rounded-lg p-4">
               <p class="text-sm font-semibold text-gray-700 mb-2">QR & Label</p>
@@ -552,7 +553,7 @@ async function renderBarangDetailView(assetId, options = {}) {
                   class="w-40 h-40 flex items-center justify-center border border-dashed border-gray-300 rounded-lg text-center text-xs text-gray-500"
                 >
                   QR belum tersedia
-                </div>
+          </div>
                 <div class="flex gap-2">
                   <button
                     type="button"
@@ -871,16 +872,13 @@ async function initAssetCalendar(schedule = []) {
         : "#f97316",
   }));
 
-  fullCalendarInstance = new FullCalendar.Calendar(calendarEl, {
-    initialView: "dayGridMonth",
-    headerToolbar: {
-      left: "prev,next today",
-      center: "title",
-      right: "dayGridMonth,timeGridWeek",
-    },
-    locale: "id",
-    events,
-  });
+  fullCalendarInstance = new FullCalendar.Calendar(
+    calendarEl,
+    window.getResponsiveCalendarOptions({
+      locale: "id",
+      events,
+    })
+  );
 
   fullCalendarInstance.render();
 }

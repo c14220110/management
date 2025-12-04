@@ -52,6 +52,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("room-modal-form")
     .addEventListener("submit", handleRoomFormSubmit);
+
+  injectCalendarResponsiveStyles();
 });
 
 // ============================================================
@@ -306,3 +308,106 @@ window.notifySuccess = function notifySuccess(message) {
     alert(message);
   }
 };
+
+function injectCalendarResponsiveStyles() {
+  if (document.getElementById("calendar-responsive-style")) {
+    return;
+  }
+  const style = document.createElement("style");
+  style.id = "calendar-responsive-style";
+  style.textContent = `
+    .fc-toolbar.fc-header-toolbar {
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .fc-toolbar-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    .fc-button {
+      border-radius: 0.5rem;
+      border: none;
+      background-color: #1f2937;
+      color: #fff;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.85rem;
+      text-transform: capitalize;
+    }
+
+    .fc-button:focus {
+      box-shadow: none;
+    }
+
+    @media (max-width: 768px) {
+      .fc-toolbar.fc-header-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .fc-toolbar-title {
+        font-size: 1.1rem;
+      }
+
+      .fc-toolbar-chunk {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        gap: 0.5rem;
+      }
+
+      .fc-toolbar-chunk:last-child {
+        justify-content: flex-end;
+      }
+
+      .fc-button {
+        flex: 1;
+        padding: 0.4rem 0.2rem;
+      }
+
+      .fc-daygrid-day-number,
+      .fc-col-header-cell-cushion {
+        font-size: 0.8rem;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function isMobileViewport() {
+  return window.matchMedia("(max-width: 768px)").matches;
+}
+
+function getResponsiveCalendarOptions(overrides = {}) {
+  const isMobile = isMobileViewport();
+  const baseOptions = {
+    headerToolbar: isMobile
+      ? { start: "title", center: "", end: "prev,next today" }
+      : {
+          left: "prev,next today",
+          center: "title",
+          right: "dayGridMonth,timeGridWeek,timeGridDay",
+        },
+    initialView: isMobile ? "timeGridDay" : "timeGridWeek",
+    height: isMobile ? "auto" : 520,
+    expandRows: true,
+    handleWindowResize: true,
+    stickyHeaderDates: true,
+    dayMaxEventRows: 3,
+    slotEventOverlap: false,
+    views: {
+      dayGridMonth: { dayHeaderFormat: { weekday: "short" } },
+      timeGridWeek: {
+        dayHeaderFormat: { weekday: "short", day: "numeric" },
+      },
+      timeGridDay: {
+        dayHeaderFormat: { weekday: "long", day: "numeric" },
+      },
+    },
+  };
+  return { ...baseOptions, ...overrides };
+}
+
+window.getResponsiveCalendarOptions = getResponsiveCalendarOptions;
+window.isMobileViewport = isMobileViewport;
