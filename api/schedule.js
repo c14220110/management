@@ -18,6 +18,33 @@ export default async function handler(req, res) {
     options
   );
 
+  let managementClient = null;
+  let isManagementUser = false;
+  if (token && process.env.SUPABASE_SERVICE_KEY) {
+    const serviceClient = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_KEY
+    );
+    try {
+      const {
+        data: { user },
+      } = await serviceClient.auth.getUser(token);
+      if (user) {
+        const { data: profile } = await serviceClient
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        if (profile?.role === "management") {
+          isManagementUser = true;
+          managementClient = serviceClient;
+        }
+      }
+    } catch (error) {
+      console.warn("schedule: failed to verify management role", error.message);
+    }
+  }
+
   const { type, id, name } = req.query;
 
   if (!type) {
@@ -30,11 +57,15 @@ export default async function handler(req, res) {
     switch (type) {
       case "asset":
         if (!id) return res.status(400).json({ error: "ID aset dibutuhkan." });
-        ({ data, error } = await supabase
-          .from("asset_loans")
-          .select("loan_date, due_date, status, profiles(full_name)")
-          .eq("asset_id", id)
-          .in("status", ["Disetujui", "Dipinjam"])); // Hanya yang pasti
+        {
+          const assetClient =
+            isManagementUser && managementClient ? managementClient : supabase;
+          ({ data, error } = await assetClient
+            .from("asset_loans")
+            .select("loan_date, due_date, status, profiles(full_name)")
+            .eq("asset_id", id)
+            .in("status", ["Disetujui", "Dipinjam"])); // Hanya yang pasti
+        }
         break;
 
       case "room":
