@@ -51,47 +51,71 @@ function renderUserTable(users) {
     tableBody.innerHTML = users
       .map(
         (user) => `
-          <tr class="border-b"><td class="p-3">${
-            user.full_name || user.email
-          }</td><td class="p-3">${
-          user.email
-        }</td><td class="p-3 whitespace-nowrap">
-          <button data-id="${user.id}" data-name="${
-          user.full_name
-        }" data-email="${
-          user.email
-        }" class="edit-user-btn text-blue-500 hover:underline mr-4">Edit</button>
-          <button data-id="${
-            user.id
-          }" class="delete-user-btn text-red-500 hover:underline">Hapus</button></td></tr>`
+          <tr class="border-b">
+            <td class="p-3">${user.full_name || user.email}</td>
+            <td class="p-3">${user.email}</td>
+            <td class="p-3 whitespace-nowrap text-center">
+              <button
+                type="button"
+                class="user-action-btn action-menu-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
+                data-user-id="${user.id}"
+                data-user-name="${user.full_name || user.email}"
+                data-user-email="${user.email}"
+              >
+                <i class="fas fa-ellipsis-v"></i>
+              </button>
+            </td>
+          </tr>`
       )
       .join("");
   }
-  document.querySelectorAll(".edit-user-btn").forEach((btn) =>
-    btn.addEventListener("click", () =>
-      openUserModal("edit", {
-        id: btn.dataset.id,
-        name: btn.dataset.name,
-        email: btn.dataset.email,
-      })
-    )
-  );
-  document.querySelectorAll(".delete-user-btn").forEach((btn) =>
-    btn.addEventListener("click", async () => {
-      if (confirm("Apakah Anda yakin ingin menghapus user ini?")) {
-        try {
-          const res = await api.post("/api/management", {
-            action: "deleteUser",
-            payload: { userId: btn.dataset.id },
-          });
-          alert(res.message);
-          refreshUserTable();
-        } catch (err) {
-          alert(`Gagal menghapus: ${err.message}`);
-        }
-      }
-    })
-  );
+  initializeUserActionMenus();
+}
+
+function initializeUserActionMenus() {
+  document.querySelectorAll(".user-action-btn").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      const userData = {
+        id: button.dataset.userId,
+        name: button.dataset.userName,
+        email: button.dataset.userEmail,
+      };
+      openGlobalActionMenu({
+        triggerElement: button,
+        items: [
+          {
+            label: "Edit",
+            icon: "fas fa-edit",
+            className: "text-amber-600",
+            onClick: () => openUserModal("edit", userData),
+          },
+          {
+            label: "Hapus",
+            icon: "fas fa-trash-alt",
+            className: "text-red-600",
+            onClick: () => deleteUserAccount(userData.id),
+          },
+        ],
+      });
+    });
+  });
+}
+
+async function deleteUserAccount(userId) {
+  if (!confirm("Apakah Anda yakin ingin menghapus user ini?")) {
+    return;
+  }
+  try {
+    const res = await api.post("/api/management", {
+      action: "deleteUser",
+      payload: { userId },
+    });
+    alert(res.message);
+    refreshUserTable();
+  } catch (err) {
+    alert(`Gagal menghapus: ${err.message}`);
+  }
 }
 
 function openUserModal(mode, userData = {}) {

@@ -59,3 +59,99 @@ document.addEventListener("DOMContentLoaded", () => {
     .getElementById("room-modal-form")
     .addEventListener("submit", handleRoomFormSubmit);
 });
+
+// ============================================================
+// Global Action Menu Helpers (shared three-dot menu)
+// ============================================================
+
+const globalActionMenuState = {
+  menuEl: null,
+  itemsEl: null,
+};
+
+function ensureGlobalActionMenuElements() {
+  if (!globalActionMenuState.menuEl) {
+    globalActionMenuState.menuEl = document.getElementById(
+      "global-action-menu"
+    );
+  }
+  if (!globalActionMenuState.itemsEl) {
+    globalActionMenuState.itemsEl = document.getElementById(
+      "global-action-menu-items"
+    );
+  }
+}
+
+function closeGlobalActionMenu() {
+  ensureGlobalActionMenuElements();
+  if (globalActionMenuState.menuEl) {
+    globalActionMenuState.menuEl.classList.add("hidden");
+  }
+  if (globalActionMenuState.itemsEl) {
+    globalActionMenuState.itemsEl.innerHTML = "";
+  }
+}
+
+function openGlobalActionMenu({ triggerElement, items = [] }) {
+  ensureGlobalActionMenuElements();
+  if (!globalActionMenuState.menuEl || !globalActionMenuState.itemsEl) {
+    return;
+  }
+
+  globalActionMenuState.itemsEl.innerHTML = "";
+  items.forEach((item) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center gap-2 ${item.className || ""}`;
+    button.innerHTML = `${
+      item.icon ? `<i class="${item.icon}"></i>` : ""
+    } <span>${item.label}</span>`;
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      closeGlobalActionMenu();
+      if (typeof item.onClick === "function") {
+        item.onClick();
+      }
+    });
+    globalActionMenuState.itemsEl.appendChild(button);
+  });
+
+  if (items.length === 0) {
+    closeGlobalActionMenu();
+    return;
+  }
+
+  if (!triggerElement) {
+    closeGlobalActionMenu();
+    return;
+  }
+
+  const rect = triggerElement.getBoundingClientRect();
+  globalActionMenuState.menuEl.style.left = `${
+    rect.left + window.scrollX
+  }px`;
+  globalActionMenuState.menuEl.style.top = `${
+    rect.bottom + window.scrollY + 4
+  }px`;
+  globalActionMenuState.menuEl.classList.remove("hidden");
+}
+
+window.openGlobalActionMenu = openGlobalActionMenu;
+window.closeGlobalActionMenu = closeGlobalActionMenu;
+
+document.addEventListener("click", (event) => {
+  ensureGlobalActionMenuElements();
+  if (
+    !globalActionMenuState.menuEl ||
+    globalActionMenuState.menuEl.classList.contains("hidden")
+  ) {
+    return;
+  }
+
+  const clickedMenu = event.target.closest("#global-action-menu");
+  const clickedTrigger = event.target.closest(".action-menu-btn");
+
+  if (!clickedMenu && !clickedTrigger) {
+    closeGlobalActionMenu();
+  }
+});

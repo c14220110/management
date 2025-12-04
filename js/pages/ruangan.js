@@ -53,7 +53,7 @@ async function renderRuanganManagementView(container) {
                         "<i>Belum diatur</i>"
                       }</td>
                       <td class="p-3 whitespace-nowrap text-center">
-                          <button type="button" class="action-menu-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none" data-room-id="${
+                          <button type="button" class="room-action-btn action-menu-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none" data-room-id="${
                             room.id
                           }" data-room-name="${
                     room.name
@@ -74,81 +74,63 @@ async function renderRuanganManagementView(container) {
         openRoomModal("create", {}, managerOptionsHTML)
       );
 
-    // Global listener for action menu and its items
-    document.body.addEventListener("click", (e) => {
-      const globalMenu = document.getElementById("global-action-menu");
-
-      // Handle clicking the three-dot button
-      if (e.target.closest(".action-menu-btn")) {
-        e.preventDefault();
-        const button = e.target.closest(".action-menu-btn");
-        const roomData = JSON.parse(button.dataset.roomData);
-        const roomName = button.dataset.roomName;
-        const roomId = button.dataset.roomId;
-
-        const menuItemsContainer = document.getElementById(
-          "global-action-menu-items"
-        );
-        menuItemsContainer.innerHTML = `
-                  <a href="#" data-room='${JSON.stringify(
-                    roomData
-                  )}' class="edit-room-link text-amber-600 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Edit</a>
-                  <a href="#" data-name="${roomName}" class="view-schedule-link text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Lihat Jadwal</a>
-                  <a href="#" data-id="${roomId}" class="delete-room-link text-red-600 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Hapus</a>
-              `;
-
-        const rect = button.getBoundingClientRect();
-        globalMenu.style.left = `${rect.left + window.scrollX}px`;
-        globalMenu.style.top = `${rect.bottom + window.scrollY}px`;
-        globalMenu.classList.remove("hidden");
-
-        // Handle clicking an item within the global menu
-      } else if (e.target.closest("#global-action-menu")) {
-        const editLink = e.target.closest(".edit-room-link");
-        if (editLink) {
-          e.preventDefault();
-          openRoomModal(
-            "edit",
-            JSON.parse(editLink.dataset.room),
-            managerOptionsHTML
-          );
-        }
-
-        const deleteLink = e.target.closest(".delete-room-link");
-        if (deleteLink) {
-          e.preventDefault();
-          const roomId = deleteLink.dataset.id;
-          if (confirm("Apakah Anda yakin ingin menghapus ruangan ini?")) {
-            api
-              .post("/api/management", {
-                action: "deleteRoom",
-                payload: { roomId },
-              })
-              .then((res) => {
-                alert(res.message);
-                renderRuanganManagementView(container);
-              })
-              .catch((err) => alert(`Gagal menghapus: ${err.message}`));
-          }
-        }
-
-        const viewScheduleLink = e.target.closest(".view-schedule-link");
-        if (viewScheduleLink) {
-          e.preventDefault();
-          renderRuanganScheduleView_Management(
-            viewScheduleLink.dataset.name
-          );
-        }
-        globalMenu.classList.add("hidden"); // Hide menu after action
-
-        // Hide menu if clicking anywhere else
-      } else {
-        globalMenu.classList.add("hidden");
-      }
-    });
+    initializeRoomActionMenus(container, managerOptionsHTML);
   } catch (error) {
     container.innerHTML = `<p class="text-red-500">Gagal memuat data: ${error.message}</p>`;
   }
+}
+
+function initializeRoomActionMenus(container, managerOptionsHTML) {
+  const buttons = container.querySelectorAll(".room-action-btn");
+  buttons.forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      const roomData = JSON.parse(button.dataset.roomData);
+      const roomName = button.dataset.roomName;
+      const roomId = button.dataset.roomId;
+      openGlobalActionMenu({
+        triggerElement: button,
+        items: [
+          {
+            label: "Edit",
+            icon: "fas fa-edit",
+            className: "text-amber-600",
+            onClick: () => openRoomModal("edit", roomData, managerOptionsHTML),
+          },
+          {
+            label: "Lihat Jadwal",
+            icon: "fas fa-calendar-alt",
+            className: "text-gray-700",
+            onClick: () => renderRuanganScheduleView_Management(roomName),
+          },
+          {
+            label: "Hapus",
+            icon: "fas fa-trash-alt",
+            className: "text-red-600",
+            onClick: () => {
+              if (
+                !confirm("Apakah Anda yakin ingin menghapus ruangan ini?")
+              ) {
+                return;
+              }
+              api
+                .post("/api/management", {
+                  action: "deleteRoom",
+                  payload: { roomId },
+                })
+                .then((res) => {
+                  alert(res.message);
+                  renderRuanganManagementView(
+                    document.getElementById("ruangan-content-area")
+                  );
+                })
+                .catch((err) => alert(`Gagal menghapus: ${err.message}`));
+            },
+          },
+        ],
+      });
+    });
+  });
 }
 
 async function renderRuanganListView() {

@@ -408,13 +408,12 @@ async function renderTransportCrudView() {
                   <td class="p-3">${t.capacity} orang</td>
                   <td class="p-3">${t.person_in_charge?.full_name || "-"}</td>
                   <td class="p-3">${t.driver_name || "-"}</td>
-                  <td class="p-3 whitespace-nowrap">
-                    <button onclick='openTransportModal("edit", ${JSON.stringify(
-                      t
-                    ).replace(/'/g, "\\'")})' 
-                      class="text-blue-500 hover:underline mr-3">Edit</button>
-                    <button onclick="deleteTransportation('${t.id}')" 
-                      class="text-red-500 hover:underline">Hapus</button>
+                  <td class="p-3 whitespace-nowrap text-center">
+                    <button type="button"
+                      class="transport-action-btn action-menu-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
+                      data-transport='${encodeURIComponent(JSON.stringify(t))}'>
+                      <i class="fas fa-ellipsis-v"></i>
+                    </button>
                   </td>
                 </tr>
               `
@@ -425,8 +424,105 @@ async function renderTransportCrudView() {
         </table>
       </div>
     `;
+    initializeTransportActionMenus(content);
   } catch (error) {
     content.innerHTML = `<p class="text-red-500">Gagal memuat data: ${error.message}</p>`;
+  } finally {
+    hideLoader();
+  }
+}
+
+function initializeTransportActionMenus(rootElement = document) {
+  const buttons = rootElement.querySelectorAll(".transport-action-btn");
+  buttons.forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      const encodedTransport = button.dataset.transport;
+      if (!encodedTransport) {
+        return;
+      }
+      const transportData = JSON.parse(decodeURIComponent(encodedTransport));
+      openGlobalActionMenu({
+        triggerElement: button,
+        items: [
+          {
+            label: "Edit",
+            icon: "fas fa-edit",
+            className: "text-amber-600",
+            onClick: () => openTransportModal("edit", transportData),
+          },
+          {
+            label: "Lihat Jadwal",
+            icon: "fas fa-calendar-alt",
+            className: "text-gray-700",
+            onClick: () => renderTransportScheduleManagementView(transportData),
+          },
+          {
+            label: "Hapus",
+            icon: "fas fa-trash-alt",
+            className: "text-red-600",
+            onClick: () => deleteTransportation(transportData.id),
+          },
+        ],
+      });
+    });
+  });
+}
+
+async function renderTransportScheduleManagementView(transportData) {
+  const container = document.getElementById("transportasi-content-area");
+  if (!container) return;
+
+  showLoader();
+  try {
+    container.innerHTML = `
+      <button id="back-to-transport-management" class="mb-4 text-[#d97706] hover:underline">
+        <i class="fas fa-arrow-left mr-2"></i>Kembali ke Transportasi
+      </button>
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="bg-white rounded-lg shadow-md p-6 space-y-4">
+          <div class="h-40 bg-gray-100 rounded-md flex items-center justify-center overflow-hidden">
+            ${
+              transportData.image_url
+                ? `<img src="${transportData.image_url}" alt="${transportData.vehicle_name}" class="w-full h-full object-cover" />`
+                : '<i class="fas fa-shuttle-van text-4xl text-gray-400"></i>'
+            }
+          </div>
+          <div>
+            <h2 class="text-2xl font-bold text-gray-800">${
+              transportData.vehicle_name
+            }</h2>
+            <p class="text-gray-600">${transportData.plate_number}</p>
+          </div>
+          <div class="text-sm text-gray-600 space-y-1">
+            <p><i class="fas fa-calendar mr-2"></i>Tahun: ${
+              transportData.vehicle_year || "-"
+            }</p>
+            <p><i class="fas fa-users mr-2"></i>Kapasitas: ${
+              transportData.capacity || "-"
+            } orang</p>
+            <p><i class="fas fa-user-tie mr-2"></i>PIC: ${
+              transportData.person_in_charge?.full_name || "-"
+            }</p>
+            <p><i class="fas fa-id-badge mr-2"></i>Sopir: ${
+              transportData.driver_name || "-"
+            }</p>
+          </div>
+        </div>
+        <div class="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">Jadwal Peminjaman</h3>
+          <div id="transport-calendar"></div>
+        </div>
+      </div>
+    `;
+
+    document
+      .getElementById("back-to-transport-management")
+      .addEventListener("click", () => renderTransportManagementView());
+
+    await initTransportCalendar(transportData.id);
+  } catch (error) {
+    container.innerHTML = `<p class="text-red-500">Gagal memuat jadwal: ${error.message}</p>`;
   } finally {
     hideLoader();
   }
