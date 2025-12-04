@@ -230,7 +230,7 @@ function ensureSuccessAnimationElements() {
   const overlay = document.createElement("div");
   overlay.id = "success-feedback-overlay";
   overlay.className =
-    "fixed inset-0 bg-black bg-opacity-40 hidden items-center justify-center z-50 px-4";
+    "fixed inset-0 bg-black bg-opacity-40 hidden flex items-center justify-center z-50 px-4";
   overlay.innerHTML = `
     <div class="bg-white rounded-2xl shadow-2xl px-8 py-6 flex flex-col items-center gap-4 max-w-sm w-full">
       <div id="success-animation-container" class="w-40 h-40"></div>
