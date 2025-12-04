@@ -26,7 +26,7 @@ async function loadBarangPage() {
 async function renderBarangListView() {
   const container = document.getElementById("barang-content-area");
   try {
-    const assets = await api.get("/api/assets");
+    const assets = await api.get("/api/member?resource=assets");
     let cardsHTML =
       '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">';
     assets.forEach((asset) => {
@@ -59,8 +59,8 @@ async function renderBarangDetailView(assetId) {
   container.innerHTML = `<p>Memuat detail dan jadwal untuk aset...</p>`;
   try {
     const [assets, schedule] = await Promise.all([
-      api.get("/api/assets"),
-      api.get(`/api/assets/${assetId}/schedule`),
+      api.get("/api/member?resource=assets"),
+      api.get(`/api/schedule?type=asset&id=${assetId}`),
     ]);
     const asset = assets.find((a) => a.id === assetId);
     if (!asset) {
@@ -148,7 +148,7 @@ async function renderBarangDetailView(assetId) {
         feedback.textContent = "Mengirim...";
         feedback.className = "text-center font-semibold text-amber-600";
         try {
-          await api.post("/api/assets", {
+          await api.post("/api/member?resource=assets", {
             asset_id: assetId,
             loan_date: document.getElementById("loan_date").value,
             due_date: document.getElementById("due_date").value,

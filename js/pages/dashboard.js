@@ -36,7 +36,7 @@ async function renderManagerDashboard() {
   container.innerHTML = `<h1 class="text-3xl font-bold text-gray-800 mb-6">Dashboard Manajemen</h1><p>Memuat data...</p>`;
   try {
     const [stats, pendingRequests, pendingTransLoans] = await Promise.all([
-      api.get("/api/dashboard-stats"),
+      api.get("/api/dashboard?action=stats"),
       api.post("/api/management", { action: "getPendingRequests" }),
       api.post("/api/management", { action: "getPendingTransportLoans" }).catch(() => []),
     ]);
@@ -122,7 +122,7 @@ async function renderMemberDashboard() {
   const listContainer = document.getElementById("my-requests-list");
   try {
     const { assetLoans, roomReservations, transportLoans } = await api.get(
-      "/api/dashboard/my-requests"
+      "/api/dashboard?action=my-requests"
     );
     listContainer.innerHTML = "";
     listContainer.innerHTML +=
@@ -235,12 +235,20 @@ async function handleAdminAction(e) {
   button.textContent = "Memproses...";
   try {
     const endpoint = "/api/management";
-    const actionPayload =
-      type === "loan" ? "updateLoanStatus" : "updateReservationStatus";
-    const payload =
-      type === "loan"
-        ? { loanId: id, newStatus: action }
-        : { reservationId: id, newStatus: action };
+    let actionPayload;
+    let payload;
+
+    if (type === "loan") {
+      actionPayload = "updateLoanStatus";
+      payload = { loanId: id, newStatus: action };
+    } else if (type === "room") {
+      actionPayload = "updateReservationStatus";
+      payload = { reservationId: id, newStatus: action };
+    } else if (type === "transport") {
+      actionPayload = "updateTransportLoanStatus";
+      payload = { loanId: id, newStatus: action };
+    }
+
     await api.post(endpoint, { action: actionPayload, payload: payload });
     alert("Status permintaan berhasil diperbarui.");
     loadDashboardPage();
@@ -260,7 +268,7 @@ async function handleCancelRequest(e) {
   button.disabled = true;
   button.textContent = "Memproses...";
   try {
-    await api.post("/api/requests/cancel", {
+    await api.post("/api/member?action=cancel", {
       requestId: id,
       requestType: type,
     });

@@ -81,7 +81,7 @@ async function uploadWebsiteImage(target, file) {
     reader.readAsDataURL(file);
   });
 
-  const resp = await fetch("/api/website-hero-video", {
+  const resp = await fetch("/api/website?action=upload", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -156,7 +156,7 @@ function setupImageUploader(
 
 async function loadWebsiteContent() {
   try {
-    const response = await fetch("/api/website-content");
+    const response = await fetch("/api/website");
     if (!response.ok) throw new Error("Gagal memuat konten website");
 
     const data = await response.json();
@@ -436,7 +436,7 @@ async function loadWebsiteContent() {
           reader.readAsDataURL(file);
         });
 
-        const resp = await fetch("/api/website-hero-video", {
+        const resp = await fetch("/api/website?action=upload", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -592,7 +592,7 @@ async function loadWebsiteContent() {
           };
 
           // Hero
-          const heroResponse = await fetch("/api/website-content", {
+          const heroResponse = await fetch("/api/website", {
             method: "POST",
             headers: authHeader,
             body: JSON.stringify({
@@ -606,7 +606,7 @@ async function loadWebsiteContent() {
           }
 
           // Schedules
-          const schedulesResponse = await fetch("/api/website-content", {
+          const schedulesResponse = await fetch("/api/website", {
             method: "POST",
             headers: authHeader,
             body: JSON.stringify({
@@ -620,7 +620,7 @@ async function loadWebsiteContent() {
           }
 
           // About
-          const aboutResponse = await fetch("/api/website-content", {
+          const aboutResponse = await fetch("/api/website", {
             method: "POST",
             headers: authHeader,
             body: JSON.stringify({
@@ -636,7 +636,7 @@ async function loadWebsiteContent() {
           }
 
           // Pastor
-          const pastorResponse = await fetch("/api/website-content", {
+          const pastorResponse = await fetch("/api/website", {
             method: "POST",
             headers: authHeader,
             body: JSON.stringify({

@@ -37,7 +37,7 @@ async function renderTransportMemberListView() {
   const container = document.getElementById("transportasi-content-area");
 
   try {
-    const transports = await api.get("/api/transportations");
+    const transports = await api.get("/api/member?resource=transports");
 
     if (transports.length === 0) {
       container.innerHTML = `<p class="text-gray-500">Belum ada kendaraan terdaftar.</p>`;
@@ -86,7 +86,7 @@ async function renderTransportDetailView(transportId) {
   showLoader();
 
   try {
-    const transports = await api.get("/api/transportations");
+    const transports = await api.get("/api/member?resource=transports");
     const transport = transports.find((t) => t.id === transportId);
 
     if (!transport) {
@@ -100,7 +100,7 @@ async function renderTransportDetailView(transportId) {
     }).catch(() => []);
 
     // Get all loans for calendar (approved + pending)
-    const allLoansResponse = await fetch("/api/transportations", {
+    const allLoansResponse = await fetch("/api/member?resource=transports", {
       headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
     });
 
@@ -210,7 +210,7 @@ async function initTransportCalendar(transportId) {
   let events = [];
   try {
     const response = await fetch(
-      `/api/transport-schedule?transport_id=${transportId}`,
+      `/api/schedule?type=transport&id=${transportId}`,
       {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
@@ -275,7 +275,7 @@ async function handleTransportBorrowSubmit(e) {
       ),
     };
 
-    const result = await api.post("/api/transportations", payload);
+    const result = await api.post("/api/member?resource=transports", payload);
     alert(result.message);
     e.target.reset();
     await initTransportCalendar(payload.transport_id);

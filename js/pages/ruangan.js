@@ -155,7 +155,7 @@ async function renderRuanganListView() {
   const container = document.getElementById("ruangan-content-area");
   container.innerHTML = `<p>Memuat daftar ruangan...</p>`;
   try {
-    const rooms = await api.get("/api/rooms");
+    const rooms = await api.get("/api/member?resource=rooms");
     let listHTML = '<div class="space-y-4">';
     rooms.forEach((room) => {
       listHTML += `<div data-name="${room.name}" class="room-item bg-white p-4 rounded-lg shadow-md cursor-pointer hover:shadow-xl transition-shadow flex items-center"><i class="fas fa-building text-2xl text-gray-400 mr-4"></i><h3 class="font-bold text-lg">${room.name}</h3></div>`;
@@ -178,7 +178,7 @@ async function renderRuanganDetailView(roomName) {
   container.innerHTML = `<p>Memuat detail dan jadwal untuk ${roomName}...</p>`;
   try {
     const schedule = await api.get(
-      `/api/rooms/${encodeURIComponent(roomName)}/schedule`
+      `/api/schedule?type=room&name=${encodeURIComponent(roomName)}`
     );
     const calendarEvents = schedule.map((reservation) => ({
       title: reservation.event_name,
@@ -242,7 +242,7 @@ async function renderRuanganDetailView(roomName) {
         feedback.textContent = "Mengirim...";
         feedback.className = "text-center font-semibold text-amber-600";
         try {
-          await api.post("/api/rooms", {
+          await api.post("/api/member?resource=rooms", {
             room_name: roomName,
             event_name: document.getElementById("res-event-name").value,
             start_time: document.getElementById("res-start-time").value,
@@ -270,7 +270,7 @@ async function renderRuanganScheduleView_Management(roomName) {
 
   try {
     const schedule = await api.get(
-      `/api/rooms/${encodeURIComponent(roomName)}/schedule`
+      `/api/schedule?type=room&name=${encodeURIComponent(roomName)}`
     );
     const calendarEvents = schedule.map((reservation) => ({
       title: reservation.event_name,
