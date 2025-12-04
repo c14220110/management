@@ -51,6 +51,9 @@ function router() {
     case "#ruangan":
       loadRuanganPage();
       break;
+    case "#transportasi":
+      loadTransportasiPage();
+      break;
     case "#user-management":
       if (localStorage.getItem("userRole") === "management") {
         loadUserManagementPage();

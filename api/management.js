@@ -226,6 +226,105 @@ export default async function handler(req, res) {
         if (deleteRoomError) throw deleteRoomError;
         return res.status(200).json({ message: "Ruangan berhasil dihapus." });
 
+      // ============================================================
+      // TRANSPORTATION MANAGEMENT ACTIONS
+      // ============================================================
+
+      case "getTransportations":
+        const { data: transports, error: getTransError } = await supabase
+          .from("transportations")
+          .select(`
+            *,
+            person_in_charge:profiles!person_in_charge_id (id, full_name)
+          `)
+          .order("vehicle_name", { ascending: true });
+        if (getTransError) throw getTransError;
+        return res.status(200).json(transports);
+
+      case "createTransportation":
+        const {
+          vehicle_name,
+          plate_number,
+          vehicle_year,
+          odometer_km,
+          capacity,
+          person_in_charge_id,
+          driver_name,
+          driver_whatsapp,
+          last_service_at,
+          next_service_at,
+          notes,
+          image_url,
+        } = payload;
+
+        const { error: createTransError } = await supabase
+          .from("transportations")
+          .insert({
+            vehicle_name,
+            plate_number,
+            vehicle_year: vehicle_year || new Date().getFullYear(),
+            odometer_km: odometer_km || 0,
+            capacity: capacity || 1,
+            person_in_charge_id,
+            driver_name: driver_name || null,
+            driver_whatsapp: driver_whatsapp || null,
+            last_service_at: last_service_at || null,
+            next_service_at: next_service_at || null,
+            notes: notes || null,
+            image_url: image_url || null,
+          });
+        if (createTransError) throw createTransError;
+        return res
+          .status(201)
+          .json({ message: "Transportasi baru berhasil ditambahkan." });
+
+      case "updateTransportation":
+        const { transportId, ...updateTransData } = payload;
+        const { error: updateTransError } = await supabase
+          .from("transportations")
+          .update(updateTransData)
+          .eq("id", transportId);
+        if (updateTransError) throw updateTransError;
+        return res
+          .status(200)
+          .json({ message: "Data transportasi berhasil diperbarui." });
+
+      case "deleteTransportation":
+        const { transportId: deleteTransId } = payload;
+        const { error: deleteTransError } = await supabase
+          .from("transportations")
+          .delete()
+          .eq("id", deleteTransId);
+        if (deleteTransError) throw deleteTransError;
+        return res
+          .status(200)
+          .json({ message: "Transportasi berhasil dihapus." });
+
+      case "getPendingTransportLoans":
+        const { data: pendingTransLoans, error: pendingTransError } =
+          await supabase
+            .from("transport_loans")
+            .select(`
+              *,
+              transportations (vehicle_name, plate_number),
+              profiles!borrower_id (full_name)
+            `)
+            .eq("status", "Menunggu Persetujuan")
+            .order("borrow_start", { ascending: true });
+        if (pendingTransError) throw pendingTransError;
+        return res.status(200).json(pendingTransLoans);
+
+      case "updateTransportLoanStatus":
+        const { loanId: transLoanId, newStatus: transLoanStatus } = payload;
+        const { error: updateTransLoanError } = await supabase
+          .from("transport_loans")
+          .update({ status: transLoanStatus })
+          .eq("id", transLoanId);
+        if (updateTransLoanError) throw updateTransLoanError;
+        return res.status(200).json({
+          message: `Peminjaman transportasi berhasil diubah menjadi ${transLoanStatus}`,
+        });
+
       default:
         return res.status(400).json({ error: "Aksi tidak dikenal" });
     }

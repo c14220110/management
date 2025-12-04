@@ -38,6 +38,9 @@ export default async function handler(req, res) {
     } else if (requestType === "room") {
       tableName = "room_reservations";
       ownerColumn = "requester_name"; // Ini kurang ideal, seharusnya user_id
+    } else if (requestType === "transport") {
+      tableName = "transport_loans";
+      ownerColumn = "borrower_id";
     } else {
       return res.status(400).json({ error: "Tipe permintaan tidak valid." });
     }

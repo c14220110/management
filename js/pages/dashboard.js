@@ -35,13 +35,15 @@ async function renderManagerDashboard() {
   const container = document.getElementById("manager-dashboard-content");
   container.innerHTML = `<h1 class="text-3xl font-bold text-gray-800 mb-6">Dashboard Manajemen</h1><p>Memuat data...</p>`;
   try {
-    const [stats, pendingRequests] = await Promise.all([
+    const [stats, pendingRequests, pendingTransLoans] = await Promise.all([
       api.get("/api/dashboard-stats"),
       api.post("/api/management", { action: "getPendingRequests" }),
+      api.post("/api/management", { action: "getPendingTransportLoans" }).catch(() => []),
     ]);
     const pendingAssetLoans = pendingRequests.pendingAssetLoans ?? [];
     const pendingRoomReservations =
       pendingRequests.pendingRoomReservations ?? [];
+    const pendingTransportLoans = pendingTransLoans ?? [];
     let contentHTML = `
           <h1 class="text-3xl font-bold text-gray-800 mb-6">Dashboard Manajemen</h1>
           <h2 class="text-xl font-semibold text-gray-700 mb-4">Statistik Aset</h2>
@@ -65,24 +67,30 @@ async function renderManagerDashboard() {
         ...item,
         type: "room",
       })),
+      ...pendingTransportLoans.map((item) => ({
+        ...item,
+        type: "transport",
+      })),
     ];
     if (allPendingRequests.length === 0) {
       contentHTML +=
         '<p class="text-gray-500 p-4 text-center">Tidak ada permintaan baru.</p>';
     } else {
       allPendingRequests.forEach((item) => {
-        const title =
-          item.type === "loan"
-            ? `${item.assets.asset_name}`
-            : `${item.event_name} (${item.room_name})`;
-        const requester =
-          item.type === "loan"
-            ? item.profiles.full_name
-            : item.requester_name;
-        const time =
-          item.type === "loan"
-            ? new Date(item.loan_date).toLocaleDateString("id-ID")
-            : new Date(item.start_time).toLocaleString("id-ID");
+        let title, requester, time;
+        if (item.type === "loan") {
+          title = `🔧 ${item.assets.asset_name}`;
+          requester = item.profiles.full_name;
+          time = new Date(item.loan_date).toLocaleDateString("id-ID");
+        } else if (item.type === "room") {
+          title = `🏠 ${item.event_name} (${item.room_name})`;
+          requester = item.requester_name;
+          time = new Date(item.start_time).toLocaleString("id-ID");
+        } else if (item.type === "transport") {
+          title = `🚐 ${item.transportations?.vehicle_name || "Kendaraan"}` + (item.transportations?.plate_number ? ` (${item.transportations.plate_number})` : "");
+          requester = item.profiles?.full_name || "-";
+          time = new Date(item.borrow_start).toLocaleString("id-ID");
+        }
         contentHTML += `
                   <div class="flex items-center justify-between p-4 border rounded-md">
                       <div>
@@ -113,7 +121,7 @@ async function renderMemberDashboard() {
   container.innerHTML = `<h1 class="text-3xl font-bold text-gray-800 mb-6">Status Permintaan Saya</h1><div id="my-requests-list" class="space-y-4"><p>Memuat data permintaan...</p></div>`;
   const listContainer = document.getElementById("my-requests-list");
   try {
-    const { assetLoans, roomReservations } = await api.get(
+    const { assetLoans, roomReservations, transportLoans } = await api.get(
       "/api/dashboard/my-requests"
     );
     listContainer.innerHTML = "";
@@ -172,6 +180,35 @@ async function renderMemberDashboard() {
     } else {
       listContainer.innerHTML +=
         '<p class="text-gray-500">Tidak ada riwayat reservasi ruangan.</p>';
+    }
+
+    // TRANSPORT LOANS SECTION
+    listContainer.innerHTML +=
+      '<h2 class="text-xl font-semibold mt-6">Peminjaman Transportasi</h2>';
+    if (transportLoans && transportLoans.length > 0) {
+      transportLoans.forEach((item) => {
+        const statusColor =
+          item.status === "Disetujui"
+            ? "text-green-600"
+            : item.status === "Ditolak"
+            ? "text-red-600"
+            : "text-yellow-600";
+        const itemDiv = document.createElement("div");
+        itemDiv.className =
+          "bg-white p-4 rounded-lg shadow-md flex justify-between items-center";
+        itemDiv.innerHTML = `<div><p class="font-bold">${
+          item.transportations?.vehicle_name || "Kendaraan"
+        } (${item.transportations?.plate_number || "-"})</p><p class="text-sm text-gray-500">${item.purpose || "-"} | ${new Date(item.borrow_start).toLocaleDateString("id-ID")}</p><p class="text-sm ${statusColor}">${item.status}</p></div>
+                  ${
+                    item.status === "Menunggu Persetujuan"
+                      ? `<button data-id="${item.id}" data-type="transport" class="cancel-btn bg-gray-500 text-white py-1 px-3 rounded hover:bg-gray-600">Batalkan</button>`
+                      : ""
+                  }`;
+        listContainer.appendChild(itemDiv);
+      });
+    } else {
+      listContainer.innerHTML +=
+        '<p class="text-gray-500">Tidak ada riwayat peminjaman transportasi.</p>';
     }
     document
       .querySelectorAll(".cancel-btn")

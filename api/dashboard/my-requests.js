@@ -37,7 +37,14 @@ export default async function handler(req, res) {
       .eq("requester_name", profile.full_name)
       .order("start_time", { ascending: false });
 
-    res.status(200).json({ assetLoans, roomReservations });
+    // Ambil data peminjaman transportasi oleh user ini
+    const { data: transportLoans } = await supabase
+      .from("transport_loans")
+      .select("*, transportations(vehicle_name, plate_number)")
+      .eq("borrower_id", user.id)
+      .order("borrow_start", { ascending: false });
+
+    res.status(200).json({ assetLoans, roomReservations, transportLoans });
   } catch (error) {
     res.status(500).json({
       error: "Gagal mengambil data permintaan Anda.",
