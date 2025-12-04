@@ -7,8 +7,8 @@ export default async function handler(req, res) {
   // Transport schedule originally required auth, others didn't.
   // We will check for token if present to pass to Supabase RLS if needed.
   const token = req.headers.authorization?.split(" ")[1];
-  
-  const options = token 
+
+  const options = token
     ? { global: { headers: { Authorization: `Bearer ${token}` } } }
     : {};
 
@@ -48,7 +48,9 @@ export default async function handler(req, res) {
   const { type, id, name } = req.query;
 
   if (!type) {
-    return res.status(400).json({ error: "Parameter 'type' dibutuhkan (asset, room, transport)." });
+    return res
+      .status(400)
+      .json({ error: "Parameter 'type' dibutuhkan (asset, room, transport)." });
   }
 
   try {
@@ -62,14 +64,21 @@ export default async function handler(req, res) {
             isManagementUser && managementClient ? managementClient : supabase;
           ({ data, error } = await assetClient
             .from("asset_loans")
-            .select("loan_date, due_date, status, profiles(full_name)")
+            .select("loan_date, due_date, status, user_id")
             .eq("asset_id", id)
             .in("status", ["Disetujui", "Dipinjam"])); // Hanya yang pasti
+          if (!error && data?.length) {
+            data = await attachProfilesToLoans(
+              data,
+              isManagementUser && managementClient ? managementClient : supabase
+            );
+          }
         }
         break;
 
       case "room":
-        if (!name) return res.status(400).json({ error: "Nama ruangan dibutuhkan." });
+        if (!name)
+          return res.status(400).json({ error: "Nama ruangan dibutuhkan." });
         ({ data, error } = await supabase
           .from("room_reservations")
           .select("event_name, start_time, end_time")
@@ -78,11 +87,14 @@ export default async function handler(req, res) {
         break;
 
       case "transport":
-        if (!id) return res.status(400).json({ error: "ID transportasi dibutuhkan." });
+        if (!id)
+          return res.status(400).json({ error: "ID transportasi dibutuhkan." });
         // Transport schedule shows pending too (as per original code)
         ({ data, error } = await supabase
           .from("transport_loans")
-          .select("id, borrow_start, borrow_end, status, profiles!borrower_id(full_name)")
+          .select(
+            "id, borrow_start, borrow_end, status, profiles!borrower_id(full_name)"
+          )
           .eq("transport_id", id)
           .in("status", ["Menunggu Persetujuan", "Disetujui"])
           .order("borrow_start", { ascending: true }));
@@ -94,11 +106,33 @@ export default async function handler(req, res) {
 
     if (error) throw error;
     return res.status(200).json(data);
-
   } catch (error) {
-    return res.status(500).json({ 
-      error: "Gagal mengambil jadwal.", 
-      details: error.message 
+    return res.status(500).json({
+      error: "Gagal mengambil jadwal.",
+      details: error.message,
     });
   }
+}
+
+async function attachProfilesToLoans(loans = [], client) {
+  if (!client || loans.length === 0) return loans;
+  const userIds = [
+    ...new Set(loans.map((loan) => loan.user_id).filter(Boolean)),
+  ];
+  if (userIds.length === 0) return loans;
+
+  const { data: profiles, error } = await client
+    .from("profiles")
+    .select("id, full_name")
+    .in("id", userIds);
+  if (error || !profiles) return loans;
+
+  const profileMap = new Map(
+    profiles.map((profile) => [profile.id, profile.full_name])
+  );
+
+  return loans.map((loan) => ({
+    ...loan,
+    profiles: { full_name: profileMap.get(loan.user_id) || null },
+  }));
 }
