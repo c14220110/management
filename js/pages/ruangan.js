@@ -108,9 +108,7 @@ function initializeRoomActionMenus(container, managerOptionsHTML) {
             icon: "fas fa-trash-alt",
             className: "text-red-600",
             onClick: () => {
-              if (
-                !confirm("Apakah Anda yakin ingin menghapus ruangan ini?")
-              ) {
+              if (!confirm("Apakah Anda yakin ingin menghapus ruangan ini?")) {
                 return;
               }
               api
@@ -119,7 +117,7 @@ function initializeRoomActionMenus(container, managerOptionsHTML) {
                   payload: { roomId },
                 })
                 .then((res) => {
-                  alert(res.message);
+                  notifySuccess(res.message);
                   renderRuanganManagementView(
                     document.getElementById("ruangan-content-area")
                   );
@@ -206,9 +204,7 @@ async function renderRuanganDetailView(roomName) {
               <button type="submit" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">Kirim Permintaan</button>
               <p id="detail-reservation-feedback" class="text-center font-semibold"></p>
           </form>`;
-      const showFormBtn = document.getElementById(
-        "show-reservation-form-btn"
-      );
+      const showFormBtn = document.getElementById("show-reservation-form-btn");
       const detailReservationForm = document.getElementById(
         "detail-reservation-form"
       );
@@ -218,9 +214,7 @@ async function renderRuanganDetailView(roomName) {
       });
       detailReservationForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        const feedback = document.getElementById(
-          "detail-reservation-feedback"
-        );
+        const feedback = document.getElementById("detail-reservation-feedback");
         feedback.textContent = "Mengirim...";
         feedback.className = "text-center font-semibold text-amber-600";
         try {
@@ -270,9 +264,7 @@ async function renderRuanganScheduleView_Management(roomName) {
           </div>
       `;
 
-    const calendarEl = document.getElementById(
-      "management-schedule-calendar"
-    );
+    const calendarEl = document.getElementById("management-schedule-calendar");
     if (fullCalendarInstance) {
       fullCalendarInstance.destroy();
     }
@@ -309,13 +301,11 @@ function openRoomModal(mode, roomData = {}, managerOptionsHTML) {
   const pjSelect = document.getElementById("room-penanggung-jawab");
   pjSelect.innerHTML = `<option value="">-- Pilih Penanggung Jawab --</option>${managerOptionsHTML}`;
   if (mode === "edit") {
-    document.getElementById("room-modal-title").textContent =
-      "Edit Ruangan";
+    document.getElementById("room-modal-title").textContent = "Edit Ruangan";
     document.getElementById("room-id").value = roomData.id;
     document.getElementById("room-name").value = roomData.name;
     document.getElementById("room-lokasi").value = roomData.lokasi || "";
-    document.getElementById("room-kapasitas").value =
-      roomData.kapasitas || "";
+    document.getElementById("room-kapasitas").value = roomData.kapasitas || "";
     pjSelect.value = roomData.penanggung_jawab?.id || "";
   } else {
     document.getElementById("room-modal-title").textContent =
@@ -344,8 +334,7 @@ async function handleRoomFormSubmit(e) {
     lokasi: document.getElementById("room-lokasi").value,
     kapasitas:
       parseInt(document.getElementById("room-kapasitas").value) || null,
-    penanggung_jawab_id: document.getElementById("room-penanggung-jawab")
-      .value,
+    penanggung_jawab_id: document.getElementById("room-penanggung-jawab").value,
   };
   if (!payload.penanggung_jawab_id) {
     feedback.textContent = "Error: Penanggung Jawab wajib dipilih.";
@@ -355,7 +344,7 @@ async function handleRoomFormSubmit(e) {
   if (action === "updateRoom") payload.roomId = roomId;
   try {
     const result = await api.post("/api/management", { action, payload });
-    alert(result.message);
+    notifySuccess(result.message);
     closeRoomModal();
     renderRuanganManagementView(
       document.getElementById("ruangan-content-area")

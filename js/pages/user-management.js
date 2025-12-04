@@ -12,9 +12,7 @@ async function loadUserManagementPage() {
       .getElementById("user-management-template")
       .content.cloneNode(true);
     contentArea.appendChild(template);
-    const container = document.getElementById(
-      "user-management-content-area"
-    );
+    const container = document.getElementById("user-management-content-area");
     container.innerHTML = `<div class="flex justify-end mb-4"><button id="add-user-btn" class="bg-[#d97706] text-white font-bold py-2 px-4 rounded-md hover:bg-[#b45309]"><i class="fas fa-plus mr-2"></i>Tambah User Member</button></div>
       <div class="bg-white p-4 rounded-lg shadow-md"><table class="min-w-full"><thead class="bg-gray-100"><tr><th class="text-left p-3">Nama Lengkap</th><th class="text-left p-3">Email</th><th class="text-left p-3">Aksi</th></tr></thead><tbody id="user-table-body"></tbody></table></div>`;
     document
@@ -111,7 +109,7 @@ async function deleteUserAccount(userId) {
       action: "deleteUser",
       payload: { userId },
     });
-    alert(res.message);
+    notifySuccess(res.message);
     refreshUserTable();
   } catch (err) {
     alert(`Gagal menghapus: ${err.message}`);
@@ -164,7 +162,7 @@ async function handleUserFormSubmit(e) {
       action: mode,
       payload,
     });
-    alert(result.message);
+    notifySuccess(result.message);
     closeUserModal();
     refreshUserTable();
   } catch (error) {

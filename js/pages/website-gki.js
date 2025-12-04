@@ -140,7 +140,7 @@ function setupImageUploader(sectionKey, fileInputId, urlInputId, previewId) {
         websiteContentData[sectionKey].imageUrl = url;
       }
 
-      alert("✅ Gambar berhasil diunggah.");
+      notifySuccess("✅ Gambar berhasil diunggah.");
     } catch (err) {
       console.error(err);
       alert("❌ " + (err.message || "Gagal mengunggah gambar."));
@@ -377,7 +377,7 @@ async function loadWebsiteContent() {
           description: "",
         });
         renderScheduleCards();
-        alert("Jadwal baru ditambahkan. Isi semua field lalu simpan.");
+        notifySuccess("Jadwal baru ditambahkan. Isi semua field lalu simpan.");
       };
     }
 
@@ -611,7 +611,7 @@ async function loadWebsiteContent() {
             );
           }
 
-          alert("✅ Konten website berhasil disimpan!");
+          notifySuccess("✅ Konten website berhasil disimpan!");
         } catch (error) {
           alert("❌ " + error.message);
           console.error("❌ Error saving:", error);
@@ -720,7 +720,7 @@ function deleteSchedule(index) {
   if (confirm("Yakin ingin menghapus jadwal ini?")) {
     items.splice(index, 1);
     renderScheduleCards();
-    alert("Jadwal berhasil dihapus");
+    notifySuccess("Jadwal berhasil dihapus");
   }
 }
 

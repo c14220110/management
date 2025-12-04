@@ -147,7 +147,9 @@ async function renderBarangManagementView() {
 
     document
       .getElementById("asset-scan-btn")
-      .addEventListener("click", () => openAssetScanModal(handleAssetScanResult));
+      .addEventListener("click", () =>
+        openAssetScanModal(handleAssetScanResult)
+      );
 
     bindAssetRowMenus(container);
   } catch (error) {
@@ -185,10 +187,14 @@ function getAssetTableRowsHTML(assets = []) {
           </td>
           <td class="p-3">
             <p class="font-semibold text-gray-800">${asset.asset_name}</p>
-            <p class="text-xs text-gray-500">${asset.asset_code || "Tanpa kode"}</p>
+            <p class="text-xs text-gray-500">${
+              asset.asset_code || "Tanpa kode"
+            }</p>
           </td>
           <td class="p-3">${asset.commission?.name || "-"}</td>
-          <td class="p-3">${asset.storage_location || asset.location || "-"}</td>
+          <td class="p-3">${
+            asset.storage_location || asset.location || "-"
+          }</td>
           <td class="p-3">${asset.category?.name || "-"}</td>
           <td class="p-3">${asset.condition || "-"}</td>
           <td class="p-3">${asset.quantity ?? 0}</td>
@@ -234,7 +240,9 @@ function bindAssetRowMenus(root) {
     button.addEventListener("click", (event) => {
       event.preventDefault();
       const assetId = button.dataset.assetId;
-      const asset = assetManagementState.assets.find((item) => item.id === assetId);
+      const asset = assetManagementState.assets.find(
+        (item) => item.id === assetId
+      );
       if (!asset) return;
 
       openGlobalActionMenu({
@@ -244,7 +252,8 @@ function bindAssetRowMenus(root) {
             label: "Lihat Detail",
             icon: "fas fa-eye",
             className: "text-gray-700",
-            onClick: () => renderBarangDetailView(asset.id, { context: "management" }),
+            onClick: () =>
+              renderBarangDetailView(asset.id, { context: "management" }),
           },
           {
             label: "Edit",
@@ -254,8 +263,14 @@ function bindAssetRowMenus(root) {
           },
           {
             label: asset.status === "Tidak Aktif" ? "Aktifkan" : "Nonaktifkan",
-            icon: asset.status === "Tidak Aktif" ? "fas fa-toggle-on" : "fas fa-toggle-off",
-            className: asset.status === "Tidak Aktif" ? "text-green-600" : "text-red-600",
+            icon:
+              asset.status === "Tidak Aktif"
+                ? "fas fa-toggle-on"
+                : "fas fa-toggle-off",
+            className:
+              asset.status === "Tidak Aktif"
+                ? "text-green-600"
+                : "text-red-600",
             onClick: () =>
               handleAssetStatusChange(
                 asset.id,
@@ -365,7 +380,9 @@ async function renderBarangMemberView() {
 
     document
       .getElementById("member-asset-scan-btn")
-      .addEventListener("click", () => openAssetScanModal(handleAssetScanResult));
+      .addEventListener("click", () =>
+        openAssetScanModal(handleAssetScanResult)
+      );
 
     bindMemberAssetCards(document.getElementById("member-asset-grid"));
   } catch (error) {
@@ -414,10 +431,14 @@ function buildMemberAssetGrid(assets = []) {
                 ${formatAssetStatusBadge(asset.status)}
               </div>
               <p class="text-sm text-gray-500">
-                <i class="fas fa-tag mr-1"></i>${asset.category?.name || "Tanpa kategori"}
+                <i class="fas fa-tag mr-1"></i>${
+                  asset.category?.name || "Tanpa kategori"
+                }
               </p>
               <p class="text-sm text-gray-500">
-                <i class="fas fa-map-marker-alt mr-1"></i>${asset.storage_location || asset.location || "-"}
+                <i class="fas fa-map-marker-alt mr-1"></i>${
+                  asset.storage_location || asset.location || "-"
+                }
               </p>
             </div>
           </div>
@@ -462,14 +483,19 @@ function filterAssetsBySearch(list = [], term = "") {
       (asset.asset_name || "").toLowerCase().includes(query) ||
       (asset.asset_code || "").toLowerCase().includes(query) ||
       (asset.category?.name || "").toLowerCase().includes(query) ||
-      (asset.storage_location || asset.location || "").toLowerCase().includes(query)
+      (asset.storage_location || asset.location || "")
+        .toLowerCase()
+        .includes(query)
     );
   });
 }
 
 async function renderBarangDetailView(assetId, options = {}) {
   const context =
-    options.context || (localStorage.getItem("userRole") === "management" ? "management" : "member");
+    options.context ||
+    (localStorage.getItem("userRole") === "management"
+      ? "management"
+      : "member");
   const container = document.getElementById("barang-content-area");
   container.innerHTML = `
     <div class="bg-white rounded-lg shadow-md p-6">
@@ -509,7 +535,9 @@ async function renderBarangDetailView(assetId, options = {}) {
             />
             <div>
               <p class="text-sm text-gray-500 uppercase tracking-wide mb-1">Kode Barang</p>
-              <p class="text-2xl font-bold text-gray-800">${asset.asset_code || "Belum tersedia"}</p>
+              <p class="text-2xl font-bold text-gray-800">${
+                asset.asset_code || "Belum tersedia"
+              }</p>
             </div>
 
             <div class="space-y-2 text-sm text-gray-600">
@@ -530,7 +558,9 @@ async function renderBarangDetailView(assetId, options = {}) {
                     type="button"
                     id="asset-detail-download"
                     class="px-3 py-2 border rounded-md text-sm flex items-center gap-2 ${
-                      asset.asset_code ? "hover:bg-gray-100" : "opacity-50 cursor-not-allowed"
+                      asset.asset_code
+                        ? "hover:bg-gray-100"
+                        : "opacity-50 cursor-not-allowed"
                     }"
                     ${asset.asset_code ? "" : "disabled"}
                   >
@@ -541,7 +571,9 @@ async function renderBarangDetailView(assetId, options = {}) {
                     type="button"
                     id="asset-detail-print"
                     class="px-3 py-2 border rounded-md text-sm flex items-center gap-2 ${
-                      asset.asset_code ? "hover:bg-gray-100" : "opacity-50 cursor-not-allowed"
+                      asset.asset_code
+                        ? "hover:bg-gray-100"
+                        : "opacity-50 cursor-not-allowed"
                     }"
                     ${asset.asset_code ? "" : "disabled"}
                   >
@@ -564,7 +596,9 @@ async function renderBarangDetailView(assetId, options = {}) {
             <div class="bg-white rounded-lg shadow-md p-6">
               <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-bold text-gray-800">Riwayat Peminjaman</h3>
-                <span class="text-sm text-gray-500">${schedule?.length || 0} catatan</span>
+                <span class="text-sm text-gray-500">${
+                  schedule?.length || 0
+                } catatan</span>
               </div>
               <div id="asset-history-container">
                 ${buildAssetHistoryList(schedule)}
@@ -575,13 +609,15 @@ async function renderBarangDetailView(assetId, options = {}) {
       </div>
     `;
 
-    document.getElementById("asset-back-button").addEventListener("click", () => {
-      if (context === "management") {
-        renderBarangManagementView();
-      } else {
-        renderBarangMemberView();
-      }
-    });
+    document
+      .getElementById("asset-back-button")
+      .addEventListener("click", () => {
+        if (context === "management") {
+          renderBarangManagementView();
+        } else {
+          renderBarangMemberView();
+        }
+      });
 
     if (asset.asset_code) {
       await renderAssetQrPreview("asset-detail-qr", asset.asset_code);
@@ -597,12 +633,14 @@ async function renderBarangDetailView(assetId, options = {}) {
       document
         .getElementById("asset-detail-edit")
         ?.addEventListener("click", () => openAssetModal("edit", asset));
-      document.getElementById("asset-detail-toggle")?.addEventListener("click", () =>
-        handleAssetStatusChange(
-          asset.id,
-          asset.status === "Tidak Aktif" ? "Tersedia" : "Tidak Aktif"
-        )
-      );
+      document
+        .getElementById("asset-detail-toggle")
+        ?.addEventListener("click", () =>
+          handleAssetStatusChange(
+            asset.id,
+            asset.status === "Tidak Aktif" ? "Tersedia" : "Tidak Aktif"
+          )
+        );
     } else {
       wireMemberBorrowSection(assetId, asset.status === "Tersedia");
     }
@@ -617,7 +655,9 @@ async function renderBarangDetailView(assetId, options = {}) {
 
 function getAssetFromState(assetId, context) {
   const source =
-    context === "management" ? assetManagementState.assets : assetMemberState.assets;
+    context === "management"
+      ? assetManagementState.assets
+      : assetMemberState.assets;
   return source.find((item) => item.id === assetId);
 }
 
@@ -715,7 +755,11 @@ function buildDetailActionSection(asset, context) {
             asset.status === "Tidak Aktif" ? "text-green-700" : "text-red-600"
           } hover:bg-gray-50"
         >
-          ${asset.status === "Tidak Aktif" ? "Aktifkan Kembali" : "Nonaktifkan Barang"}
+          ${
+            asset.status === "Tidak Aktif"
+              ? "Aktifkan Kembali"
+              : "Nonaktifkan Barang"
+          }
         </button>
       </div>
     `;
@@ -783,7 +827,9 @@ function wireMemberBorrowSection(assetId, isBorrowable) {
     toggleBtn.classList.add("hidden");
   });
 
-  form.addEventListener("submit", (event) => handleAssetBorrowSubmit(event, assetId));
+  form.addEventListener("submit", (event) =>
+    handleAssetBorrowSubmit(event, assetId)
+  );
 }
 
 async function handleAssetBorrowSubmit(event, assetId) {
@@ -800,6 +846,7 @@ async function handleAssetBorrowSubmit(event, assetId) {
     });
     feedback.textContent = "Permintaan berhasil dikirim!";
     feedback.className = "text-center text-sm font-semibold text-green-600";
+    notifySuccess("Permintaan peminjaman berhasil dikirim!");
     event.target.reset();
   } catch (error) {
     feedback.textContent = `Gagal: ${error.message}`;
@@ -840,8 +887,7 @@ async function initAssetCalendar(schedule = []) {
 
 function getAssetPhotoUrl(asset) {
   return (
-    asset.photo_url ||
-    "https://placehold.co/400x300/EEE/31343C?text=Asset"
+    asset.photo_url || "https://placehold.co/400x300/EEE/31343C?text=Asset"
   );
 }
 
@@ -855,8 +901,14 @@ function openAssetModal(mode, asset = {}) {
   document.getElementById("asset-modal-id").value = asset.id || "";
   document.getElementById("asset-modal-feedback").textContent = "";
 
-  populateAssetModalSelect("asset-modal-commission", assetManagementState.commissions);
-  populateAssetModalSelect("asset-modal-category", assetManagementState.categories);
+  populateAssetModalSelect(
+    "asset-modal-commission",
+    assetManagementState.commissions
+  );
+  populateAssetModalSelect(
+    "asset-modal-category",
+    assetManagementState.categories
+  );
 
   document.getElementById("asset-modal-name").value = asset.asset_name || "";
   document.getElementById("asset-modal-commission").value =
@@ -864,13 +916,16 @@ function openAssetModal(mode, asset = {}) {
   document.getElementById("asset-modal-location").value =
     asset.storage_location || asset.location || "";
   document.getElementById("asset-modal-quantity").value = asset.quantity ?? 1;
-  document.getElementById("asset-modal-category").value = asset.category_id || "";
-  document.getElementById("asset-modal-condition").value = asset.condition || "";
+  document.getElementById("asset-modal-category").value =
+    asset.category_id || "";
+  document.getElementById("asset-modal-condition").value =
+    asset.condition || "";
   document.getElementById("asset-modal-description").value =
     asset.description || "";
   document.getElementById("asset-modal-status").value =
     asset.status || "Tersedia";
-  document.getElementById("asset-modal-photo-url").value = asset.photo_url || "";
+  document.getElementById("asset-modal-photo-url").value =
+    asset.photo_url || "";
 
   updateAssetModalPhotoPreview(asset.photo_url || "");
 
@@ -1034,20 +1089,28 @@ function ensureAssetModalElements() {
 
   document.body.appendChild(modal);
 
-  document.getElementById("asset-modal-close").addEventListener("click", closeAssetModal);
-  document.getElementById("asset-modal-cancel").addEventListener("click", closeAssetModal);
-  document.getElementById("asset-modal-form").addEventListener("submit", handleAssetFormSubmit);
+  document
+    .getElementById("asset-modal-close")
+    .addEventListener("click", closeAssetModal);
+  document
+    .getElementById("asset-modal-cancel")
+    .addEventListener("click", closeAssetModal);
+  document
+    .getElementById("asset-modal-form")
+    .addEventListener("submit", handleAssetFormSubmit);
 
-  document.getElementById("asset-modal-photo-file").addEventListener("change", (event) => {
-    const file = event.target.files?.[0];
-    if (!file) {
-      updateAssetModalPhotoPreview("");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => updateAssetModalPhotoPreview(reader.result);
-    reader.readAsDataURL(file);
-  });
+  document
+    .getElementById("asset-modal-photo-file")
+    .addEventListener("change", (event) => {
+      const file = event.target.files?.[0];
+      if (!file) {
+        updateAssetModalPhotoPreview("");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => updateAssetModalPhotoPreview(reader.result);
+      reader.readAsDataURL(file);
+    });
 
   modal.addEventListener("click", (event) => {
     if (event.target === modal) {
@@ -1115,12 +1178,18 @@ async function handleAssetFormSubmit(event) {
 
     const payload = {
       asset_name: document.getElementById("asset-modal-name").value,
-      commission_id: document.getElementById("asset-modal-commission").value || null,
-      storage_location: document.getElementById("asset-modal-location").value || null,
-      quantity: parseInt(document.getElementById("asset-modal-quantity").value, 10) || 0,
-      category_id: document.getElementById("asset-modal-category").value || null,
+      commission_id:
+        document.getElementById("asset-modal-commission").value || null,
+      storage_location:
+        document.getElementById("asset-modal-location").value || null,
+      quantity:
+        parseInt(document.getElementById("asset-modal-quantity").value, 10) ||
+        0,
+      category_id:
+        document.getElementById("asset-modal-category").value || null,
       condition: document.getElementById("asset-modal-condition").value || null,
-      description: document.getElementById("asset-modal-description").value || null,
+      description:
+        document.getElementById("asset-modal-description").value || null,
       status: document.getElementById("asset-modal-status").value || "Tersedia",
       photo_url: photoUrl || null,
     };
@@ -1130,7 +1199,7 @@ async function handleAssetFormSubmit(event) {
     }
 
     const result = await api.post("/api/management", { action, payload });
-    alert(result.message);
+    notifySuccess(result.message);
     closeAssetModal();
     await renderBarangManagementView();
   } catch (error) {
@@ -1149,7 +1218,8 @@ async function uploadAssetImage(file) {
   }
 
   const token = localStorage.getItem("authToken");
-  if (!token) throw new Error("Token login tidak ditemukan. Silakan login ulang.");
+  if (!token)
+    throw new Error("Token login tidak ditemukan. Silakan login ulang.");
 
   const base64Data = await new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1201,7 +1271,7 @@ async function handleAssetStatusChange(assetId, newStatus) {
       action: "setAssetStatus",
       payload: { assetId, status: newStatus },
     });
-    alert(result.message);
+    notifySuccess(result.message);
     await renderBarangManagementView();
   } catch (error) {
     alert("Gagal memperbarui status barang: " + error.message);
@@ -1488,7 +1558,9 @@ function extractAssetCodeFromScan(value = "") {
     // Not a URL
   }
   if (trimmed.includes("asset_code=")) {
-    const params = new URLSearchParams(trimmed.split("?")[1] || trimmed.split("#")[1] || "");
+    const params = new URLSearchParams(
+      trimmed.split("?")[1] || trimmed.split("#")[1] || ""
+    );
     return params.get("asset_code") || trimmed;
   }
   return trimmed;
@@ -1501,10 +1573,13 @@ function handleAssetScanResult(rawValue) {
     return;
   }
 
-  const role = localStorage.getItem("userRole") === "management" ? "management" : "member";
+  const role =
+    localStorage.getItem("userRole") === "management" ? "management" : "member";
   const normalized = code.toLowerCase();
   const pool =
-    role === "management" ? assetManagementState.assets : assetMemberState.assets;
+    role === "management"
+      ? assetManagementState.assets
+      : assetMemberState.assets;
   const asset = pool.find(
     (item) => item.asset_code && item.asset_code.toLowerCase() === normalized
   );

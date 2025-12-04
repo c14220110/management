@@ -250,7 +250,7 @@ async function handleAdminAction(e) {
     }
 
     await api.post(endpoint, { action: actionPayload, payload: payload });
-    alert("Status permintaan berhasil diperbarui.");
+    notifySuccess("Status permintaan berhasil diperbarui.");
     loadDashboardPage();
   } catch (error) {
     alert(`Gagal memperbarui: ${error.message}`);
@@ -272,7 +272,7 @@ async function handleCancelRequest(e) {
       requestId: id,
       requestType: type,
     });
-    alert("Permintaan berhasil dibatalkan.");
+    notifySuccess("Permintaan berhasil dibatalkan.");
     loadDashboardPage();
   } catch (error) {
     alert(`Gagal membatalkan: ${error.message}`);

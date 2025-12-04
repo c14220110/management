@@ -302,7 +302,7 @@ async function handleTransportBorrowSubmit(e) {
     };
 
     const result = await api.post("/api/member?resource=transports", payload);
-    alert(result.message);
+    notifySuccess(result.message);
     e.target.reset();
     await initTransportCalendar(payload.transport_id);
   } catch (error) {
@@ -626,7 +626,7 @@ async function updateTransportLoanStatus(loanId, newStatus) {
       action: "updateTransportLoanStatus",
       payload: { loanId, newStatus },
     });
-    alert(result.message);
+    notifySuccess(result.message);
     await renderTransportPendingView();
   } catch (error) {
     alert("Gagal: " + error.message);
@@ -963,7 +963,7 @@ async function handleTransportFormSubmit(e) {
     }
 
     const result = await api.post("/api/management", { action, payload });
-    alert(result.message);
+    notifySuccess(result.message);
     closeTransportModal();
     await renderTransportCrudView();
   } catch (error) {
@@ -982,7 +982,7 @@ async function deleteTransportation(transportId) {
       action: "deleteTransportation",
       payload: { transportId },
     });
-    alert(result.message);
+    notifySuccess(result.message);
     await renderTransportCrudView();
   } catch (error) {
     alert("Gagal menghapus: " + error.message);
