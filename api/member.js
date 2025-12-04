@@ -2,6 +2,10 @@
 // Consolidated API for member operations: assets, rooms, transports, cancel
 import { createClient } from "@supabase/supabase-js";
 
+function sanitizeSearchTerm(term = "") {
+  return term.replace(/[%']/g, "").trim();
+}
+
 export default async function handler(req, res) {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Token dibutuhkan." });
@@ -45,12 +49,41 @@ export default async function handler(req, res) {
 async function handleAssets(req, res, supabase, user) {
   switch (req.method) {
     case "GET":
-      const { data, error } = await supabase
+      const { search = "", assetId } = req.query || {};
+      const selectFields = `
+        *,
+        commission:commissions!commission_id (id, name),
+        category:asset_categories!category_id (id, name)
+      `;
+
+      let query = supabase
         .from("assets")
-        .select("*")
+        .select(selectFields)
         .order("asset_name", { ascending: true });
+
+      if (assetId) {
+        query = query.eq("id", assetId);
+      }
+
+      const safeSearch = sanitizeSearchTerm(search);
+      if (safeSearch) {
+        query = query.or(
+          [
+            `asset_name.ilike.%${safeSearch}%`,
+            `asset_code.ilike.%${safeSearch}%`,
+            `condition.ilike.%${safeSearch}%`,
+            `storage_location.ilike.%${safeSearch}%`,
+          ].join(",")
+        );
+      }
+
+      const { data, error } = await query;
       if (error) return res.status(500).json({ error: error.message });
-      return res.status(200).json(data);
+
+      if (assetId) {
+        return res.status(200).json(Array.isArray(data) ? data[0] : data);
+      }
+      return res.status(200).json(data || []);
 
     case "POST":
       const { asset_id, loan_date, due_date } = req.body;

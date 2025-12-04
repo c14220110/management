@@ -93,8 +93,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // target: hero / about / pastor / transport
-    const allowedTargets = ["hero", "about", "pastor", "transport"];
+    // target: hero / about / pastor / transport / assets
+    const allowedTargets = ["hero", "about", "pastor", "transport", "assets"];
 
     const folder = target && allowedTargets.includes(target) ? target : "hero";
 

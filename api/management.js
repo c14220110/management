@@ -1,6 +1,7 @@
 // File: /api/management.js (Versi Final dengan Penanganan Error yang Lebih Baik)
 
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
 // Helper untuk verifikasi role management
 async function verifyManagement(req) {
@@ -28,6 +29,32 @@ async function verifyManagement(req) {
     return { user: null, error: "Akses ditolak." };
 
   return { user, error: null };
+}
+
+function sanitizeSearchTerm(term = "") {
+  return term.replace(/[%']/g, "").trim();
+}
+
+function createAssetCode() {
+  const randomPart = crypto.randomBytes(3).toString("hex").toUpperCase();
+  return `AST-${randomPart}`;
+}
+
+async function generateUniqueAssetCode(supabase, attempt = 0) {
+  if (attempt > 7) {
+    throw new Error("Gagal membuat kode aset unik setelah beberapa percobaan.");
+  }
+  const candidate = createAssetCode();
+  const { data, error } = await supabase
+    .from("assets")
+    .select("id")
+    .eq("asset_code", candidate)
+    .limit(1);
+  if (error) throw error;
+  if (!data || data.length === 0) {
+    return candidate;
+  }
+  return generateUniqueAssetCode(supabase, attempt + 1);
 }
 
 export default async function handler(req, res) {
@@ -107,6 +134,160 @@ export default async function handler(req, res) {
         return res.status(200).json({
           message: `Reservasi berhasil diubah menjadi ${newReservationStatus}`,
         });
+
+      // ============================================================
+      // ASSET MANAGEMENT ACTIONS
+      // ============================================================
+      case "getAssets": {
+        const searchTerm = sanitizeSearchTerm(payload?.search || "");
+        const assetId = payload?.assetId || null;
+        let query = supabase
+          .from("assets")
+          .select(
+            `
+            *,
+            commission:commissions!commission_id (id, name),
+            category:asset_categories!category_id (id, name)
+          `
+          )
+          .order("asset_name", { ascending: true });
+
+        if (assetId) {
+          query = query.eq("id", assetId);
+        }
+
+        if (searchTerm) {
+          query = query.or(
+            [
+              `asset_name.ilike.%${searchTerm}%`,
+              `asset_code.ilike.%${searchTerm}%`,
+              `condition.ilike.%${searchTerm}%`,
+              `storage_location.ilike.%${searchTerm}%`,
+              `status.ilike.%${searchTerm}%`,
+            ].join(",")
+          );
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+        return res.status(200).json(data || []);
+      }
+
+      case "getAssetMeta": {
+        const [{ data: commissions, error: commissionError }, { data: categories, error: categoryError }] =
+          await Promise.all([
+            supabase.from("commissions").select("id, name").order("name", { ascending: true }),
+            supabase.from("asset_categories").select("id, name").order("name", { ascending: true }),
+          ]);
+        if (commissionError) throw commissionError;
+        if (categoryError) throw categoryError;
+        return res.status(200).json({
+          commissions: commissions || [],
+          categories: categories || [],
+        });
+      }
+
+      case "createAsset": {
+        const {
+          asset_name,
+          commission_id,
+          storage_location,
+          quantity,
+          category_id,
+          condition,
+          photo_url,
+          description,
+          status,
+        } = payload || {};
+
+        if (!asset_name) {
+          throw new Error("Nama barang wajib diisi.");
+        }
+
+        const assetCode = await generateUniqueAssetCode(supabase);
+
+        const insertPayload = {
+          asset_name,
+          commission_id: commission_id || null,
+          storage_location: storage_location || null,
+          location: storage_location || null,
+          quantity: typeof quantity === "number" && quantity > 0 ? quantity : 1,
+          category_id: category_id || null,
+          condition: condition || null,
+          photo_url: photo_url || null,
+          description: description || null,
+          status: status || "Tersedia",
+          asset_code: assetCode,
+        };
+
+        const { data, error } = await supabase
+          .from("assets")
+          .insert(insertPayload)
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        return res.status(201).json({
+          message: "Barang berhasil ditambahkan.",
+          asset: data,
+        });
+      }
+
+      case "updateAsset": {
+        const { assetId, ...fields } = payload || {};
+        if (!assetId) throw new Error("ID barang dibutuhkan.");
+
+        const updatePayload = {};
+        if (fields.asset_name !== undefined) updatePayload.asset_name = fields.asset_name;
+        if (fields.commission_id !== undefined)
+          updatePayload.commission_id = fields.commission_id || null;
+        if (fields.storage_location !== undefined) {
+          updatePayload.storage_location = fields.storage_location || null;
+          updatePayload.location = fields.storage_location || null;
+        }
+        if (fields.quantity !== undefined) {
+          const qty = parseInt(fields.quantity, 10);
+          updatePayload.quantity = Number.isNaN(qty) || qty < 0 ? 0 : qty;
+        }
+        if (fields.category_id !== undefined)
+          updatePayload.category_id = fields.category_id || null;
+        if (fields.condition !== undefined) updatePayload.condition = fields.condition || null;
+        if (fields.photo_url !== undefined) updatePayload.photo_url = fields.photo_url || null;
+        if (fields.description !== undefined) updatePayload.description = fields.description || null;
+        if (fields.status !== undefined) updatePayload.status = fields.status;
+
+        if (fields.asset_code) {
+          updatePayload.asset_code = fields.asset_code;
+        }
+
+        const { error } = await supabase
+          .from("assets")
+          .update(updatePayload)
+          .eq("id", assetId);
+        if (error) throw error;
+
+        return res.status(200).json({ message: "Data barang berhasil diperbarui." });
+      }
+
+      case "setAssetStatus": {
+        const { assetId, status: newStatus } = payload || {};
+        if (!assetId || !newStatus) throw new Error("ID barang dan status baru dibutuhkan.");
+        const { error } = await supabase
+          .from("assets")
+          .update({ status: newStatus })
+          .eq("id", assetId);
+        if (error) throw error;
+        return res.status(200).json({ message: "Status barang berhasil diperbarui." });
+      }
+
+      case "deleteAsset": {
+        const { assetId } = payload || {};
+        if (!assetId) throw new Error("ID barang dibutuhkan.");
+        const { error } = await supabase.from("assets").delete().eq("id", assetId);
+        if (error) throw error;
+        return res.status(200).json({ message: "Barang berhasil dihapus." });
+      }
 
       // GANTI CASE LAMA DENGAN VERSI INI
       case "getUsers":
