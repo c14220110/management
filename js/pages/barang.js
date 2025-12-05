@@ -459,7 +459,7 @@ function getTemplateRowsHTML(templates = []) {
           <td class="p-3 text-center">
             <button
               type="button"
-              class="template-action-menu inline-flex items-center justify-center rounded-md border border-gray-300 shadow-sm px-3 py-2 bg-white text-gray-700 hover:bg-gray-50 focus:outline-none"
+              class="template-action-menu action-menu-btn inline-flex items-center justify-center rounded-md border border-gray-300 shadow-sm px-3 py-2 bg-white text-gray-700 hover:bg-gray-50 focus:outline-none"
               data-template-id="${t.id}"
             >
               <i class="fas fa-ellipsis-v"></i>
