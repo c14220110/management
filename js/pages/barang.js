@@ -358,6 +358,13 @@ async function createProductTemplate(payload) {
   });
 }
 
+async function updateProductTemplate(payload) {
+  return api.post("/api/management", {
+    action: "updateProductTemplate",
+    payload,
+  });
+}
+
 async function createProductUnit(payload) {
   return api.post("/api/management", {
     action: "createProductUnit",
@@ -438,10 +445,10 @@ function getTemplateRowsHTML(templates = []) {
           <td class="p-3 text-center">
             <button
               type="button"
-              class="template-row-action px-3 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
+              class="template-action-menu inline-flex items-center justify-center rounded-md border border-gray-300 shadow-sm px-3 py-2 bg-white text-gray-700 hover:bg-gray-50 focus:outline-none"
               data-template-id="${t.id}"
             >
-              Detail
+              <i class="fas fa-ellipsis-v"></i>
             </button>
           </td>
         </tr>
@@ -458,10 +465,56 @@ function scheduleTemplateSearch(value) {
 }
 
 function bindTemplateRowActions(root) {
-  root.querySelectorAll(".template-row-action").forEach((btn) => {
-    btn.addEventListener("click", () => {
+  root.querySelectorAll(".template-action-menu").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      event.preventDefault();
       const templateId = btn.dataset.templateId;
-      renderTemplateDetailView(templateId);
+      const template = productInventoryState.templates.find(
+        (t) => t.id === templateId
+      );
+      if (!template) return;
+
+      openGlobalActionMenu({
+        triggerElement: btn,
+        items: [
+          {
+            label: "Lihat Detail",
+            icon: "fas fa-eye",
+            className: "text-gray-700",
+            onClick: () => renderTemplateDetailView(templateId),
+          },
+          {
+            label: "Edit",
+            icon: "fas fa-edit",
+            className: "text-amber-600",
+            onClick: () => openProductTemplateModal(template),
+          },
+          {
+            label: "Tambah Unit",
+            icon: "fas fa-plus-circle",
+            className: "text-green-600",
+            onClick: () => openProductUnitModal({ templateId }),
+          },
+          {
+            label: "Download Label",
+            icon: "fas fa-download",
+            className: "text-gray-500",
+            onClick: () =>
+              alert(
+                "Label produk dibuat per unit. Buka detail unit untuk label."
+              ),
+          },
+          {
+            label: "Cetak Label",
+            icon: "fas fa-print",
+            className: "text-gray-500",
+            onClick: () =>
+              alert(
+                "Label produk dibuat per unit. Buka detail unit untuk label."
+              ),
+          },
+        ],
+      });
     });
   });
 }
@@ -1033,13 +1086,16 @@ function formatCurrency(value) {
 }
 
 // ====== PRODUCT TEMPLATE MODAL ======
-function openProductTemplateModal() {
+function openProductTemplateModal(template = null) {
   const modal = ensureProductTemplateModal();
   modal.classList.remove("hidden");
   modal.classList.add("flex");
-  document.getElementById("product-template-form").reset();
-  updateProductTemplatePhotoPreview("");
+
+  const form = document.getElementById("product-template-form");
+  form.reset();
+  document.getElementById("product-template-id").value = template?.id || "";
   document.getElementById("product-template-feedback").textContent = "";
+
   populateSelect(
     "product-template-category",
     productInventoryState.categories,
@@ -1050,6 +1106,26 @@ function openProductTemplateModal() {
     productInventoryState.locations,
     "Pilih lokasi default..."
   );
+
+  document.getElementById("product-template-title").textContent = template
+    ? "Edit Produk"
+    : "Tambah Produk";
+
+  document.getElementById("product-template-name").value = template?.name || "";
+  document.getElementById("product-template-uom").value =
+    template?.uom || "unit";
+  document.getElementById("product-template-category").value =
+    template?.category?.id || template?.category_id || "";
+  document.getElementById("product-template-location").value =
+    template?.default_location?.id || template?.default_location_id || "";
+  document.getElementById("product-template-serialized").checked =
+    template?.is_serialized ?? true;
+  document.getElementById("product-template-description").value =
+    template?.description || "";
+
+  const photoUrl = template?.photo_url || "";
+  document.getElementById("product-template-photo").value = photoUrl;
+  updateProductTemplatePhotoPreview(photoUrl);
 }
 
 function ensureProductTemplateModal() {
@@ -1063,12 +1139,13 @@ function ensureProductTemplateModal() {
   modal.innerHTML = `
     <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
       <div class="flex items-start justify-between">
-        <h2 class="text-2xl font-bold text-gray-800">Tambah Produk</h2>
+        <h2 id="product-template-title" class="text-2xl font-bold text-gray-800">Tambah Produk</h2>
         <button type="button" id="product-template-close" class="text-gray-500 hover:text-gray-700">
           <i class="fas fa-times text-xl"></i>
         </button>
       </div>
       <form id="product-template-form" class="mt-6 space-y-4">
+        <input type="hidden" id="product-template-id" />
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Nama Produk *</label>
@@ -1182,6 +1259,8 @@ async function handleProductTemplateSubmit(event) {
   feedback.textContent = "";
   showLoader();
   try {
+    const templateId =
+      document.getElementById("product-template-id").value || null;
     let photoUrl =
       document.getElementById("product-template-photo").value || null;
     const file = document.getElementById("product-template-photo-file")
@@ -1204,8 +1283,14 @@ async function handleProductTemplateSubmit(event) {
         .checked,
       uom: document.getElementById("product-template-uom").value || "unit",
     };
-    await createProductTemplate(payload);
-    notifySuccess("Produk berhasil dibuat.");
+    if (templateId) {
+      payload.id = templateId;
+      await updateProductTemplate(payload);
+      notifySuccess("Produk berhasil diperbarui.");
+    } else {
+      await createProductTemplate(payload);
+      notifySuccess("Produk berhasil dibuat.");
+    }
     closeProductTemplateModal();
     await renderBarangManagementView();
   } catch (error) {

@@ -207,6 +207,33 @@ export default async function handler(req, res) {
           .json({ message: "Produk berhasil dibuat.", template: data });
       }
 
+      case "updateProductTemplate": {
+        const { id, ...fields } = payload || {};
+        if (!id) throw new Error("ID template wajib diisi.");
+        const updatePayload = {};
+        [
+          "name",
+          "description",
+          "category_id",
+          "photo_url",
+          "default_location_id",
+          "is_serialized",
+          "uom",
+        ].forEach((k) => {
+          if (fields[k] !== undefined) updatePayload[k] = fields[k];
+        });
+        const { data, error } = await supabase
+          .from("product_templates")
+          .update(updatePayload)
+          .eq("id", id)
+          .select()
+          .single();
+        if (error) throw error;
+        return res
+          .status(200)
+          .json({ message: "Produk berhasil diperbarui.", template: data });
+      }
+
       case "createProductUnit": {
         const {
           template_id,
@@ -275,6 +302,30 @@ export default async function handler(req, res) {
           .order("name", { ascending: true });
         if (error) throw error;
         return res.status(200).json(data || []);
+      }
+
+      case "createStockLocation": {
+        const { name, code, type, parent_id, description } = payload || {};
+        if (!name) throw new Error("Nama lokasi wajib diisi.");
+        if (!type)
+          throw new Error(
+            "Tipe lokasi wajib diisi (internal/customer/vendor/scrap)."
+          );
+        const { data, error } = await supabase
+          .from("stock_locations")
+          .insert({
+            name,
+            code: code || null,
+            type,
+            parent_id: parent_id || null,
+            description: description || null,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        return res
+          .status(201)
+          .json({ message: "Lokasi berhasil dibuat.", location: data });
       }
 
       case "createCategory": {
