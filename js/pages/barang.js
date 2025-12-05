@@ -18,6 +18,13 @@ const assetManagementState = {
   commissions: [],
 };
 
+// Inventory (produk & unit terserialisasi)
+const productInventoryState = {
+  templates: [],
+  locations: [],
+  search: "",
+};
+
 const assetMemberState = {
   assets: [],
   search: "",
@@ -66,97 +73,79 @@ async function renderBarangManagementView() {
   const container = document.getElementById("barang-content-area");
   container.innerHTML = `
     <div class="bg-white rounded-lg shadow-md p-6">
-      <p class="text-gray-500">Memuat data barang...</p>
+      <p class="text-gray-500">Memuat data inventori...</p>
     </div>
   `;
 
   try {
-    await ensureAssetMetaLoaded();
-    const assets = await fetchManagementAssets();
-    assetManagementState.assets = assets || [];
-
-    const visibleAssets = assetManagementState.assets;
+    const templates = await fetchProductTemplates();
+    productInventoryState.templates = templates || [];
+    const visible = filterProductTemplates(
+      productInventoryState.templates,
+      productInventoryState.search
+    );
 
     container.innerHTML = `
       <div class="space-y-6">
         <div class="flex flex-col gap-4 md:flex-row md:items-center">
-          <div class="flex-1 flex flex-col md:flex-row gap-3">
-            <div class="relative flex-1">
-              <span class="absolute inset-y-0 left-3 flex items-center text-gray-400">
-                <i class="fas fa-search"></i>
-              </span>
-              <input
-                id="asset-search-input"
-                type="text"
-                value="${assetManagementState.search || ""}"
-                placeholder="Cari nama, kode barang, lokasi, atau kategori..."
-                class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#d97706] focus:border-[#d97706]"
-              />
-            </div>
+          <div class="flex-1 relative">
+            <span class="absolute inset-y-0 left-3 flex items-center text-gray-400">
+              <i class="fas fa-search"></i>
+            </span>
+            <input
+              id="product-search-input"
+              type="text"
+              value="${productInventoryState.search || ""}"
+              placeholder="Cari nama produk, kategori, lokasi..."
+              class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#d97706] focus:border-[#d97706]"
+            />
+          </div>
+          <div class="flex gap-3">
             <button
-              id="asset-scan-btn"
+              id="product-refresh-btn"
               class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 flex items-center justify-center gap-2"
               type="button"
             >
-              <i class="fas fa-qrcode"></i>
-              Scan QR
+              <i class="fas fa-sync"></i>
+              Refresh
             </button>
           </div>
-          <button
-            id="asset-add-btn"
-            class="px-4 py-2 bg-[#d97706] text-white font-semibold rounded-md hover:bg-[#b45309] flex items-center justify-center gap-2"
-            type="button"
-          >
-            <i class="fas fa-plus"></i>
-            Tambah Barang
-          </button>
         </div>
 
         <div class="bg-white rounded-lg shadow-md overflow-x-auto">
           <table class="min-w-full text-sm">
             <thead class="bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
               <tr>
-                <th class="p-3">Foto</th>
-                <th class="p-3">Nama & Kode</th>
-                <th class="p-3">Komisi Pemilik</th>
-                <th class="p-3">Lokasi Simpan</th>
+                <th class="p-3">Produk</th>
                 <th class="p-3">Kategori</th>
-                <th class="p-3">Kondisi</th>
-                <th class="p-3">Jumlah</th>
-                <th class="p-3">Status</th>
+                <th class="p-3">Lokasi Default</th>
+                <th class="p-3">Stok</th>
                 <th class="p-3 text-center">Aksi</th>
               </tr>
             </thead>
             <tbody>
-              ${getAssetTableRowsHTML(visibleAssets)}
+              ${getTemplateRowsHTML(visible)}
             </tbody>
           </table>
         </div>
       </div>
     `;
 
-    const searchInput = document.getElementById("asset-search-input");
-    if (searchInput) {
-      searchInput.addEventListener("input", (event) => {
-        scheduleManagementSearch(event.target.value);
+    document
+      .getElementById("product-search-input")
+      ?.addEventListener("input", (event) => {
+        scheduleTemplateSearch(event.target.value);
       });
-    }
 
     document
-      .getElementById("asset-add-btn")
-      .addEventListener("click", () => openAssetModal("create"));
+      .getElementById("product-refresh-btn")
+      ?.addEventListener("click", () => renderBarangManagementView());
 
-    document
-      .getElementById("asset-scan-btn")
-      .addEventListener("click", () =>
-        openAssetScanModal(handleAssetScanResult)
-      );
-
-    bindAssetRowMenus(container);
+    bindTemplateRowActions(container);
   } catch (error) {
     container.innerHTML = `
       <div class="bg-red-50 text-red-700 p-4 rounded-md">
-        <p class="font-semibold">Gagal memuat data barang.</p>
+        <p class="font-semibold">Gagal memuat data inventori.</p>
         <p class="text-sm mt-1">${error.message}</p>
       </div>
     `;
@@ -322,6 +311,115 @@ async function fetchManagementAssets() {
   return api.post("/api/management", {
     action: "getAssets",
     payload,
+  });
+}
+
+// ========= INVENTORY (PRODUCT TEMPLATES & UNITS) =========
+async function fetchProductTemplates() {
+  return api.post("/api/management", { action: "getProductTemplates" });
+}
+
+async function fetchProductUnits(templateId) {
+  return api.post("/api/management", {
+    action: "getProductUnits",
+    payload: { templateId },
+  });
+}
+
+function filterProductTemplates(list = [], term = "") {
+  if (!term) return list;
+  const q = term.toLowerCase().trim();
+  return list.filter((t) => {
+    const cat = t.category?.name || "";
+    const loc = t.default_location?.name || "";
+    return (
+      (t.name || "").toLowerCase().includes(q) ||
+      cat.toLowerCase().includes(q) ||
+      loc.toLowerCase().includes(q)
+    );
+  });
+}
+
+function getTemplateRowsHTML(templates = []) {
+  if (!templates.length) {
+    return `
+      <tr>
+        <td colspan="5" class="p-6 text-center text-gray-500">
+          Belum ada produk. Tambahkan data lewat migrasi atau backend.
+        </td>
+      </tr>
+    `;
+  }
+
+  return templates
+    .map((t) => {
+      const stock = t.stock || {};
+      return `
+        <tr class="border-b last:border-b-0 hover:bg-gray-50">
+          <td class="p-3">
+            <div class="flex items-center gap-3">
+              <img src="${
+                t.photo_url || "https://placehold.co/80x80"
+              }" class="w-12 h-12 rounded-md object-cover border" alt="${
+        t.name
+      }" />
+              <div>
+                <p class="font-semibold text-gray-800">${t.name}</p>
+                <p class="text-xs text-gray-500">${
+                  t.is_serialized ? "Serialized" : "Non-Serialized"
+                }</p>
+              </div>
+            </div>
+          </td>
+          <td class="p-3">${t.category?.name || "-"}</td>
+          <td class="p-3">${t.default_location?.name || "-"}</td>
+          <td class="p-3">
+            <div class="flex flex-wrap gap-2 text-xs">
+              <span class="px-2 py-1 rounded-full bg-gray-100 text-gray-700">Total: ${
+                stock.total ?? 0
+              }</span>
+              <span class="px-2 py-1 rounded-full bg-green-100 text-green-700">Avail: ${
+                stock.available ?? 0
+              }</span>
+              <span class="px-2 py-1 rounded-full bg-amber-100 text-amber-700">Borrowed: ${
+                stock.borrowed ?? 0
+              }</span>
+              <span class="px-2 py-1 rounded-full bg-blue-100 text-blue-700">Maint: ${
+                stock.maintenance ?? 0
+              }</span>
+              <span class="px-2 py-1 rounded-full bg-purple-100 text-purple-700">Scrap: ${
+                stock.scrapped ?? 0
+              }</span>
+            </div>
+          </td>
+          <td class="p-3 text-center">
+            <button
+              type="button"
+              class="template-row-action px-3 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
+              data-template-id="${t.id}"
+            >
+              Detail
+            </button>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+let templateSearchTimeout;
+function scheduleTemplateSearch(value) {
+  productInventoryState.search = value;
+  clearTimeout(templateSearchTimeout);
+  templateSearchTimeout = setTimeout(() => renderBarangManagementView(), 250);
+}
+
+function bindTemplateRowActions(root) {
+  root.querySelectorAll(".template-row-action").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const templateId = btn.dataset.templateId;
+      renderTemplateDetailView(templateId);
+    });
   });
 }
 
@@ -652,6 +750,213 @@ async function renderBarangDetailView(assetId, options = {}) {
   } finally {
     hideLoader();
   }
+}
+
+// ========== TEMPLATE DETAIL (Management) ==========
+async function renderTemplateDetailView(templateId) {
+  const container = document.getElementById("barang-content-area");
+  container.innerHTML = `
+    <div class="bg-white rounded-lg shadow-md p-6">
+      <p class="text-gray-500">Memuat detail produk...</p>
+    </div>
+  `;
+
+  showLoader();
+  try {
+    const template =
+      productInventoryState.templates.find((t) => t.id === templateId) || null;
+    if (!template) {
+      container.innerHTML = `<p class="text-red-500">Produk tidak ditemukan.</p>`;
+      return;
+    }
+
+    const units = (await fetchProductUnits(templateId)) || [];
+    const stock = template.stock || {};
+
+    container.innerHTML = `
+      <div class="space-y-6">
+        <button
+          id="template-back-button"
+          class="text-[#d97706] hover:underline flex items-center gap-2 font-semibold"
+        >
+          <i class="fas fa-arrow-left"></i>
+          <span>Kembali ke Daftar Produk</span>
+        </button>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="bg-white rounded-lg shadow-md p-6 space-y-4">
+            <img
+              src="${
+                template.photo_url ||
+                "https://placehold.co/400x300/EEE/31343C?text=Produk"
+              }"
+              alt="${template.name}"
+              class="w-full h-64 object-cover rounded-lg border border-gray-200"
+            />
+            <div>
+              <p class="text-sm text-gray-500 uppercase tracking-wide mb-1">Nama Produk</p>
+              <p class="text-2xl font-bold text-gray-800">${template.name}</p>
+            </div>
+            <div class="space-y-2 text-sm text-gray-600">
+              <div class="flex items-center justify-between">
+                <span class="text-gray-500">Kategori</span>
+                <span class="font-semibold text-gray-800">${
+                  template.category?.name || "-"
+                }</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-gray-500">Lokasi Default</span>
+                <span class="font-semibold text-gray-800">${
+                  template.default_location?.name || "-"
+                }</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-gray-500">Serialized</span>
+                <span class="font-semibold text-gray-800">${
+                  template.is_serialized ? "Ya" : "Tidak"
+                }</span>
+              </div>
+            </div>
+            ${
+              template.description
+                ? `<div class="pt-2 border-t border-gray-200 text-sm text-gray-700">${template.description}</div>`
+                : ""
+            }
+          </div>
+
+          <div class="lg:col-span-2 space-y-6">
+            <div class="bg-white rounded-lg shadow-md p-6">
+              <h3 class="text-lg font-bold text-gray-800 mb-4">Ringkasan Stok</h3>
+              <div class="flex flex-wrap gap-2 text-sm">
+                <span class="px-3 py-2 rounded-lg bg-gray-100 text-gray-700">Total: ${
+                  stock.total ?? 0
+                }</span>
+                <span class="px-3 py-2 rounded-lg bg-green-100 text-green-700">Available: ${
+                  stock.available ?? 0
+                }</span>
+                <span class="px-3 py-2 rounded-lg bg-amber-100 text-amber-700">Borrowed: ${
+                  stock.borrowed ?? 0
+                }</span>
+                <span class="px-3 py-2 rounded-lg bg-blue-100 text-blue-700">Maintenance: ${
+                  stock.maintenance ?? 0
+                }</span>
+                <span class="px-3 py-2 rounded-lg bg-purple-100 text-purple-700">Scrapped: ${
+                  stock.scrapped ?? 0
+                }</span>
+                <span class="px-3 py-2 rounded-lg bg-gray-200 text-gray-700">Lost: ${
+                  stock.lost ?? 0
+                }</span>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-md p-6">
+              <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-gray-800">Daftar Unit</h3>
+                <button
+                  id="template-refresh-units"
+                  class="px-3 py-2 border rounded-md text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                >
+                  <i class="fas fa-sync"></i> Refresh
+                </button>
+              </div>
+              <div class="overflow-x-auto">
+                ${buildUnitTable(units)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document
+      .getElementById("template-back-button")
+      ?.addEventListener("click", () => renderBarangManagementView());
+
+    document
+      .getElementById("template-refresh-units")
+      ?.addEventListener("click", () => renderTemplateDetailView(templateId));
+  } catch (error) {
+    container.innerHTML = `<p class="text-red-500">Gagal memuat detail produk: ${error.message}</p>`;
+  } finally {
+    hideLoader();
+  }
+}
+
+function buildUnitTable(units = []) {
+  if (!units.length) {
+    return `<p class="text-sm text-gray-500">Belum ada unit tercatat.</p>`;
+  }
+  return `
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-100 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+        <tr>
+          <th class="p-3">Serial</th>
+          <th class="p-3">Kode</th>
+          <th class="p-3">Status</th>
+          <th class="p-3">Kondisi</th>
+          <th class="p-3">Lokasi</th>
+          <th class="p-3">Vendor</th>
+          <th class="p-3">Harga Beli</th>
+          <th class="p-3">Tgl Beli</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${units
+          .map(
+            (u) => `
+            <tr class="border-b last:border-b-0 hover:bg-gray-50">
+              <td class="p-3">${u.serial_number || "-"}</td>
+              <td class="p-3">${u.asset_code || "-"}</td>
+              <td class="p-3">${formatUnitStatusBadge(u.status)}</td>
+              <td class="p-3">${u.condition || "-"}</td>
+              <td class="p-3">${u.location?.name || "-"}</td>
+              <td class="p-3">${u.vendor_name || "-"}</td>
+              <td class="p-3">${
+                u.purchase_price != null
+                  ? formatCurrency(u.purchase_price)
+                  : "-"
+              }</td>
+              <td class="p-3">${
+                u.purchase_date
+                  ? new Date(u.purchase_date).toLocaleDateString("id-ID")
+                  : "-"
+              }</td>
+            </tr>
+          `
+          )
+          .join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function formatUnitStatusBadge(status = "") {
+  const base =
+    "inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold";
+  switch (status) {
+    case "available":
+      return `<span class="${base} bg-green-100 text-green-700">Available</span>`;
+    case "borrowed":
+      return `<span class="${base} bg-amber-100 text-amber-700">Borrowed</span>`;
+    case "maintenance":
+      return `<span class="${base} bg-blue-100 text-blue-700">Maintenance</span>`;
+    case "scrapped":
+      return `<span class="${base} bg-purple-100 text-purple-700">Scrapped</span>`;
+    case "lost":
+      return `<span class="${base} bg-gray-200 text-gray-700">Lost</span>`;
+    default:
+      return `<span class="${base} bg-gray-100 text-gray-700">${
+        status || "Unknown"
+      }</span>`;
+  }
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    minimumFractionDigits: 0,
+  }).format(Number(value));
 }
 
 function getAssetFromState(assetId, context) {
