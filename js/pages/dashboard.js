@@ -120,15 +120,15 @@ async function renderManagerDashboard() {
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
             <div class="flex items-center justify-between">
-              <div>
+                      <div>
                 <p class="text-sm text-gray-500">Total Aset</p>
                 <p class="text-2xl font-bold text-gray-800">${
                   stats.totalAssets
                 }</p>
-              </div>
+                      </div>
               <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                 <i class="fas fa-boxes text-blue-500 text-xl"></i>
-              </div>
+                      </div>
             </div>
             <p class="text-xs text-gray-400 mt-2">${
               stats.borrowedAssets
@@ -632,7 +632,7 @@ function renderConditionChart(summary) {
       }
     </div>
   `;
-}
+  }
 
 // Helper function to render pending items
 function renderPendingItems(pendingRequests) {
@@ -1205,14 +1205,14 @@ function renderMemberRequestTab(requests, activeTab) {
                 item.status
               )}">${item.status}</span>
             </div>
-            ${
-              item.status === "Menunggu Persetujuan"
+                  ${
+                    item.status === "Menunggu Persetujuan"
                 ? `
               <button data-id="${item.id}" data-type="asset" class="cancel-btn mt-2 w-full text-sm text-gray-500 hover:text-red-600 py-1 border rounded hover:bg-red-50 transition">
                 <i class="fas fa-times mr-1"></i>Batalkan
               </button>
             `
-                : ""
+                      : ""
             }
           </div>
         `
@@ -1249,17 +1249,17 @@ function renderMemberRequestTab(requests, activeTab) {
                 </p>
               </div>
               <span class="text-xs px-2 py-1 rounded-full ${getStatusBadge(
-                item.status
+          item.status
               )}">${item.status}</span>
             </div>
-            ${
-              item.status === "Menunggu Persetujuan"
+                  ${
+                    item.status === "Menunggu Persetujuan"
                 ? `
               <button data-id="${item.id}" data-type="room" class="cancel-btn mt-2 w-full text-sm text-gray-500 hover:text-red-600 py-1 border rounded hover:bg-red-50 transition">
                 <i class="fas fa-times mr-1"></i>Batalkan
               </button>
             `
-                : ""
+                      : ""
             }
           </div>
         `
@@ -1267,7 +1267,7 @@ function renderMemberRequestTab(requests, activeTab) {
           .join("")}
       </div>
     `;
-  }
+    }
 
   if (activeTab === "transports") {
     const items = requests.transportLoans || [];
@@ -1283,7 +1283,7 @@ function renderMemberRequestTab(requests, activeTab) {
             <div class="flex items-start justify-between">
               <div class="flex-1">
                 <p class="font-semibold text-gray-800">${
-                  item.transportations?.vehicle_name || "Kendaraan"
+          item.transportations?.vehicle_name || "Kendaraan"
                 }</p>
                 <p class="text-sm text-gray-600">${
                   item.transportations?.plate_number || ""
@@ -1303,8 +1303,8 @@ function renderMemberRequestTab(requests, activeTab) {
                 item.status
               )}">${item.status}</span>
             </div>
-            ${
-              item.status === "Menunggu Persetujuan"
+                  ${
+                    item.status === "Menunggu Persetujuan"
                 ? `
               <button data-id="${item.id}" data-type="transport" class="cancel-btn mt-2 w-full text-sm text-gray-500 hover:text-red-600 py-1 border rounded hover:bg-red-50 transition">
                 <i class="fas fa-times mr-1"></i>Batalkan

@@ -316,12 +316,16 @@ async function handleManagementDashboard(req, res, user) {
           profiles:user_id(full_name)
         `
         )
-        // ambil semua yang belum final (bukan Disetujui/Dikembalikan/Ditolak/Selesai)
-        // gunakan chain neq agar tidak bergantung pada format list
-        .neq("status", "Disetujui")
-        .neq("status", "Dikembalikan")
-        .neq("status", "Ditolak")
-        .neq("status", "Selesai")
+        // ambil semua status pending/menunggu/diproses
+        .or(
+          [
+            "status.ilike.%Menunggu%",
+            "status.eq.Pending",
+            "status.eq.pending",
+            "status.eq.Diproses",
+            "status.eq.diproses",
+          ].join(",")
+        )
         .order("loan_date", { ascending: true }),
       supabaseAdmin
         .from("room_reservations")
