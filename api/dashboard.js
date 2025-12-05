@@ -299,9 +299,24 @@ async function handleManagementDashboard(req, res, user) {
       supabaseAdmin
         .from("asset_loans")
         .select(
-          "id, loan_date, due_date, assets(asset_name), profiles:user_id(full_name)"
+          `
+          id,
+          loan_date,
+          due_date,
+          status,
+          asset_id,
+          asset_unit_id,
+          assets(asset_name, asset_code),
+          product_units:product_units!asset_unit_id(
+            id,
+            serial_number,
+            asset_code,
+            template:product_templates(name)
+          ),
+          profiles:user_id(full_name)
+        `
         )
-        .eq("status", "Menunggu Persetujuan")
+        .in("status", ["Menunggu Persetujuan", "Pending", "Diproses"])
         .order("loan_date", { ascending: true }),
       supabaseAdmin
         .from("room_reservations")

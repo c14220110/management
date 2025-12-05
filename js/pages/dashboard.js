@@ -640,15 +640,24 @@ function renderPendingItems(pendingRequests) {
 
   // Asset loans
   (pendingRequests.assetLoans || []).forEach((item) => {
+    const title =
+      item.assets?.asset_name || item.product_units?.template?.name || "Barang";
+    const code =
+      item.assets?.asset_code ||
+      item.product_units?.asset_code ||
+      item.product_units?.serial_number ||
+      "";
     items.push({
       type: "loan",
       id: item.id,
       icon: "fas fa-box",
       iconBg: "bg-blue-100 text-blue-600",
-      title: item.assets?.asset_name || "Barang",
+      title,
       subtitle: `Oleh: ${item.profiles?.full_name || "-"}`,
       time: new Date(item.loan_date).toLocaleDateString("id-ID"),
-      dueInfo: `Sampai: ${new Date(item.due_date).toLocaleDateString("id-ID")}`,
+      dueInfo: `Kode: ${code || "-"} • Sampai: ${new Date(
+        item.due_date
+      ).toLocaleDateString("id-ID")}`,
     });
   });
 
