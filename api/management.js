@@ -1,7 +1,6 @@
-// File: /api/management.js (Versi Final dengan Penanganan Error yang Lebih Baik)
+// File: /api/management.js (Versi dengan Inventory System Baru)
 
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
 
 // Helper untuk verifikasi role management
 async function verifyManagement(req) {
@@ -31,32 +30,6 @@ async function verifyManagement(req) {
   return { user, error: null };
 }
 
-function sanitizeSearchTerm(term = "") {
-  return term.replace(/[%']/g, "").trim();
-}
-
-function createAssetCode() {
-  const randomPart = crypto.randomBytes(3).toString("hex").toUpperCase();
-  return `AST-${randomPart}`;
-}
-
-async function generateUniqueAssetCode(supabase, attempt = 0) {
-  if (attempt > 7) {
-    throw new Error("Gagal membuat kode aset unik setelah beberapa percobaan.");
-  }
-  const candidate = createAssetCode();
-  const { data, error } = await supabase
-    .from("assets")
-    .select("id")
-    .eq("asset_code", candidate)
-    .limit(1);
-  if (error) throw error;
-  if (!data || data.length === 0) {
-    return candidate;
-  }
-  return generateUniqueAssetCode(supabase, attempt + 1);
-}
-
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Hanya metode POST yang diizinkan" });
@@ -71,21 +44,12 @@ export default async function handler(req, res) {
     process.env.SUPABASE_SERVICE_KEY
   );
 
-  // Helper: derive status from destination location
-  const deriveStatusFromDestination = (location) => {
-    const code = (location?.code || "").toUpperCase();
-    const type = (location?.type || "").toLowerCase();
-    if (code === "BORROWED" || type === "customer") return "borrowed";
-    if (code === "SCRAP" || type === "scrap") return "scrapped";
-    return "available";
-  };
-
   const { action, payload } = req.body;
 
   try {
     switch (action) {
       // ============================================================
-      // INVENTORY - PRODUCT TEMPLATE & UNIT (SERIALIZED)
+      // INVENTORY - PRODUCT TEMPLATE & UNITS
       // ============================================================
       case "getProductTemplates": {
         const { data: templates, error: tmplError } = await supabase
@@ -98,21 +62,25 @@ export default async function handler(req, res) {
             photo_url,
             is_serialized,
             uom,
-            category:asset_categories!category_id (id, name),
-            default_location:stock_locations!default_location_id (id, name, code, type)
+            quantity_on_hand,
+            min_quantity,
+            category:asset_categories!category_id (id, name, code),
+            default_location:stock_locations!default_location_id (id, name, code, type, commission_id)
           `
           )
           .order("name", { ascending: true });
         if (tmplError) throw tmplError;
 
+        // Untuk serialized items, hitung stock dari product_units
         const { data: units, error: unitError } = await supabase
           .from("product_units")
           .select("id, template_id, status");
         if (unitError) throw unitError;
 
-        const agg = new Map();
+        // Hitung stock per template untuk serialized
+        const serializedStock = new Map();
         (units || []).forEach((u) => {
-          const curr = agg.get(u.template_id) || {
+          const curr = serializedStock.get(u.template_id) || {
             total: 0,
             available: 0,
             borrowed: 0,
@@ -126,20 +94,55 @@ export default async function handler(req, res) {
           if (u.status === "maintenance") curr.maintenance += 1;
           if (u.status === "scrapped") curr.scrapped += 1;
           if (u.status === "lost") curr.lost += 1;
-          agg.set(u.template_id, curr);
+          serializedStock.set(u.template_id, curr);
         });
 
-        const result = (templates || []).map((t) => ({
-          ...t,
-          stock: agg.get(t.id) || {
-            total: 0,
-            available: 0,
-            borrowed: 0,
-            maintenance: 0,
-            scrapped: 0,
-            lost: 0,
-          },
-        }));
+        // Hitung borrowed quantity untuk non-serialized dari asset_loans
+        const { data: activeLoans, error: loansError } = await supabase
+          .from("asset_loans")
+          .select("product_template_id, quantity")
+          .not("product_template_id", "is", null)
+          .in("status", ["Disetujui", "Dipinjam"])
+          .is("return_date", null);
+        if (loansError) throw loansError;
+
+        const borrowedQty = new Map();
+        (activeLoans || []).forEach((loan) => {
+          const curr = borrowedQty.get(loan.product_template_id) || 0;
+          borrowedQty.set(loan.product_template_id, curr + (loan.quantity || 0));
+        });
+
+        const result = (templates || []).map((t) => {
+          if (t.is_serialized) {
+            // Serialized: stock dari product_units
+            return {
+              ...t,
+              stock: serializedStock.get(t.id) || {
+                total: 0,
+                available: 0,
+                borrowed: 0,
+                maintenance: 0,
+                scrapped: 0,
+                lost: 0,
+              },
+            };
+          } else {
+            // Non-serialized: stock dari quantity_on_hand
+            const borrowed = borrowedQty.get(t.id) || 0;
+            const available = Math.max(0, (t.quantity_on_hand || 0) - borrowed);
+            return {
+              ...t,
+              stock: {
+                total: t.quantity_on_hand || 0,
+                available,
+                borrowed,
+                maintenance: 0,
+                scrapped: 0,
+                lost: 0,
+              },
+            };
+          }
+        });
 
         return res.status(200).json(result);
       }
@@ -183,6 +186,8 @@ export default async function handler(req, res) {
           default_location_id,
           is_serialized = true,
           uom = "unit",
+          quantity_on_hand = 0,
+          min_quantity = 0,
         } = payload || {};
 
         if (!name) throw new Error("Nama produk wajib diisi.");
@@ -197,6 +202,8 @@ export default async function handler(req, res) {
             default_location_id: default_location_id || null,
             is_serialized: !!is_serialized,
             uom: uom || "unit",
+            quantity_on_hand: is_serialized ? 0 : (quantity_on_hand || 0),
+            min_quantity: min_quantity || 0,
           })
           .select()
           .single();
@@ -210,6 +217,7 @@ export default async function handler(req, res) {
       case "updateProductTemplate": {
         const { id, ...fields } = payload || {};
         if (!id) throw new Error("ID template wajib diisi.");
+        
         const updatePayload = {};
         [
           "name",
@@ -219,9 +227,12 @@ export default async function handler(req, res) {
           "default_location_id",
           "is_serialized",
           "uom",
+          "quantity_on_hand",
+          "min_quantity",
         ].forEach((k) => {
           if (fields[k] !== undefined) updatePayload[k] = fields[k];
         });
+        
         const { data, error } = await supabase
           .from("product_templates")
           .update(updatePayload)
@@ -232,6 +243,63 @@ export default async function handler(req, res) {
         return res
           .status(200)
           .json({ message: "Produk berhasil diperbarui.", template: data });
+      }
+
+      case "adjustProductQuantity": {
+        // Untuk adjust quantity non-serialized items
+        const { templateId, adjustment, notes } = payload || {};
+        if (!templateId) throw new Error("Template ID wajib diisi.");
+        if (adjustment === undefined || adjustment === 0) 
+          throw new Error("Adjustment quantity wajib diisi.");
+
+        // Get current quantity
+        const { data: template, error: getError } = await supabase
+          .from("product_templates")
+          .select("quantity_on_hand, is_serialized")
+          .eq("id", templateId)
+          .single();
+        if (getError) throw getError;
+
+        if (template.is_serialized) {
+          throw new Error("Tidak bisa adjust quantity untuk produk serialized. Gunakan unit management.");
+        }
+
+        const newQuantity = Math.max(0, (template.quantity_on_hand || 0) + adjustment);
+
+        const { error: updateError } = await supabase
+          .from("product_templates")
+          .update({ quantity_on_hand: newQuantity })
+          .eq("id", templateId);
+        if (updateError) throw updateError;
+
+        return res.status(200).json({ 
+          message: `Stok berhasil ${adjustment > 0 ? 'ditambah' : 'dikurangi'}. Stok baru: ${newQuantity}`,
+          newQuantity 
+        });
+      }
+
+      case "deleteProductTemplate": {
+        const { templateId } = payload || {};
+        if (!templateId) throw new Error("Template ID wajib diisi.");
+
+        // Check if there are units
+        const { data: units } = await supabase
+          .from("product_units")
+          .select("id")
+          .eq("template_id", templateId)
+          .limit(1);
+
+        if (units && units.length > 0) {
+          throw new Error("Tidak bisa menghapus produk yang masih memiliki unit. Hapus semua unit terlebih dahulu.");
+        }
+
+        const { error } = await supabase
+          .from("product_templates")
+          .delete()
+          .eq("id", templateId);
+        if (error) throw error;
+
+        return res.status(200).json({ message: "Produk berhasil dihapus." });
       }
 
       case "createProductUnit": {
@@ -295,10 +363,72 @@ export default async function handler(req, res) {
           .json({ message: "Unit berhasil dibuat.", unit: data });
       }
 
+      case "updateProductUnit": {
+        const { unitId, ...fields } = payload || {};
+        if (!unitId) throw new Error("Unit ID wajib diisi.");
+
+        const updatePayload = {};
+        [
+          "serial_number",
+          "asset_code",
+          "status",
+          "condition",
+          "location_id",
+          "purchase_date",
+          "purchase_price",
+          "vendor_name",
+          "notes",
+        ].forEach((k) => {
+          if (fields[k] !== undefined) updatePayload[k] = fields[k];
+        });
+
+        const { data, error } = await supabase
+          .from("product_units")
+          .update(updatePayload)
+          .eq("id", unitId)
+          .select()
+          .single();
+        if (error) throw error;
+
+        return res.status(200).json({ message: "Unit berhasil diperbarui.", unit: data });
+      }
+
+      case "deleteProductUnit": {
+        const { unitId } = payload || {};
+        if (!unitId) throw new Error("Unit ID wajib diisi.");
+
+        // Check if unit is borrowed
+        const { data: activeLoans } = await supabase
+          .from("asset_loans")
+          .select("id")
+          .eq("asset_unit_id", unitId)
+          .in("status", ["Disetujui", "Dipinjam"])
+          .is("return_date", null)
+          .limit(1);
+
+        if (activeLoans && activeLoans.length > 0) {
+          throw new Error("Tidak bisa menghapus unit yang sedang dipinjam.");
+        }
+
+        const { error } = await supabase
+          .from("product_units")
+          .delete()
+          .eq("id", unitId);
+        if (error) throw error;
+
+        return res.status(200).json({ message: "Unit berhasil dihapus." });
+      }
+
       case "getStockLocations": {
         const { data, error } = await supabase
           .from("stock_locations")
-          .select("id, name, code, type")
+          .select(`
+            id, 
+            name, 
+            code, 
+            type,
+            commission:commissions!commission_id (id, name, code)
+          `)
           .order("name", { ascending: true });
         if (error) throw error;
         return res.status(200).json(data || []);
@@ -335,7 +465,7 @@ export default async function handler(req, res) {
       }
 
       case "createStockLocation": {
-        const { name, code, type, parent_id, description } = payload || {};
+        const { name, code, type, parent_id, description, commission_id } = payload || {};
         if (!name) throw new Error("Nama lokasi wajib diisi.");
         if (!type)
           throw new Error(
@@ -349,6 +479,7 @@ export default async function handler(req, res) {
             type,
             parent_id: parent_id || null,
             description: description || null,
+            commission_id: commission_id || null,
           })
           .select()
           .single();
@@ -359,12 +490,13 @@ export default async function handler(req, res) {
       }
 
       case "createCategory": {
-        const { name, description, parent_id } = payload || {};
+        const { name, code, description, parent_id } = payload || {};
         if (!name) throw new Error("Nama kategori wajib diisi.");
         const { data, error } = await supabase
           .from("asset_categories")
           .insert({
             name,
+            code: code || null,
             description: description || null,
             parent_id: parent_id || null,
           })
@@ -376,146 +508,79 @@ export default async function handler(req, res) {
           .json({ message: "Kategori berhasil dibuat.", category: data });
       }
 
-      case "createStockLocation": {
-        const { name, code, type, parent_id, description } = payload || {};
-        if (!name) throw new Error("Nama lokasi wajib diisi.");
-        if (!type)
-          throw new Error(
-            "Tipe lokasi wajib diisi (internal/customer/vendor/scrap)."
-          );
-        const { data, error } = await supabase
-          .from("stock_locations")
-          .insert({
-            name,
-            code: code || null,
-            type,
-            parent_id: parent_id || null,
-            description: description || null,
-          })
-          .select()
-          .single();
-        if (error) throw error;
-        return res
-          .status(201)
-          .json({ message: "Lokasi berhasil dibuat.", location: data });
-      }
-
-      case "createStockMove": {
-        const {
-          source_location_id,
-          dest_location_id,
-          move_type,
-          partner_name,
-          notes,
-          unitIds,
-        } = payload || {};
-
-        if (!source_location_id || !dest_location_id)
-          throw new Error("Source dan destination lokasi wajib diisi.");
-        if (source_location_id === dest_location_id)
-          throw new Error("Source dan destination tidak boleh sama.");
-        if (!Array.isArray(unitIds) || unitIds.length === 0)
-          throw new Error("Daftar unit yang dipindahkan wajib diisi.");
-
-        const { data: destLoc, error: destErr } = await supabase
-          .from("stock_locations")
-          .select("id, code, type")
-          .eq("id", dest_location_id)
-          .single();
-        if (destErr || !destLoc)
-          throw new Error("Lokasi tujuan tidak ditemukan.");
-
-        const derivedStatus = deriveStatusFromDestination(destLoc);
-
-        const { data: move, error: moveErr } = await supabase
-          .from("stock_moves")
-          .insert({
-            source_location_id,
-            dest_location_id,
-            move_type: move_type || "internal",
-            partner_name: partner_name || null,
-            notes: notes || null,
-          })
-          .select()
-          .single();
-        if (moveErr) throw moveErr;
-
-        const moveItemsPayload = unitIds.map((id) => ({
-          move_id: move.id,
-          product_unit_id: id,
-        }));
-        const { error: itemsErr } = await supabase
-          .from("stock_move_items")
-          .insert(moveItemsPayload);
-        if (itemsErr) throw itemsErr;
-
-        const { error: updateErr } = await supabase
-          .from("product_units")
-          .update({
-            location_id: dest_location_id,
-            status: derivedStatus,
-          })
-          .in("id", unitIds);
-        if (updateErr) throw updateErr;
-
-        return res.status(201).json({
-          message: "Stock move berhasil dicatat.",
-          move,
-          derivedStatus,
+      case "getAssetMeta": {
+        const [
+          { data: commissions, error: commissionError },
+          { data: categories, error: categoryError },
+          { data: locations, error: locationError },
+        ] = await Promise.all([
+          supabase
+            .from("commissions")
+            .select("id, name, code")
+            .order("name", { ascending: true }),
+          supabase
+            .from("asset_categories")
+            .select("id, name, code")
+            .order("name", { ascending: true }),
+          supabase
+            .from("stock_locations")
+            .select("id, name, code, type, commission_id")
+            .order("name", { ascending: true }),
+        ]);
+        if (commissionError) throw commissionError;
+        if (categoryError) throw categoryError;
+        if (locationError) throw locationError;
+        return res.status(200).json({
+          commissions: commissions || [],
+          categories: categories || [],
+          locations: locations || [],
         });
       }
 
-      // Aksi dari pending-requests.js
-      case "getPendingRequests":
-        const { data: pendingAssetLoans } = await supabase
-          .from("asset_loans")
-          .select("*, assets(asset_name), profiles(full_name)")
-          .eq("status", "Menunggu Persetujuan")
-          .order("loan_date", { ascending: true });
-        const { data: pendingRoomReservations } = await supabase
-          .from("room_reservations")
-          .select("*")
-          .eq("status", "Menunggu Persetujuan")
-          .order("start_time", { ascending: true });
-        return res
-          .status(200)
-          .json({ pendingAssetLoans, pendingRoomReservations });
-
-      // Aksi dari update-loan-status.js
-      case "updateLoanStatus":
+      // ============================================================
+      // ASSET LOANS MANAGEMENT
+      // ============================================================
+      case "updateLoanStatus": {
         const { loanId, newStatus } = payload;
-        const { data: updatedLoan, error: loanError } = await supabase
+        
+        // Get loan info
+        const { data: loan, error: loanError } = await supabase
           .from("asset_loans")
-          .update({ status: newStatus })
+          .select("*, asset_unit_id, product_template_id, quantity")
           .eq("id", loanId)
-          .select()
           .single();
         if (loanError) throw loanError;
-        if (newStatus === "Disetujui" || newStatus === "Dipinjam") {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("id", updatedLoan.user_id)
-            .single();
-          await supabase
-            .from("assets")
-            .update({
-              status: "Dipinjam",
-              borrower_name: profile.full_name || "N/A",
-            })
-            .eq("id", updatedLoan.asset_id);
-        } else if (newStatus === "Dikembalikan" || newStatus === "Ditolak") {
-          await supabase
-            .from("assets")
-            .update({ status: "Tersedia", borrower_name: null })
-            .eq("id", updatedLoan.asset_id);
+
+        // Update loan status
+        const updateData = { status: newStatus };
+        if (newStatus === "Dikembalikan") {
+          updateData.return_date = new Date().toISOString();
         }
+
+        const { error: updateError } = await supabase
+          .from("asset_loans")
+          .update(updateData)
+          .eq("id", loanId);
+        if (updateError) throw updateError;
+
+        // Update unit status for serialized items
+        if (loan.asset_unit_id) {
+          let unitStatus = "available";
+          if (newStatus === "Disetujui" || newStatus === "Dipinjam") {
+            unitStatus = "borrowed";
+          }
+          await supabase
+            .from("product_units")
+            .update({ status: unitStatus })
+            .eq("id", loan.asset_unit_id);
+        }
+
         return res
           .status(200)
           .json({ message: `Peminjaman berhasil diubah menjadi ${newStatus}` });
+      }
 
-      // Aksi dari update-reservation-status.js
-      case "updateReservationStatus":
+      case "updateReservationStatus": {
         const { reservationId, newStatus: newReservationStatus } = payload;
         await supabase
           .from("room_reservations")
@@ -524,183 +589,12 @@ export default async function handler(req, res) {
         return res.status(200).json({
           message: `Reservasi berhasil diubah menjadi ${newReservationStatus}`,
         });
+      }
 
       // ============================================================
-      // ASSET MANAGEMENT ACTIONS
+      // USER MANAGEMENT
       // ============================================================
-      case "getAssets": {
-        const searchTerm = sanitizeSearchTerm(payload?.search || "");
-        const assetId = payload?.assetId || null;
-        let query = supabase
-          .from("assets")
-          .select(
-            `
-            *,
-            commission:commissions!commission_id (id, name),
-            category:asset_categories!category_id (id, name)
-          `
-          )
-          .order("asset_name", { ascending: true });
-
-        if (assetId) {
-          query = query.eq("id", assetId);
-        }
-
-        if (searchTerm) {
-          query = query.or(
-            [
-              `asset_name.ilike.%${searchTerm}%`,
-              `asset_code.ilike.%${searchTerm}%`,
-              `condition.ilike.%${searchTerm}%`,
-              `storage_location.ilike.%${searchTerm}%`,
-              `status.ilike.%${searchTerm}%`,
-            ].join(",")
-          );
-        }
-
-        const { data, error } = await query;
-        if (error) throw error;
-        return res.status(200).json(data || []);
-      }
-
-      case "getAssetMeta": {
-        const [
-          { data: commissions, error: commissionError },
-          { data: categories, error: categoryError },
-        ] = await Promise.all([
-          supabase
-            .from("commissions")
-            .select("id, name")
-            .order("name", { ascending: true }),
-          supabase
-            .from("asset_categories")
-            .select("id, name")
-            .order("name", { ascending: true }),
-        ]);
-        if (commissionError) throw commissionError;
-        if (categoryError) throw categoryError;
-        return res.status(200).json({
-          commissions: commissions || [],
-          categories: categories || [],
-        });
-      }
-
-      case "createAsset": {
-        const {
-          asset_name,
-          commission_id,
-          storage_location,
-          quantity,
-          category_id,
-          condition,
-          photo_url,
-          description,
-          status,
-        } = payload || {};
-
-        if (!asset_name) {
-          throw new Error("Nama barang wajib diisi.");
-        }
-
-        const assetCode = await generateUniqueAssetCode(supabase);
-
-        const insertPayload = {
-          asset_name,
-          commission_id: commission_id || null,
-          storage_location: storage_location || null,
-          location: storage_location || null,
-          quantity: typeof quantity === "number" && quantity > 0 ? quantity : 1,
-          category_id: category_id || null,
-          condition: condition || null,
-          photo_url: photo_url || null,
-          description: description || null,
-          status: status || "Tersedia",
-          asset_code: assetCode,
-        };
-
-        const { data, error } = await supabase
-          .from("assets")
-          .insert(insertPayload)
-          .select()
-          .single();
-
-        if (error) throw error;
-
-        return res.status(201).json({
-          message: "Barang berhasil ditambahkan.",
-          asset: data,
-        });
-      }
-
-      case "updateAsset": {
-        const { assetId, ...fields } = payload || {};
-        if (!assetId) throw new Error("ID barang dibutuhkan.");
-
-        const updatePayload = {};
-        if (fields.asset_name !== undefined)
-          updatePayload.asset_name = fields.asset_name;
-        if (fields.commission_id !== undefined)
-          updatePayload.commission_id = fields.commission_id || null;
-        if (fields.storage_location !== undefined) {
-          updatePayload.storage_location = fields.storage_location || null;
-          updatePayload.location = fields.storage_location || null;
-        }
-        if (fields.quantity !== undefined) {
-          const qty = parseInt(fields.quantity, 10);
-          updatePayload.quantity = Number.isNaN(qty) || qty < 0 ? 0 : qty;
-        }
-        if (fields.category_id !== undefined)
-          updatePayload.category_id = fields.category_id || null;
-        if (fields.condition !== undefined)
-          updatePayload.condition = fields.condition || null;
-        if (fields.photo_url !== undefined)
-          updatePayload.photo_url = fields.photo_url || null;
-        if (fields.description !== undefined)
-          updatePayload.description = fields.description || null;
-        if (fields.status !== undefined) updatePayload.status = fields.status;
-
-        if (fields.asset_code) {
-          updatePayload.asset_code = fields.asset_code;
-        }
-
-        const { error } = await supabase
-          .from("assets")
-          .update(updatePayload)
-          .eq("id", assetId);
-        if (error) throw error;
-
-        return res
-          .status(200)
-          .json({ message: "Data barang berhasil diperbarui." });
-      }
-
-      case "setAssetStatus": {
-        const { assetId, status: newStatus } = payload || {};
-        if (!assetId || !newStatus)
-          throw new Error("ID barang dan status baru dibutuhkan.");
-        const { error } = await supabase
-          .from("assets")
-          .update({ status: newStatus })
-          .eq("id", assetId);
-        if (error) throw error;
-        return res
-          .status(200)
-          .json({ message: "Status barang berhasil diperbarui." });
-      }
-
-      case "deleteAsset": {
-        const { assetId } = payload || {};
-        if (!assetId) throw new Error("ID barang dibutuhkan.");
-        const { error } = await supabase
-          .from("assets")
-          .delete()
-          .eq("id", assetId);
-        if (error) throw error;
-        return res.status(200).json({ message: "Barang berhasil dihapus." });
-      }
-
-      // GANTI CASE LAMA DENGAN VERSI INI
-      case "getUsers":
+      case "getUsers": {
         const {
           data: { users },
           error: listError,
@@ -711,7 +605,6 @@ export default async function handler(req, res) {
 
         const usersWithProfiles = users.map((user) => {
           const profile = profiles.find((p) => p.id === user.id);
-          // Gabungkan data auth dan profile, pastikan ada fallback jika profil belum ada
           return {
             ...user,
             full_name: profile?.full_name,
@@ -719,10 +612,10 @@ export default async function handler(req, res) {
           };
         });
 
-        // Sekarang kita kembalikan SEMUA user, biarkan frontend yang menyaring
         return res.status(200).json(usersWithProfiles);
+      }
 
-      case "createUser":
+      case "createUser": {
         const { fullName, email, password } = payload;
         const {
           data: { user: newUser },
@@ -738,8 +631,9 @@ export default async function handler(req, res) {
           message: "User member baru berhasil dibuat.",
           user: newUser,
         });
+      }
 
-      case "updateUser":
+      case "updateUser": {
         const { userId, ...updateData } = payload;
         const authUpdate = {};
         if (updateData.email) authUpdate.email = updateData.email;
@@ -763,18 +657,21 @@ export default async function handler(req, res) {
         return res
           .status(200)
           .json({ message: "Data user berhasil diperbarui." });
+      }
 
-      case "deleteUser":
+      case "deleteUser": {
         const { userId: deleteId } = payload;
         const { error: deleteError } = await supabase.auth.admin.deleteUser(
           deleteId
         );
         if (deleteError) throw deleteError;
         return res.status(200).json({ message: "User berhasil dihapus." });
+      }
 
-      // BARU: Aksi untuk Manajemen Ruangan
-      case "getRooms":
-        // Ambil data ruangan dan gabungkan dengan nama penanggung jawab dari profiles
+      // ============================================================
+      // ROOM MANAGEMENT
+      // ============================================================
+      case "getRooms": {
         const { data: rooms, error: getRoomsError } = await supabase.from(
           "rooms"
         ).select(`
@@ -786,8 +683,9 @@ export default async function handler(req, res) {
           `);
         if (getRoomsError) throw getRoomsError;
         return res.status(200).json(rooms);
+      }
 
-      case "createRoom":
+      case "createRoom": {
         const { name, lokasi, kapasitas, penanggung_jawab_id } = payload;
         const { error: createRoomError } = await supabase
           .from("rooms")
@@ -796,8 +694,9 @@ export default async function handler(req, res) {
         return res
           .status(201)
           .json({ message: "Ruangan baru berhasil dibuat." });
+      }
 
-      case "updateRoom":
+      case "updateRoom": {
         const { roomId, ...updateRoomData } = payload;
         const { error: updateRoomError } = await supabase
           .from("rooms")
@@ -807,8 +706,9 @@ export default async function handler(req, res) {
         return res
           .status(200)
           .json({ message: "Data ruangan berhasil diperbarui." });
+      }
 
-      case "deleteRoom":
+      case "deleteRoom": {
         const { roomId: deleteRoomId } = payload;
         const { error: deleteRoomError } = await supabase
           .from("rooms")
@@ -816,12 +716,12 @@ export default async function handler(req, res) {
           .eq("id", deleteRoomId);
         if (deleteRoomError) throw deleteRoomError;
         return res.status(200).json({ message: "Ruangan berhasil dihapus." });
+      }
 
       // ============================================================
-      // TRANSPORTATION MANAGEMENT ACTIONS
+      // TRANSPORTATION MANAGEMENT
       // ============================================================
-
-      case "getTransportations":
+      case "getTransportations": {
         const { data: transports, error: getTransError } = await supabase
           .from("transportations")
           .select(
@@ -833,8 +733,9 @@ export default async function handler(req, res) {
           .order("vehicle_name", { ascending: true });
         if (getTransError) throw getTransError;
         return res.status(200).json(transports);
+      }
 
-      case "createTransportation":
+      case "createTransportation": {
         const {
           vehicle_name,
           plate_number,
@@ -870,8 +771,9 @@ export default async function handler(req, res) {
         return res
           .status(201)
           .json({ message: "Transportasi baru berhasil ditambahkan." });
+      }
 
-      case "updateTransportation":
+      case "updateTransportation": {
         const { transportId, ...updateTransData } = payload;
         const { error: updateTransError } = await supabase
           .from("transportations")
@@ -881,8 +783,9 @@ export default async function handler(req, res) {
         return res
           .status(200)
           .json({ message: "Data transportasi berhasil diperbarui." });
+      }
 
-      case "deleteTransportation":
+      case "deleteTransportation": {
         const { transportId: deleteTransId } = payload;
         const { error: deleteTransError } = await supabase
           .from("transportations")
@@ -892,8 +795,9 @@ export default async function handler(req, res) {
         return res
           .status(200)
           .json({ message: "Transportasi berhasil dihapus." });
+      }
 
-      case "getPendingTransportLoans":
+      case "getPendingTransportLoans": {
         const { data: pendingTransLoans, error: pendingTransError } =
           await supabase
             .from("transport_loans")
@@ -908,8 +812,9 @@ export default async function handler(req, res) {
             .order("borrow_start", { ascending: true });
         if (pendingTransError) throw pendingTransError;
         return res.status(200).json(pendingTransLoans);
+      }
 
-      case "updateTransportLoanStatus":
+      case "updateTransportLoanStatus": {
         const { loanId: transLoanId, newStatus: transLoanStatus } = payload;
         const { error: updateTransLoanError } = await supabase
           .from("transport_loans")
@@ -919,13 +824,12 @@ export default async function handler(req, res) {
         return res.status(200).json({
           message: `Peminjaman transportasi berhasil diubah menjadi ${transLoanStatus}`,
         });
+      }
 
       default:
         return res.status(400).json({ error: "Aksi tidak dikenal" });
     }
   } catch (error) {
-    // ===== PERBAIKAN UTAMA ADA DI BLOK CATCH INI =====
-    // Cek secara spesifik jika error adalah karena user sudah ada
     if (
       error.message &&
       (error.message.includes("User already registered") ||
@@ -933,13 +837,11 @@ export default async function handler(req, res) {
           "duplicate key value violates unique constraint"
         ))
     ) {
-      // Kirim status 409 Conflict dengan pesan yang lebih ramah
       return res
         .status(409)
         .json({ error: "Email ini sudah terpakai oleh pengguna lain." });
     }
 
-    // Jika error lain, kirim pesan error server umum
     return res.status(500).json({
       error: "Terjadi kesalahan di server manajemen.",
       details: error.message,

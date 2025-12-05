@@ -1,5 +1,5 @@
 // File: /api/dashboard.js
-// Consolidated API for dashboard operations: stats, my-requests, management-dashboard, member-dashboard
+// Consolidated API for dashboard operations: stats, my-requests, management-dashboard, member-dashboard, calendar
 import { createClient } from "@supabase/supabase-js";
 
 export default async function handler(req, res) {
@@ -44,31 +44,32 @@ export default async function handler(req, res) {
 // DASHBOARD STATS HANDLER
 // ============================================================
 async function handleDashboardStats(req, res, user) {
-  // Use service key for stats to bypass RLS if needed, or stick to anon key if RLS allows reading counts.
-  // Original code used service key for stats.
   const supabaseAdmin = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY
   );
 
   try {
+    // Get inventory stats from new system
     const [
-      { count: totalAssets },
-      { count: borrowedAssets },
-      { count: maintenanceAssets },
+      { count: totalTemplates },
+      { count: totalUnits },
+      { count: borrowedUnits },
+      { count: maintenanceUnits },
       { count: totalRooms },
       { count: approvedReservations },
       { count: pendingReservations },
     ] = await Promise.all([
-      supabaseAdmin.from("assets").select("*", { count: "exact", head: true }),
+      supabaseAdmin.from("product_templates").select("*", { count: "exact", head: true }),
+      supabaseAdmin.from("product_units").select("*", { count: "exact", head: true }),
       supabaseAdmin
-        .from("assets")
+        .from("product_units")
         .select("*", { count: "exact", head: true })
-        .eq("status", "Dipinjam"),
+        .eq("status", "borrowed"),
       supabaseAdmin
-        .from("assets")
+        .from("product_units")
         .select("*", { count: "exact", head: true })
-        .eq("status", "Dalam Perbaikan"),
+        .eq("status", "maintenance"),
       supabaseAdmin.from("rooms").select("*", { count: "exact", head: true }),
       supabaseAdmin
         .from("room_reservations")
@@ -81,9 +82,10 @@ async function handleDashboardStats(req, res, user) {
     ]);
 
     res.status(200).json({
-      totalAssets: totalAssets ?? 0,
-      borrowedAssets: borrowedAssets ?? 0,
-      maintenanceAssets: maintenanceAssets ?? 0,
+      totalAssets: totalTemplates ?? 0,
+      totalUnits: totalUnits ?? 0,
+      borrowedAssets: borrowedUnits ?? 0,
+      maintenanceAssets: maintenanceUnits ?? 0,
       totalRooms: totalRooms ?? 0,
       approvedReservations: approvedReservations ?? 0,
       pendingReservations: pendingReservations ?? 0,
@@ -101,12 +103,45 @@ async function handleDashboardStats(req, res, user) {
 // ============================================================
 async function handleMyRequests(req, res, supabase, user) {
   try {
-    // Asset Loans
+    // Asset Loans - now with product_units and product_templates
     const { data: assetLoans } = await supabase
       .from("asset_loans")
-      .select("*, assets(asset_name)")
+      .select(`
+        *,
+        product_units:asset_unit_id (
+          id, asset_code, serial_number,
+          template:product_templates!template_id (id, name, photo_url)
+        ),
+        product_templates:product_template_id (id, name, photo_url)
+      `)
       .eq("user_id", user.id)
       .order("loan_date", { ascending: false });
+
+    // Process loans to get item name
+    const processedLoans = (assetLoans || []).map((loan) => {
+      let itemName = "Barang";
+      let itemCode = "";
+      let photoUrl = null;
+
+      if (loan.product_units) {
+        // Serialized item
+        itemName = loan.product_units.template?.name || "Barang";
+        itemCode = loan.product_units.asset_code || loan.product_units.serial_number || "";
+        photoUrl = loan.product_units.template?.photo_url;
+      } else if (loan.product_templates) {
+        // Non-serialized item
+        itemName = loan.product_templates.name || "Barang";
+        itemCode = `Qty: ${loan.quantity || 1}`;
+        photoUrl = loan.product_templates.photo_url;
+      }
+
+      return {
+        ...loan,
+        item_name: itemName,
+        item_code: itemCode,
+        photo_url: photoUrl,
+      };
+    });
 
     // Room Reservations
     const { data: profile } = await supabase
@@ -118,7 +153,7 @@ async function handleMyRequests(req, res, supabase, user) {
     const { data: roomReservations } = await supabase
       .from("room_reservations")
       .select("*")
-      .eq("requester_name", profile?.full_name || user.email) // Fallback if no profile name
+      .eq("requester_name", profile?.full_name || user.email)
       .order("start_time", { ascending: false });
 
     // Transport Loans
@@ -128,7 +163,11 @@ async function handleMyRequests(req, res, supabase, user) {
       .eq("borrower_id", user.id)
       .order("borrow_start", { ascending: false });
 
-    res.status(200).json({ assetLoans, roomReservations, transportLoans });
+    res.status(200).json({ 
+      assetLoans: processedLoans, 
+      roomReservations, 
+      transportLoans 
+    });
   } catch (error) {
     res.status(500).json({
       error: "Gagal mengambil data permintaan Anda.",
@@ -161,34 +200,28 @@ async function handleManagementDashboard(req, res, user) {
       59,
       59
     ).toISOString();
-    const tomorrowEnd = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate() + 1,
-      23,
-      59,
-      59
-    ).toISOString();
 
-    // 1. STATISTIK DASAR
+    // 1. STATISTIK DASAR - Updated for new inventory system
     const [
-      { count: totalAssets },
-      { count: borrowedAssets },
-      { count: maintenanceAssets },
+      { count: totalTemplates },
+      { count: totalUnits },
+      { count: borrowedUnits },
+      { count: maintenanceUnits },
       { count: totalRooms },
       { count: approvedReservations },
       { count: pendingReservations },
       { count: totalTransports },
     ] = await Promise.all([
-      supabaseAdmin.from("assets").select("*", { count: "exact", head: true }),
+      supabaseAdmin.from("product_templates").select("*", { count: "exact", head: true }),
+      supabaseAdmin.from("product_units").select("*", { count: "exact", head: true }),
       supabaseAdmin
-        .from("assets")
+        .from("product_units")
         .select("*", { count: "exact", head: true })
-        .eq("status", "Dipinjam"),
+        .eq("status", "borrowed"),
       supabaseAdmin
-        .from("assets")
+        .from("product_units")
         .select("*", { count: "exact", head: true })
-        .eq("status", "Dalam Perbaikan"),
+        .eq("status", "maintenance"),
       supabaseAdmin.from("rooms").select("*", { count: "exact", head: true }),
       supabaseAdmin
         .from("room_reservations")
@@ -203,6 +236,16 @@ async function handleManagementDashboard(req, res, user) {
         .select("*", { count: "exact", head: true }),
     ]);
 
+    // Get non-serialized borrowed count from asset_loans
+    const { data: nonSerialLoans } = await supabaseAdmin
+      .from("asset_loans")
+      .select("quantity")
+      .not("product_template_id", "is", null)
+      .in("status", ["Disetujui", "Dipinjam"])
+      .is("return_date", null);
+    
+    const nonSerialBorrowed = (nonSerialLoans || []).reduce((sum, l) => sum + (l.quantity || 0), 0);
+
     // 2. PERINGATAN SERVIS KENDARAAN
     const { data: vehicleServiceAlerts } = await supabaseAdmin
       .from("transportations")
@@ -213,34 +256,62 @@ async function handleManagementDashboard(req, res, user) {
       .lte("next_service_at", todayEnd)
       .order("next_service_at", { ascending: true });
 
-    // 3. BARANG TERLAMBAT DIKEMBALIKAN (Overdue)
-    const { data: overdueLoans } = await supabaseAdmin
+    // 3. BARANG TERLAMBAT DIKEMBALIKAN (Overdue) - Updated query
+    const { data: overdueLoansRaw } = await supabaseAdmin
       .from("asset_loans")
-      .select(
-        `
+      .select(`
         id, 
         loan_date, 
-        due_date, 
-        assets(id, asset_name, asset_code),
-        profiles:user_id(full_name)
-      `
-      )
-      .eq("status", "Disetujui")
+        due_date,
+        quantity,
+        user_id,
+        asset_unit_id,
+        product_template_id,
+        product_units:asset_unit_id (
+          asset_code, serial_number,
+          template:product_templates!template_id (name)
+        ),
+        product_templates:product_template_id (name)
+      `)
+      .in("status", ["Disetujui", "Dipinjam"])
+      .is("return_date", null)
       .lt("due_date", todayStart)
       .order("due_date", { ascending: true });
 
-    // Calculate days overdue
-    const overdueItems = (overdueLoans || []).map((loan) => {
+    // Get profiles for overdue loans
+    const overdueUserIds = [...new Set((overdueLoansRaw || []).map(l => l.user_id).filter(Boolean))];
+    let overdueProfileMap = new Map();
+    if (overdueUserIds.length > 0) {
+      const { data: profiles } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", overdueUserIds);
+      overdueProfileMap = new Map((profiles || []).map(p => [p.id, p.full_name]));
+    }
+
+    const overdueItems = (overdueLoansRaw || []).map((loan) => {
       const dueDate = new Date(loan.due_date);
       const daysOverdue = Math.floor((now - dueDate) / (1000 * 60 * 60 * 24));
+      
+      let itemName = "Barang";
+      let itemCode = "";
+      if (loan.product_units) {
+        itemName = loan.product_units.template?.name || "Barang";
+        itemCode = loan.product_units.asset_code || loan.product_units.serial_number || "";
+      } else if (loan.product_templates) {
+        itemName = `${loan.product_templates.name} (x${loan.quantity || 1})`;
+      }
+
       return {
         ...loan,
+        item_name: itemName,
+        item_code: itemCode,
+        borrower_name: overdueProfileMap.get(loan.user_id) || null,
         days_overdue: daysOverdue,
       };
     });
 
     // 4. KEGIATAN HARI INI
-    // Ruangan yang dipakai hari ini
     const { data: todayRoomReservations } = await supabaseAdmin
       .from("room_reservations")
       .select("id, room_name, event_name, requester_name, start_time, end_time")
@@ -249,11 +320,9 @@ async function handleManagementDashboard(req, res, user) {
       .lte("start_time", todayEnd)
       .order("start_time", { ascending: true });
 
-    // Kendaraan yang dipakai hari ini
     const { data: todayTransportLoans } = await supabaseAdmin
       .from("transport_loans")
-      .select(
-        `
+      .select(`
         id, 
         borrow_start, 
         borrow_end, 
@@ -262,18 +331,17 @@ async function handleManagementDashboard(req, res, user) {
         destination,
         transportations(vehicle_name, plate_number, driver_name, driver_whatsapp),
         profiles:borrower_id(full_name)
-      `
-      )
+      `)
       .eq("status", "Disetujui")
       .gte("borrow_end", todayStart)
       .lte("borrow_start", todayEnd)
       .order("borrow_start", { ascending: true });
 
-    // 5. KONDISI ASET (untuk pie chart)
-    const { data: assetConditions } = await supabaseAdmin
-      .from("assets")
+    // 5. KONDISI UNIT (untuk pie chart) - Updated for product_units
+    const { data: unitConditions } = await supabaseAdmin
+      .from("product_units")
       .select("condition")
-      .not("status", "eq", "Tidak Aktif");
+      .not("status", "eq", "scrapped");
 
     const conditionSummary = {
       baik: 0,
@@ -282,15 +350,15 @@ async function handleManagementDashboard(req, res, user) {
       tidakDiketahui: 0,
     };
 
-    (assetConditions || []).forEach((asset) => {
-      const cond = (asset.condition || "").toLowerCase();
+    (unitConditions || []).forEach((unit) => {
+      const cond = (unit.condition || "").toLowerCase();
       if (cond === "baik") conditionSummary.baik++;
       else if (cond === "perlu perbaikan") conditionSummary.perluPerbaikan++;
       else if (cond === "rusak") conditionSummary.rusak++;
       else conditionSummary.tidakDiketahui++;
     });
 
-    // 6. PENDING REQUESTS (gabungan)
+    // 6. PENDING REQUESTS (gabungan) - Updated query
     const [
       { data: pendingAssetLoansRaw },
       { data: pendingRoomReservations },
@@ -298,18 +366,21 @@ async function handleManagementDashboard(req, res, user) {
     ] = await Promise.all([
       supabaseAdmin
         .from("asset_loans")
-        .select(
-          `
+        .select(`
           id,
           loan_date,
           due_date,
           status,
-          asset_id,
+          quantity,
           asset_unit_id,
+          product_template_id,
           user_id,
-          assets(asset_name, asset_code)
-        `
-        )
+          product_units:asset_unit_id (
+            asset_code, serial_number,
+            template:product_templates!template_id (name, photo_url)
+          ),
+          product_templates:product_template_id (name, photo_url)
+        `)
         .eq("status", "Menunggu Persetujuan")
         .order("loan_date", { ascending: true }),
       supabaseAdmin
@@ -319,18 +390,16 @@ async function handleManagementDashboard(req, res, user) {
         .order("start_time", { ascending: true }),
       supabaseAdmin
         .from("transport_loans")
-        .select(
-          `
+        .select(`
           id, borrow_start, borrow_end, purpose,
           transportations(vehicle_name, plate_number),
           profiles:borrower_id(full_name)
-        `
-        )
+        `)
         .eq("status", "Menunggu Persetujuan")
         .order("borrow_start", { ascending: true }),
     ]);
 
-    // Get profiles for pending asset loans separately (same pattern as calendar API)
+    // Get profiles for pending asset loans
     const assetLoanUserIds = [
       ...new Set(
         (pendingAssetLoansRaw || []).map((loan) => loan.user_id).filter(Boolean)
@@ -349,13 +418,31 @@ async function handleManagementDashboard(req, res, user) {
       }
     }
 
-    // Merge profiles into pending asset loans
-    const pendingAssetLoans = (pendingAssetLoansRaw || []).map((loan) => ({
-      ...loan,
-      profiles: { full_name: assetProfileMap.get(loan.user_id) || null },
-    }));
+    // Process pending asset loans
+    const pendingAssetLoans = (pendingAssetLoansRaw || []).map((loan) => {
+      let itemName = "Barang";
+      let itemCode = "";
+      let photoUrl = null;
 
-    // 7. STATISTIK TRANSPORTASI
+      if (loan.product_units) {
+        itemName = loan.product_units.template?.name || "Barang";
+        itemCode = loan.product_units.asset_code || loan.product_units.serial_number || "";
+        photoUrl = loan.product_units.template?.photo_url;
+      } else if (loan.product_templates) {
+        itemName = `${loan.product_templates.name} (x${loan.quantity || 1})`;
+        photoUrl = loan.product_templates.photo_url;
+      }
+
+      return {
+        ...loan,
+        item_name: itemName,
+        item_code: itemCode,
+        photo_url: photoUrl,
+        profiles: { full_name: assetProfileMap.get(loan.user_id) || null },
+      };
+    });
+
+    // 7. STATISTIK TRANSPORTASI HARI INI
     const { data: transportStats } = await supabaseAdmin
       .from("transport_loans")
       .select("id")
@@ -364,30 +451,26 @@ async function handleManagementDashboard(req, res, user) {
       .lte("borrow_start", todayEnd);
 
     res.status(200).json({
-      // Statistik dasar
       stats: {
-        totalAssets: totalAssets ?? 0,
-        borrowedAssets: borrowedAssets ?? 0,
-        maintenanceAssets: maintenanceAssets ?? 0,
+        totalAssets: totalTemplates ?? 0,
+        totalUnits: totalUnits ?? 0,
+        borrowedAssets: (borrowedUnits ?? 0) + nonSerialBorrowed,
+        maintenanceAssets: maintenanceUnits ?? 0,
         totalRooms: totalRooms ?? 0,
         approvedReservations: approvedReservations ?? 0,
         pendingReservations: pendingReservations ?? 0,
         totalTransports: totalTransports ?? 0,
         activeTransportsToday: transportStats?.length ?? 0,
       },
-      // Alerts
       alerts: {
         vehicleServiceAlerts: vehicleServiceAlerts || [],
         overdueItems: overdueItems || [],
       },
-      // Kegiatan hari ini
       todayActivities: {
         rooms: todayRoomReservations || [],
         transports: todayTransportLoans || [],
       },
-      // Kondisi aset
       conditionSummary,
-      // Pending requests
       pendingRequests: {
         assetLoans: pendingAssetLoans || [],
         roomReservations: pendingRoomReservations || [],
@@ -430,24 +513,31 @@ async function handleMemberDashboard(req, res, supabase, user) {
       59
     ).toISOString();
 
-    // Get user profile
     const { data: profile } = await supabase
       .from("profiles")
       .select("full_name")
       .eq("id", user.id)
       .single();
 
-    // 1. PENGINGAT JATUH TEMPO (barang yang harus dikembalikan hari ini atau besok)
+    // 1. PENGINGAT JATUH TEMPO - Updated query
     const { data: dueSoonLoans } = await supabase
       .from("asset_loans")
-      .select("id, loan_date, due_date, assets(asset_name, asset_code)")
+      .select(`
+        id, loan_date, due_date, quantity,
+        asset_unit_id, product_template_id,
+        product_units:asset_unit_id (
+          asset_code, serial_number,
+          template:product_templates!template_id (name)
+        ),
+        product_templates:product_template_id (name)
+      `)
       .eq("user_id", user.id)
-      .eq("status", "Disetujui")
+      .in("status", ["Disetujui", "Dipinjam"])
+      .is("return_date", null)
       .gte("due_date", todayStart)
       .lte("due_date", tomorrowEnd)
       .order("due_date", { ascending: true });
 
-    // Calculate urgency
     const dueReminders = (dueSoonLoans || []).map((loan) => {
       const dueDate = new Date(loan.due_date);
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -461,16 +551,47 @@ async function handleMemberDashboard(req, res, supabase, user) {
       if (dueDate <= today) urgency = "today";
       else if (dueDate <= tomorrow) urgency = "tomorrow";
 
-      return { ...loan, urgency };
+      let itemName = "Barang";
+      let itemCode = "";
+      if (loan.product_units) {
+        itemName = loan.product_units.template?.name || "Barang";
+        itemCode = loan.product_units.asset_code || loan.product_units.serial_number || "";
+      } else if (loan.product_templates) {
+        itemName = `${loan.product_templates.name} (x${loan.quantity || 1})`;
+      }
+
+      return { 
+        ...loan, 
+        urgency,
+        item_name: itemName,
+        item_code: itemCode,
+      };
     });
 
-    // 2. RIWAYAT PERMINTAAN
+    // 2. RIWAYAT PERMINTAAN - Updated query
     const { data: assetLoans } = await supabase
       .from("asset_loans")
-      .select("*, assets(asset_name)")
+      .select(`
+        *,
+        product_units:asset_unit_id (
+          asset_code, serial_number,
+          template:product_templates!template_id (name)
+        ),
+        product_templates:product_template_id (name)
+      `)
       .eq("user_id", user.id)
       .order("loan_date", { ascending: false })
       .limit(10);
+
+    const processedAssetLoans = (assetLoans || []).map((loan) => {
+      let itemName = "Barang";
+      if (loan.product_units) {
+        itemName = loan.product_units.template?.name || "Barang";
+      } else if (loan.product_templates) {
+        itemName = loan.product_templates.name || "Barang";
+      }
+      return { ...loan, item_name: itemName };
+    });
 
     const { data: roomReservations } = await supabase
       .from("room_reservations")
@@ -486,14 +607,12 @@ async function handleMemberDashboard(req, res, supabase, user) {
       .order("borrow_start", { ascending: false })
       .limit(10);
 
-    // 3. KETERSEDIAAN CEPAT HARI INI
-    // Ambil semua ruangan
+    // 3. KETERSEDIAAN CEPAT
     const { data: allRooms } = await supabase
       .from("rooms")
       .select("id, name, lokasi, kapasitas")
       .order("name", { ascending: true });
 
-    // Ruangan yang sedang dipakai sekarang
     const { data: busyRooms } = await supabase
       .from("room_reservations")
       .select("room_name")
@@ -508,13 +627,11 @@ async function handleMemberDashboard(req, res, supabase, user) {
       isAvailable: !busyRoomNames.has(room.name),
     }));
 
-    // Ambil semua kendaraan
     const { data: allTransports } = await supabase
       .from("transportations")
       .select("id, vehicle_name, plate_number, capacity, driver_name")
       .order("vehicle_name", { ascending: true });
 
-    // Kendaraan yang sedang dipakai sekarang
     const { data: busyTransports } = await supabase
       .from("transport_loans")
       .select("transport_id")
@@ -531,7 +648,7 @@ async function handleMemberDashboard(req, res, supabase, user) {
       isAvailable: !busyTransportIds.has(transport.id),
     }));
 
-    // 4. KEGIATAN MENDATANG SAYA (reservasi yang disetujui dalam 7 hari ke depan)
+    // 4. KEGIATAN MENDATANG
     const weekFromNow = new Date(
       now.getFullYear(),
       now.getMonth(),
@@ -557,20 +674,16 @@ async function handleMemberDashboard(req, res, supabase, user) {
       .order("borrow_start", { ascending: true });
 
     res.status(200).json({
-      // Pengingat jatuh tempo
       dueReminders: dueReminders || [],
-      // Riwayat permintaan
       requests: {
-        assetLoans: assetLoans || [],
+        assetLoans: processedAssetLoans || [],
         roomReservations: roomReservations || [],
         transportLoans: transportLoans || [],
       },
-      // Ketersediaan cepat
       availability: {
         rooms: roomAvailability || [],
         transports: transportAvailability || [],
       },
-      // Kegiatan mendatang
       upcoming: {
         rooms: upcomingRooms || [],
         transports: upcomingTransports || [],
@@ -588,14 +701,12 @@ async function handleMemberDashboard(req, res, supabase, user) {
 // CALENDAR DATA - UNIFIED VIEW FOR ALL RESERVATIONS
 // ============================================================
 async function handleCalendarData(req, res, supabase, user) {
-  // Use service key to get all data (for management) or filter by user (for member)
   const supabaseAdmin = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY
   );
 
   try {
-    // Check user role
     const { data: profile } = await supabaseAdmin
       .from("profiles")
       .select("role, full_name")
@@ -605,11 +716,9 @@ async function handleCalendarData(req, res, supabase, user) {
     const isManagement = profile?.role === "management";
     const userFullName = profile?.full_name || user.email;
 
-    // Get date range from query params (default: 3 months before and 3 months after)
     const { start, end } = req.query;
     const normalizeDateString = (val) => {
       if (!val) return null;
-      // Replace space with + because + turns into space in querystring
       const cleaned = String(val).replace(" ", "+");
       const parsed = new Date(cleaned);
       if (Number.isNaN(parsed.getTime())) return null;
@@ -633,25 +742,27 @@ async function handleCalendarData(req, res, supabase, user) {
 
     const events = [];
 
-    // 1. ASSET LOANS
-    // Overlap logic: loan_date <= rangeEnd AND due_date >= rangeStart
-    // Get all loans that might overlap (loan_date <= rangeEnd), then filter in memory
+    // 1. ASSET LOANS - Updated query
     let assetQuery = supabaseAdmin
       .from("asset_loans")
-      .select(
-        `
+      .select(`
         id,
         loan_date,
         due_date,
         status,
         user_id,
-        assets(asset_name, asset_code)
-      `
-      )
+        quantity,
+        asset_unit_id,
+        product_template_id,
+        product_units:asset_unit_id (
+          asset_code, serial_number,
+          template:product_templates!template_id (name)
+        ),
+        product_templates:product_template_id (name)
+      `)
       .in("status", ["Disetujui", "Menunggu Persetujuan", "Dipinjam"])
       .lte("loan_date", rangeEnd);
 
-    // If member, only show their own loans
     if (!isManagement) {
       assetQuery = assetQuery.eq("user_id", user.id);
     }
@@ -661,12 +772,11 @@ async function handleCalendarData(req, res, supabase, user) {
       console.error("Asset loans query error:", assetError);
     }
 
-    // Filter for actual overlap: loan_date <= rangeEnd AND due_date >= rangeStart
     const assetLoansFiltered = (assetLoansRaw || []).filter(
       (loan) => new Date(loan.due_date) >= new Date(rangeStart)
     );
 
-    // Get profiles for asset loans separately
+    // Get profiles for asset loans
     const userIds = [
       ...new Set(
         assetLoansFiltered.map((loan) => loan.user_id).filter(Boolean)
@@ -685,15 +795,27 @@ async function handleCalendarData(req, res, supabase, user) {
       }
     }
 
-    const assetLoans = assetLoansFiltered.map((loan) => ({
-      ...loan,
-      borrowerName: profileMap.get(loan.user_id) || null,
-    }));
+    const assetLoans = assetLoansFiltered.map((loan) => {
+      let itemName = "Barang";
+      let itemCode = "";
+      if (loan.product_units) {
+        itemName = loan.product_units.template?.name || "Barang";
+        itemCode = loan.product_units.asset_code || loan.product_units.serial_number || "";
+      } else if (loan.product_templates) {
+        itemName = `${loan.product_templates.name} (x${loan.quantity || 1})`;
+      }
+      return {
+        ...loan,
+        borrowerName: profileMap.get(loan.user_id) || null,
+        item_name: itemName,
+        item_code: itemCode,
+      };
+    });
 
     (assetLoans || []).forEach((loan) => {
       events.push({
         id: `asset-${loan.id}`,
-        title: `📦 ${loan.assets?.asset_name || "Barang"}`,
+        title: `📦 ${loan.item_name}`,
         start: loan.loan_date,
         end: loan.due_date,
         type: "asset",
@@ -705,8 +827,8 @@ async function handleCalendarData(req, res, supabase, user) {
         textColor: "#ffffff",
         extendedProps: {
           type: "asset",
-          assetName: loan.assets?.asset_name,
-          assetCode: loan.assets?.asset_code,
+          assetName: loan.item_name,
+          assetCode: loan.item_code,
           borrower: loan.borrowerName,
           status: loan.status,
         },
@@ -714,8 +836,6 @@ async function handleCalendarData(req, res, supabase, user) {
     });
 
     // 2. ROOM RESERVATIONS
-    // Overlap logic: start_time <= rangeEnd AND end_time >= rangeStart
-    // Get all reservations that might overlap (start_time <= rangeEnd), then filter in memory
     let roomQuery = supabaseAdmin
       .from("room_reservations")
       .select(
@@ -724,7 +844,6 @@ async function handleCalendarData(req, res, supabase, user) {
       .in("status", ["Disetujui", "Menunggu Persetujuan"])
       .lte("start_time", rangeEnd);
 
-    // If member, only show their own reservations
     if (!isManagement) {
       roomQuery = roomQuery.eq("requester_name", userFullName);
     }
@@ -734,7 +853,6 @@ async function handleCalendarData(req, res, supabase, user) {
       console.error("Room reservations query error:", roomError);
     }
 
-    // Filter for actual overlap: start_time <= rangeEnd AND end_time >= rangeStart
     const roomReservations = (roomReservationsRaw || []).filter(
       (res) => new Date(res.end_time) >= new Date(rangeStart)
     );
@@ -763,12 +881,9 @@ async function handleCalendarData(req, res, supabase, user) {
     });
 
     // 3. TRANSPORT LOANS
-    // Overlap logic: borrow_start <= rangeEnd AND borrow_end >= rangeStart
-    // Get all loans that might overlap (borrow_start <= rangeEnd), then filter in memory
     let transportQuery = supabaseAdmin
       .from("transport_loans")
-      .select(
-        `
+      .select(`
         id,
         borrow_start,
         borrow_end,
@@ -778,12 +893,10 @@ async function handleCalendarData(req, res, supabase, user) {
         status,
         transportations(vehicle_name, plate_number),
         profiles:borrower_id(full_name)
-      `
-      )
+      `)
       .in("status", ["Disetujui", "Menunggu Persetujuan"])
       .lte("borrow_start", rangeEnd);
 
-    // If member, only show their own transport loans
     if (!isManagement) {
       transportQuery = transportQuery.eq("borrower_id", user.id);
     }
@@ -794,7 +907,6 @@ async function handleCalendarData(req, res, supabase, user) {
       console.error("Transport loans query error:", transportError);
     }
 
-    // Filter for actual overlap: borrow_start <= rangeEnd AND borrow_end >= rangeStart
     const transportLoans = (transportLoansRaw || []).filter(
       (loan) => new Date(loan.borrow_end) >= new Date(rangeStart)
     );
@@ -836,11 +948,6 @@ async function handleCalendarData(req, res, supabase, user) {
           rooms: roomReservations?.length || 0,
           transports: transportLoans?.length || 0,
           total: events.length,
-        },
-        debug: {
-          assetError: assetError?.message,
-          roomError: roomError?.message,
-          transportError: transportError?.message,
         },
       },
     });
