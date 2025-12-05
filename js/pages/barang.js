@@ -104,6 +104,14 @@ async function renderBarangManagementView() {
           </div>
           <div class="flex gap-3">
             <button
+              id="product-scan-btn"
+              class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 flex items-center justify-center gap-2"
+              type="button"
+            >
+              <i class="fas fa-qrcode"></i>
+              Scan QR
+            </button>
+            <button
               id="product-add-btn"
               class="px-4 py-2 bg-[#d97706] text-white font-semibold rounded-md hover:bg-[#b45309] flex items-center justify-center gap-2"
               type="button"
@@ -150,6 +158,12 @@ async function renderBarangManagementView() {
     document
       .getElementById("product-add-btn")
       ?.addEventListener("click", () => openProductTemplateModal());
+
+    document
+      .getElementById("product-scan-btn")
+      ?.addEventListener("click", () =>
+        openAssetScanModal(handleInventoryScan)
+      );
 
     document
       .getElementById("product-refresh-btn")
@@ -474,47 +488,63 @@ function bindTemplateRowActions(root) {
       );
       if (!template) return;
 
-      openGlobalActionMenu({
-        triggerElement: btn,
-        items: [
-          {
-            label: "Lihat Detail",
-            icon: "fas fa-eye",
-            className: "text-gray-700",
-            onClick: () => renderTemplateDetailView(templateId),
-          },
-          {
-            label: "Edit",
-            icon: "fas fa-edit",
-            className: "text-amber-600",
-            onClick: () => openProductTemplateModal(template),
-          },
-          {
-            label: "Tambah Unit",
-            icon: "fas fa-plus-circle",
-            className: "text-green-600",
-            onClick: () => openProductUnitModal({ templateId }),
-          },
-          {
-            label: "Download Label",
-            icon: "fas fa-download",
-            className: "text-gray-500",
-            onClick: () =>
-              alert(
-                "Label produk dibuat per unit. Buka detail unit untuk label."
-              ),
-          },
-          {
-            label: "Cetak Label",
-            icon: "fas fa-print",
-            className: "text-gray-500",
-            onClick: () =>
-              alert(
-                "Label produk dibuat per unit. Buka detail unit untuk label."
-              ),
-          },
-        ],
-      });
+      const items = [
+        {
+          label: "Lihat Detail",
+          icon: "fas fa-eye",
+          className: "text-gray-700",
+          onClick: () => renderTemplateDetailView(templateId),
+        },
+        {
+          label: "Edit",
+          icon: "fas fa-edit",
+          className: "text-amber-600",
+          onClick: () => openProductTemplateModal(template),
+        },
+        {
+          label: "Nonaktifkan",
+          icon: "fas fa-toggle-off",
+          className: "text-red-600",
+          onClick: () =>
+            alert(
+              "Nonaktif/aktivasi produk belum diimplementasi. Gunakan edit/hapus sesuai kebutuhan."
+            ),
+        },
+        {
+          label: "Tambah Unit",
+          icon: "fas fa-plus-circle",
+          className: "text-green-600",
+          onClick: () => openProductUnitModal({ templateId }),
+        },
+        {
+          label: "Download Label",
+          icon: "fas fa-download",
+          className: "text-gray-500",
+          onClick: () =>
+            alert("Label per unit. Buka detail unit untuk download label."),
+        },
+        {
+          label: "Cetak Label",
+          icon: "fas fa-print",
+          className: "text-gray-500",
+          onClick: () =>
+            alert("Label per unit. Buka detail unit untuk cetak label."),
+        },
+      ];
+
+      // fallback jika openGlobalActionMenu tidak tersedia
+      if (typeof openGlobalActionMenu === "function") {
+        openGlobalActionMenu({ triggerElement: btn, items });
+      } else {
+        const choice = prompt(
+          "Pilih aksi: 1.Detail 2.Edit 3.Tambah Unit 4.Download Label 5.Cetak Label"
+        );
+        if (choice === "1") items[0].onClick();
+        else if (choice === "2") items[1].onClick();
+        else if (choice === "3") items[3].onClick();
+        else if (choice === "4") items[4].onClick();
+        else if (choice === "5") items[5].onClick();
+      }
     });
   });
 }
@@ -2454,26 +2484,45 @@ function handleAssetScanResult(rawValue) {
 
   const role =
     localStorage.getItem("userRole") === "management" ? "management" : "member";
-  const normalized = code.toLowerCase();
-  const pool =
-    role === "management"
-      ? assetManagementState.assets
-      : assetMemberState.assets;
-  const asset = pool.find(
-    (item) => item.asset_code && item.asset_code.toLowerCase() === normalized
-  );
-
-  if (asset) {
-    renderBarangDetailView(asset.id, { context: role });
-    return;
-  }
-
   if (role === "management") {
-    assetManagementState.search = code;
-    renderBarangManagementView();
+    handleInventoryScan(code);
   } else {
+    // fallback ke logika lama untuk member
+    const normalized = code.toLowerCase();
+    const pool = assetMemberState.assets;
+    const asset = pool.find(
+      (item) => item.asset_code && item.asset_code.toLowerCase() === normalized
+    );
+    if (asset) {
+      renderBarangDetailView(asset.id, { context: role });
+      return;
+    }
     assetMemberState.search = code;
     renderBarangMemberView();
+    alert("Barang dengan kode tersebut tidak ditemukan pada data saat ini.");
   }
-  alert("Barang dengan kode tersebut tidak ditemukan pada data saat ini.");
+}
+
+// Scan untuk inventory (produk/unit)
+async function handleInventoryScan(code) {
+  try {
+    const unit = await api.post("/api/management", {
+      action: "findUnitByCode",
+      payload: { code },
+    });
+    if (unit?.template_id) {
+      // pastikan template ada di state, kalau belum refresh
+      const exists = productInventoryState.templates.find(
+        (t) => t.id === unit.template_id
+      );
+      if (!exists) {
+        await renderBarangManagementView();
+      }
+      renderTemplateDetailView(unit.template_id);
+      return;
+    }
+    alert("Unit tidak ditemukan untuk kode tersebut.");
+  } catch (error) {
+    alert("Gagal mencari unit: " + error.message);
+  }
 }

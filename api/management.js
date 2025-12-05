@@ -304,6 +304,36 @@ export default async function handler(req, res) {
         return res.status(200).json(data || []);
       }
 
+      case "findUnitByCode": {
+        const { code } = payload || {};
+        if (!code) throw new Error("Kode atau serial wajib diisi.");
+        const { data, error } = await supabase
+          .from("product_units")
+          .select(
+            `
+            id,
+            asset_code,
+            serial_number,
+            status,
+            template_id,
+            template:product_templates!inner (
+              id,
+              name,
+              category_id,
+              default_location_id,
+              is_serialized,
+              uom,
+              photo_url
+            )
+          `
+          )
+          .or([`asset_code.eq.${code}`, `serial_number.eq.${code}`].join(","))
+          .limit(1)
+          .single();
+        if (error) throw error;
+        return res.status(200).json(data);
+      }
+
       case "createStockLocation": {
         const { name, code, type, parent_id, description } = payload || {};
         if (!name) throw new Error("Nama lokasi wajib diisi.");
