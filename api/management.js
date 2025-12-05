@@ -174,6 +174,127 @@ export default async function handler(req, res) {
         return res.status(200).json(units || []);
       }
 
+      case "createProductTemplate": {
+        const {
+          name,
+          description,
+          category_id,
+          photo_url,
+          default_location_id,
+          is_serialized = true,
+          uom = "unit",
+        } = payload || {};
+
+        if (!name) throw new Error("Nama produk wajib diisi.");
+
+        const { data, error } = await supabase
+          .from("product_templates")
+          .insert({
+            name,
+            description: description || null,
+            category_id: category_id || null,
+            photo_url: photo_url || null,
+            default_location_id: default_location_id || null,
+            is_serialized: !!is_serialized,
+            uom: uom || "unit",
+          })
+          .select()
+          .single();
+        if (error) throw error;
+
+        return res
+          .status(201)
+          .json({ message: "Produk berhasil dibuat.", template: data });
+      }
+
+      case "createProductUnit": {
+        const {
+          template_id,
+          serial_number,
+          asset_code,
+          status = "available",
+          condition,
+          location_id,
+          purchase_date,
+          purchase_price,
+          vendor_name,
+          book_value,
+          depreciation_method = "straight_line",
+          salvage_value,
+          useful_life_months,
+          notes,
+        } = payload || {};
+
+        if (!template_id) throw new Error("template_id wajib diisi.");
+
+        const insertPayload = {
+          template_id,
+          serial_number: serial_number || null,
+          asset_code: asset_code || null,
+          status,
+          condition: condition || null,
+          location_id: location_id || null,
+          purchase_date: purchase_date || null,
+          purchase_price:
+            purchase_price === undefined || purchase_price === null
+              ? null
+              : Number(purchase_price),
+          vendor_name: vendor_name || null,
+          book_value:
+            book_value === undefined || book_value === null
+              ? null
+              : Number(book_value),
+          depreciation_method,
+          salvage_value:
+            salvage_value === undefined || salvage_value === null
+              ? null
+              : Number(salvage_value),
+          useful_life_months:
+            useful_life_months === undefined || useful_life_months === null
+              ? null
+              : Number(useful_life_months),
+          notes: notes || null,
+        };
+
+        const { data, error } = await supabase
+          .from("product_units")
+          .insert(insertPayload)
+          .select()
+          .single();
+        if (error) throw error;
+
+        return res
+          .status(201)
+          .json({ message: "Unit berhasil dibuat.", unit: data });
+      }
+
+      case "getStockLocations": {
+        const { data, error } = await supabase
+          .from("stock_locations")
+          .select("id, name, code, type")
+          .order("name", { ascending: true });
+        if (error) throw error;
+        return res.status(200).json(data || []);
+      }
+
+      case "createCategory": {
+        const { name, description, parent_id } = payload || {};
+        if (!name) throw new Error("Nama kategori wajib diisi.");
+        const { data, error } = await supabase
+          .from("asset_categories")
+          .insert({
+            name,
+            description: description || null,
+            parent_id: parent_id || null,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        return res
+          .status(201)
+          .json({ message: "Kategori berhasil dibuat.", category: data });
+      }
+
       case "createStockMove": {
         const {
           source_location_id,

@@ -23,6 +23,7 @@ const productInventoryState = {
   templates: [],
   locations: [],
   search: "",
+  categories: [],
 };
 
 const assetMemberState = {
@@ -78,6 +79,7 @@ async function renderBarangManagementView() {
   `;
 
   try {
+    await ensureInventoryMeta();
     const templates = await fetchProductTemplates();
     productInventoryState.templates = templates || [];
     const visible = filterProductTemplates(
@@ -101,6 +103,14 @@ async function renderBarangManagementView() {
             />
           </div>
           <div class="flex gap-3">
+            <button
+              id="product-add-btn"
+              class="px-4 py-2 bg-[#d97706] text-white font-semibold rounded-md hover:bg-[#b45309] flex items-center justify-center gap-2"
+              type="button"
+            >
+              <i class="fas fa-plus"></i>
+              Tambah Produk
+            </button>
             <button
               id="product-refresh-btn"
               class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100 flex items-center justify-center gap-2"
@@ -136,6 +146,10 @@ async function renderBarangManagementView() {
       ?.addEventListener("input", (event) => {
         scheduleTemplateSearch(event.target.value);
       });
+
+    document
+      .getElementById("product-add-btn")
+      ?.addEventListener("click", () => openProductTemplateModal());
 
     document
       .getElementById("product-refresh-btn")
@@ -326,6 +340,28 @@ async function fetchProductUnits(templateId) {
   });
 }
 
+async function fetchStockLocations() {
+  return api.post("/api/management", { action: "getStockLocations" });
+}
+
+async function createProductTemplate(payload) {
+  return api.post("/api/management", {
+    action: "createProductTemplate",
+    payload,
+  });
+}
+
+async function createProductUnit(payload) {
+  return api.post("/api/management", {
+    action: "createProductUnit",
+    payload,
+  });
+}
+
+async function createCategory(payload) {
+  return api.post("/api/management", { action: "createCategory", payload });
+}
+
 function filterProductTemplates(list = [], term = "") {
   if (!term) return list;
   const q = term.toLowerCase().trim();
@@ -421,6 +457,23 @@ function bindTemplateRowActions(root) {
       renderTemplateDetailView(templateId);
     });
   });
+}
+
+async function ensureInventoryMeta() {
+  // load categories & locations once
+  if (
+    productInventoryState.categories.length &&
+    productInventoryState.locations.length
+  )
+    return;
+  const [cats, locs] = await Promise.all([
+    api
+      .post("/api/management", { action: "getAssetMeta" })
+      .then((d) => d.categories || []),
+    fetchStockLocations(),
+  ]);
+  productInventoryState.categories = cats || [];
+  productInventoryState.locations = locs || [];
 }
 
 async function renderBarangMemberView() {
@@ -862,6 +915,15 @@ async function renderTemplateDetailView(templateId) {
               <div class="overflow-x-auto">
                 ${buildUnitTable(units)}
               </div>
+              <div class="mt-4 flex flex-wrap gap-2">
+                <button
+                  id="template-add-unit"
+                  class="px-4 py-2 bg-[#d97706] text-white font-semibold rounded-md hover:bg-[#b45309] flex items-center gap-2"
+                  type="button"
+                >
+                  <i class="fas fa-plus"></i> Tambah Unit
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -875,6 +937,10 @@ async function renderTemplateDetailView(templateId) {
     document
       .getElementById("template-refresh-units")
       ?.addEventListener("click", () => renderTemplateDetailView(templateId));
+
+    document
+      .getElementById("template-add-unit")
+      ?.addEventListener("click", () => openProductUnitModal({ templateId }));
   } catch (error) {
     container.innerHTML = `<p class="text-red-500">Gagal memuat detail produk: ${error.message}</p>`;
   } finally {
@@ -957,6 +1023,338 @@ function formatCurrency(value) {
     currency: "IDR",
     minimumFractionDigits: 0,
   }).format(Number(value));
+}
+
+// ====== PRODUCT TEMPLATE MODAL ======
+function openProductTemplateModal() {
+  const modal = ensureProductTemplateModal();
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+  document.getElementById("product-template-form").reset();
+  document.getElementById("product-template-feedback").textContent = "";
+  populateSelect(
+    "product-template-category",
+    productInventoryState.categories,
+    "Pilih kategori..."
+  );
+  populateSelect(
+    "product-template-location",
+    productInventoryState.locations,
+    "Pilih lokasi default..."
+  );
+}
+
+function ensureProductTemplateModal() {
+  let modal = document.getElementById("product-template-modal");
+  if (modal) return modal;
+
+  modal = document.createElement("div");
+  modal.id = "product-template-modal";
+  modal.className =
+    "fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center z-50 px-4";
+  modal.innerHTML = `
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+      <div class="flex items-start justify-between">
+        <h2 class="text-2xl font-bold text-gray-800">Tambah Produk</h2>
+        <button type="button" id="product-template-close" class="text-gray-500 hover:text-gray-700">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+      <form id="product-template-form" class="mt-6 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Nama Produk *</label>
+            <input type="text" id="product-template-name" required class="w-full border border-gray-300 rounded-md px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">UOM</label>
+            <input type="text" id="product-template-uom" value="unit" class="w-full border border-gray-300 rounded-md px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
+            <select id="product-template-category" class="w-full border border-gray-300 rounded-md px-3 py-2">
+              <option value="">Pilih kategori...</option>
+            </select>
+            <button type="button" id="product-template-add-category" class="text-xs text-[#d97706] mt-1 hover:underline">
+              + Tambah kategori
+            </button>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Lokasi Default</label>
+            <select id="product-template-location" class="w-full border border-gray-300 rounded-md px-3 py-2">
+              <option value="">Pilih lokasi...</option>
+            </select>
+          </div>
+          <div class="md:col-span-2">
+            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+              <input type="checkbox" id="product-template-serialized" class="rounded border-gray-300" checked />
+              Serialized (setiap unit punya serial/kode unik)
+            </label>
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">URL Foto</label>
+            <input type="url" id="product-template-photo" class="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="https://..." />
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
+            <textarea id="product-template-description" rows="3" class="w-full border border-gray-300 rounded-md px-3 py-2"></textarea>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 pt-4">
+          <button type="button" id="product-template-cancel" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-[#d97706] text-white rounded-md hover:bg-[#b45309]">Simpan</button>
+        </div>
+        <p id="product-template-feedback" class="text-center text-sm font-semibold mt-2"></p>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal
+    .querySelector("#product-template-close")
+    .addEventListener("click", () => closeProductTemplateModal());
+  modal
+    .querySelector("#product-template-cancel")
+    .addEventListener("click", () => closeProductTemplateModal());
+  modal
+    .querySelector("#product-template-add-category")
+    .addEventListener("click", openQuickCategoryPrompt);
+  modal
+    .querySelector("#product-template-form")
+    .addEventListener("submit", handleProductTemplateSubmit);
+
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeProductTemplateModal();
+  });
+
+  return modal;
+}
+
+function closeProductTemplateModal() {
+  const modal = document.getElementById("product-template-modal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+async function handleProductTemplateSubmit(event) {
+  event.preventDefault();
+  const feedback = document.getElementById("product-template-feedback");
+  feedback.textContent = "";
+  showLoader();
+  try {
+    const payload = {
+      name: document.getElementById("product-template-name").value,
+      description:
+        document.getElementById("product-template-description").value || null,
+      category_id:
+        document.getElementById("product-template-category").value || null,
+      photo_url:
+        document.getElementById("product-template-photo").value || null,
+      default_location_id:
+        document.getElementById("product-template-location").value || null,
+      is_serialized: document.getElementById("product-template-serialized")
+        .checked,
+      uom: document.getElementById("product-template-uom").value || "unit",
+    };
+    await createProductTemplate(payload);
+    notifySuccess("Produk berhasil dibuat.");
+    closeProductTemplateModal();
+    await renderBarangManagementView();
+  } catch (error) {
+    feedback.textContent = error.message;
+    feedback.className = "text-center text-sm font-semibold text-red-600";
+  } finally {
+    hideLoader();
+  }
+}
+
+function populateSelect(id, options = [], placeholder = "Pilih...") {
+  const select = document.getElementById(id);
+  if (!select) return;
+  const current = select.value;
+  select.innerHTML = `<option value="">${placeholder}</option>`;
+  options.forEach((opt) => {
+    select.innerHTML += `<option value="${opt.id}">${
+      opt.name || opt.code || "-"
+    }</option>`;
+  });
+  if (current) select.value = current;
+}
+
+// ====== QUICK CATEGORY PROMPT ======
+async function openQuickCategoryPrompt() {
+  const name = prompt("Nama kategori baru:");
+  if (!name) return;
+  const parent =
+    prompt("ID parent (opsional, biarkan kosong jika tidak ada):") || null;
+  try {
+    await createCategory({ name, parent_id: parent || null });
+    notifySuccess("Kategori berhasil dibuat.");
+    // refresh categories
+    const meta = await api.post("/api/management", { action: "getAssetMeta" });
+    productInventoryState.categories = meta?.categories || [];
+    populateSelect(
+      "product-template-category",
+      productInventoryState.categories,
+      "Pilih kategori..."
+    );
+  } catch (error) {
+    alert("Gagal membuat kategori: " + error.message);
+  }
+}
+
+// ====== PRODUCT UNIT MODAL ======
+function openProductUnitModal({ templateId }) {
+  const modal = ensureProductUnitModal();
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+  const form = document.getElementById("product-unit-form");
+  form.reset();
+  form.dataset.templateId = templateId;
+  document.getElementById("product-unit-feedback").textContent = "";
+  populateSelect(
+    "product-unit-location",
+    productInventoryState.locations,
+    "Pilih lokasi..."
+  );
+}
+
+function ensureProductUnitModal() {
+  let modal = document.getElementById("product-unit-modal");
+  if (modal) return modal;
+
+  modal = document.createElement("div");
+  modal.id = "product-unit-modal";
+  modal.className =
+    "fixed inset-0 bg-gray-900 bg-opacity-50 hidden items-center justify-center z-50 px-4";
+  modal.innerHTML = `
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
+      <div class="flex items-start justify-between">
+        <h2 class="text-2xl font-bold text-gray-800">Tambah Unit</h2>
+        <button type="button" id="product-unit-close" class="text-gray-500 hover:text-gray-700">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+      <form id="product-unit-form" class="mt-6 space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Serial Number</label>
+            <input type="text" id="product-unit-serial" class="w-full border border-gray-300 rounded-md px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Asset Code</label>
+            <input type="text" id="product-unit-code" class="w-full border border-gray-300 rounded-md px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select id="product-unit-status" class="w-full border border-gray-300 rounded-md px-3 py-2">
+              <option value="available">Available</option>
+              <option value="borrowed">Borrowed</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="scrapped">Scrapped</option>
+              <option value="lost">Lost</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Kondisi</label>
+            <input type="text" id="product-unit-condition" class="w-full border border-gray-300 rounded-md px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Lokasi</label>
+            <select id="product-unit-location" class="w-full border border-gray-300 rounded-md px-3 py-2">
+              <option value="">Pilih lokasi...</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Vendor</label>
+            <input type="text" id="product-unit-vendor" class="w-full border border-gray-300 rounded-md px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Harga Beli</label>
+            <input type="number" id="product-unit-price" class="w-full border border-gray-300 rounded-md px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Tgl Beli</label>
+            <input type="date" id="product-unit-purchase-date" class="w-full border border-gray-300 rounded-md px-3 py-2" />
+          </div>
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Catatan</label>
+            <textarea id="product-unit-notes" rows="2" class="w-full border border-gray-300 rounded-md px-3 py-2"></textarea>
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 pt-4">
+          <button type="button" id="product-unit-cancel" class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300">Batal</button>
+          <button type="submit" class="px-4 py-2 bg-[#d97706] text-white rounded-md hover:bg-[#b45309]">Simpan</button>
+        </div>
+        <p id="product-unit-feedback" class="text-center text-sm font-semibold mt-2"></p>
+      </form>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal
+    .querySelector("#product-unit-close")
+    .addEventListener("click", () => closeProductUnitModal());
+  modal
+    .querySelector("#product-unit-cancel")
+    .addEventListener("click", () => closeProductUnitModal());
+  modal
+    .querySelector("#product-unit-form")
+    .addEventListener("submit", handleProductUnitSubmit);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeProductUnitModal();
+  });
+
+  return modal;
+}
+
+function closeProductUnitModal() {
+  const modal = document.getElementById("product-unit-modal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+async function handleProductUnitSubmit(event) {
+  event.preventDefault();
+  const feedback = document.getElementById("product-unit-feedback");
+  feedback.textContent = "";
+  showLoader();
+  try {
+    const form = document.getElementById("product-unit-form");
+    const templateId = form.dataset.templateId;
+    const payload = {
+      template_id: templateId,
+      serial_number:
+        document.getElementById("product-unit-serial").value || null,
+      asset_code: document.getElementById("product-unit-code").value || null,
+      status:
+        document.getElementById("product-unit-status").value || "available",
+      condition:
+        document.getElementById("product-unit-condition").value || null,
+      location_id:
+        document.getElementById("product-unit-location").value || null,
+      vendor_name: document.getElementById("product-unit-vendor").value || null,
+      purchase_price:
+        document.getElementById("product-unit-price").value || null,
+      purchase_date:
+        document.getElementById("product-unit-purchase-date").value || null,
+      notes: document.getElementById("product-unit-notes").value || null,
+    };
+
+    await createProductUnit(payload);
+    notifySuccess("Unit berhasil dibuat.");
+    closeProductUnitModal();
+    await renderTemplateDetailView(templateId);
+  } catch (error) {
+    feedback.textContent = error.message;
+    feedback.className = "text-center text-sm font-semibold text-red-600";
+  } finally {
+    hideLoader();
+  }
 }
 
 function getAssetFromState(assetId, context) {
