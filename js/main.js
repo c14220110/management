@@ -165,6 +165,58 @@ function openGlobalActionMenu({ triggerElement, items = [] }) {
 window.openGlobalActionMenu = openGlobalActionMenu;
 window.closeGlobalActionMenu = closeGlobalActionMenu;
 
+// ============================================================
+// Global Modal Helpers
+// ============================================================
+let globalModalState = { onConfirm: null };
+
+function openGlobalModal({ title, contentHTML, confirmText = "Simpan", cancelText = "Batal", onConfirm }) {
+  closeGlobalModal();
+  
+  const modalHTML = `
+    <div id="global-modal-overlay" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden animate-fade-in">
+        <div class="flex justify-between items-center p-4 border-b bg-gradient-to-r from-amber-500 to-orange-500">
+          <h3 class="font-bold text-lg text-white">${title}</h3>
+          <button id="global-modal-close" class="text-white/80 hover:text-white text-xl"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="p-5 overflow-y-auto max-h-[60vh]" id="global-modal-content">
+          ${contentHTML}
+        </div>
+        <div class="flex justify-end gap-3 p-4 border-t bg-gray-50">
+          <button id="global-modal-cancel" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 font-medium">${cancelText}</button>
+          <button id="global-modal-confirm" class="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 font-medium shadow-md">${confirmText}</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML("beforeend", modalHTML);
+  globalModalState.onConfirm = onConfirm;
+  
+  document.getElementById("global-modal-close").onclick = closeGlobalModal;
+  document.getElementById("global-modal-cancel").onclick = closeGlobalModal;
+  document.getElementById("global-modal-confirm").onclick = async () => {
+    if (globalModalState.onConfirm) {
+      await globalModalState.onConfirm();
+    }
+  };
+  
+  // Close on overlay click
+  document.getElementById("global-modal-overlay").onclick = (e) => {
+    if (e.target.id === "global-modal-overlay") closeGlobalModal();
+  };
+}
+
+function closeGlobalModal() {
+  const overlay = document.getElementById("global-modal-overlay");
+  if (overlay) overlay.remove();
+  globalModalState.onConfirm = null;
+}
+
+window.openGlobalModal = openGlobalModal;
+window.closeGlobalModal = closeGlobalModal;
+
 document.addEventListener("click", (event) => {
   ensureGlobalActionMenuElements();
   if (
