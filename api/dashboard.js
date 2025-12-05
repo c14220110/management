@@ -317,7 +317,11 @@ async function handleManagementDashboard(req, res, user) {
         `
         )
         // ambil semua yang belum final (bukan Disetujui/Dikembalikan/Ditolak/Selesai)
-        .not("status", "in", "(Disetujui,Dikembalikan,Ditolak,Selesai)")
+        // gunakan chain neq agar tidak bergantung pada format list
+        .neq("status", "Disetujui")
+        .neq("status", "Dikembalikan")
+        .neq("status", "Ditolak")
+        .neq("status", "Selesai")
         .order("loan_date", { ascending: true }),
       supabaseAdmin
         .from("room_reservations")
