@@ -316,10 +316,11 @@ async function handleManagementDashboard(req, res, user) {
           profiles:user_id(full_name)
         `
         )
-        // tangkap variasi status agar tidak hilang
+        // tangkap variasi status pending termasuk yang mengandung kata Menunggu
         .or(
           [
-            "status.ilike.Menunggu%",
+            "status.ilike.%Menunggu%",
+            "status.eq.Menunggu Persetujuan",
             "status.eq.Pending",
             "status.eq.pending",
             "status.eq.Diproses",
