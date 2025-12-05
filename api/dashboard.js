@@ -316,7 +316,16 @@ async function handleManagementDashboard(req, res, user) {
           profiles:user_id(full_name)
         `
         )
-        .in("status", ["Menunggu Persetujuan", "Pending", "Diproses"])
+        // tangkap variasi status agar tidak hilang
+        .or(
+          [
+            "status.ilike.Menunggu%",
+            "status.eq.Pending",
+            "status.eq.pending",
+            "status.eq.Diproses",
+            "status.eq.diproses",
+          ].join(",")
+        )
         .order("loan_date", { ascending: true }),
       supabaseAdmin
         .from("room_reservations")
