@@ -571,17 +571,27 @@ async function handleCalendarData(req, res, supabase, user) {
     const isManagement = profile?.role === "management";
     const userFullName = profile?.full_name || user.email;
 
-    // Get date range from query params (default: 60 days before and after)
+    // Get date range from query params (default: 3 months before and 3 months after)
     const { start, end } = req.query;
     const now = new Date();
     const rangeStart =
-      start || new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+      start || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString();
     const rangeEnd =
-      end || new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
+      end ||
+      new Date(
+        now.getFullYear(),
+        now.getMonth() + 3,
+        0,
+        23,
+        59,
+        59
+      ).toISOString();
 
     const events = [];
 
     // 1. ASSET LOANS
+    // Overlap logic: loan_date <= rangeEnd AND due_date >= rangeStart
+    // Get all loans that might overlap (loan_date <= rangeEnd), then filter in memory
     let assetQuery = supabaseAdmin
       .from("asset_loans")
       .select(
@@ -595,7 +605,6 @@ async function handleCalendarData(req, res, supabase, user) {
       `
       )
       .in("status", ["Disetujui", "Menunggu Persetujuan", "Dipinjam"])
-      .gte("due_date", rangeStart)
       .lte("loan_date", rangeEnd);
 
     // If member, only show their own loans
@@ -603,7 +612,15 @@ async function handleCalendarData(req, res, supabase, user) {
       assetQuery = assetQuery.eq("user_id", user.id);
     }
 
-    const { data: assetLoans } = await assetQuery;
+    const { data: assetLoansRaw, error: assetError } = await assetQuery;
+    if (assetError) {
+      console.error("Asset loans query error:", assetError);
+    }
+
+    // Filter for actual overlap: loan_date <= rangeEnd AND due_date >= rangeStart
+    const assetLoans = (assetLoansRaw || []).filter(
+      (loan) => new Date(loan.due_date) >= new Date(rangeStart)
+    );
 
     (assetLoans || []).forEach((loan) => {
       events.push({
@@ -629,13 +646,14 @@ async function handleCalendarData(req, res, supabase, user) {
     });
 
     // 2. ROOM RESERVATIONS
+    // Overlap logic: start_time <= rangeEnd AND end_time >= rangeStart
+    // Get all reservations that might overlap (start_time <= rangeEnd), then filter in memory
     let roomQuery = supabaseAdmin
       .from("room_reservations")
       .select(
         "id, room_name, event_name, requester_name, start_time, end_time, status"
       )
       .in("status", ["Disetujui", "Menunggu Persetujuan"])
-      .gte("end_time", rangeStart)
       .lte("start_time", rangeEnd);
 
     // If member, only show their own reservations
@@ -643,7 +661,15 @@ async function handleCalendarData(req, res, supabase, user) {
       roomQuery = roomQuery.eq("requester_name", userFullName);
     }
 
-    const { data: roomReservations } = await roomQuery;
+    const { data: roomReservationsRaw, error: roomError } = await roomQuery;
+    if (roomError) {
+      console.error("Room reservations query error:", roomError);
+    }
+
+    // Filter for actual overlap: start_time <= rangeEnd AND end_time >= rangeStart
+    const roomReservations = (roomReservationsRaw || []).filter(
+      (res) => new Date(res.end_time) >= new Date(rangeStart)
+    );
 
     (roomReservations || []).forEach((res) => {
       events.push({
@@ -669,6 +695,8 @@ async function handleCalendarData(req, res, supabase, user) {
     });
 
     // 3. TRANSPORT LOANS
+    // Overlap logic: borrow_start <= rangeEnd AND borrow_end >= rangeStart
+    // Get all loans that might overlap (borrow_start <= rangeEnd), then filter in memory
     let transportQuery = supabaseAdmin
       .from("transport_loans")
       .select(
@@ -685,7 +713,6 @@ async function handleCalendarData(req, res, supabase, user) {
       `
       )
       .in("status", ["Disetujui", "Menunggu Persetujuan"])
-      .gte("borrow_end", rangeStart)
       .lte("borrow_start", rangeEnd);
 
     // If member, only show their own transport loans
@@ -693,7 +720,16 @@ async function handleCalendarData(req, res, supabase, user) {
       transportQuery = transportQuery.eq("borrower_id", user.id);
     }
 
-    const { data: transportLoans } = await transportQuery;
+    const { data: transportLoansRaw, error: transportError } =
+      await transportQuery;
+    if (transportError) {
+      console.error("Transport loans query error:", transportError);
+    }
+
+    // Filter for actual overlap: borrow_start <= rangeEnd AND borrow_end >= rangeStart
+    const transportLoans = (transportLoansRaw || []).filter(
+      (loan) => new Date(loan.borrow_end) >= new Date(rangeStart)
+    );
 
     (transportLoans || []).forEach((loan) => {
       events.push({
@@ -731,6 +767,12 @@ async function handleCalendarData(req, res, supabase, user) {
           assets: assetLoans?.length || 0,
           rooms: roomReservations?.length || 0,
           transports: transportLoans?.length || 0,
+          total: events.length,
+        },
+        debug: {
+          assetError: assetError?.message,
+          roomError: roomError?.message,
+          transportError: transportError?.message,
         },
       },
     });
