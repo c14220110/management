@@ -1,5 +1,5 @@
 // File: /api/dashboard.js
-// Consolidated API for dashboard operations: stats and my-requests
+// Consolidated API for dashboard operations: stats, my-requests, management-dashboard, member-dashboard
 import { createClient } from "@supabase/supabase-js";
 
 export default async function handler(req, res) {
@@ -21,12 +21,20 @@ export default async function handler(req, res) {
 
   const { action } = req.query;
 
-  if (action === "stats") {
-    return handleDashboardStats(req, res, user);
-  } else if (action === "my-requests") {
-    return handleMyRequests(req, res, supabase, user);
-  } else {
-    return res.status(400).json({ error: "Action tidak valid. Gunakan: stats, my-requests" });
+  switch (action) {
+    case "stats":
+      return handleDashboardStats(req, res, user);
+    case "my-requests":
+      return handleMyRequests(req, res, supabase, user);
+    case "management-dashboard":
+      return handleManagementDashboard(req, res, user);
+    case "member-dashboard":
+      return handleMemberDashboard(req, res, supabase, user);
+    default:
+      return res.status(400).json({
+        error:
+          "Action tidak valid. Gunakan: stats, my-requests, management-dashboard, member-dashboard",
+      });
   }
 }
 
@@ -51,11 +59,23 @@ async function handleDashboardStats(req, res, user) {
       { count: pendingReservations },
     ] = await Promise.all([
       supabaseAdmin.from("assets").select("*", { count: "exact", head: true }),
-      supabaseAdmin.from("assets").select("*", { count: "exact", head: true }).eq("status", "Dipinjam"),
-      supabaseAdmin.from("assets").select("*", { count: "exact", head: true }).eq("status", "Dalam Perbaikan"),
+      supabaseAdmin
+        .from("assets")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "Dipinjam"),
+      supabaseAdmin
+        .from("assets")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "Dalam Perbaikan"),
       supabaseAdmin.from("rooms").select("*", { count: "exact", head: true }),
-      supabaseAdmin.from("room_reservations").select("*", { count: "exact", head: true }).eq("status", "Disetujui"),
-      supabaseAdmin.from("room_reservations").select("*", { count: "exact", head: true }).eq("status", "Menunggu Persetujuan"),
+      supabaseAdmin
+        .from("room_reservations")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "Disetujui"),
+      supabaseAdmin
+        .from("room_reservations")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "Menunggu Persetujuan"),
     ]);
 
     res.status(200).json({
@@ -92,7 +112,7 @@ async function handleMyRequests(req, res, supabase, user) {
       .select("full_name")
       .eq("id", user.id)
       .single();
-      
+
     const { data: roomReservations } = await supabase
       .from("room_reservations")
       .select("*")
@@ -110,6 +130,419 @@ async function handleMyRequests(req, res, supabase, user) {
   } catch (error) {
     res.status(500).json({
       error: "Gagal mengambil data permintaan Anda.",
+      details: error.message,
+    });
+  }
+}
+
+// ============================================================
+// MANAGEMENT DASHBOARD - PUSAT KONTROL OPERASIONAL
+// ============================================================
+async function handleManagementDashboard(req, res, user) {
+  const supabaseAdmin = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_KEY
+  );
+
+  try {
+    const now = new Date();
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    ).toISOString();
+    const todayEnd = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23,
+      59,
+      59
+    ).toISOString();
+    const tomorrowEnd = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1,
+      23,
+      59,
+      59
+    ).toISOString();
+
+    // 1. STATISTIK DASAR
+    const [
+      { count: totalAssets },
+      { count: borrowedAssets },
+      { count: maintenanceAssets },
+      { count: totalRooms },
+      { count: approvedReservations },
+      { count: pendingReservations },
+      { count: totalTransports },
+    ] = await Promise.all([
+      supabaseAdmin.from("assets").select("*", { count: "exact", head: true }),
+      supabaseAdmin
+        .from("assets")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "Dipinjam"),
+      supabaseAdmin
+        .from("assets")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "Dalam Perbaikan"),
+      supabaseAdmin.from("rooms").select("*", { count: "exact", head: true }),
+      supabaseAdmin
+        .from("room_reservations")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "Disetujui"),
+      supabaseAdmin
+        .from("room_reservations")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "Menunggu Persetujuan"),
+      supabaseAdmin
+        .from("transportations")
+        .select("*", { count: "exact", head: true }),
+    ]);
+
+    // 2. PERINGATAN SERVIS KENDARAAN
+    const { data: vehicleServiceAlerts } = await supabaseAdmin
+      .from("transportations")
+      .select(
+        "id, vehicle_name, plate_number, next_service_at, odometer_km, driver_name"
+      )
+      .not("next_service_at", "is", null)
+      .lte("next_service_at", todayEnd)
+      .order("next_service_at", { ascending: true });
+
+    // 3. BARANG TERLAMBAT DIKEMBALIKAN (Overdue)
+    const { data: overdueLoans } = await supabaseAdmin
+      .from("asset_loans")
+      .select(
+        `
+        id, 
+        loan_date, 
+        due_date, 
+        assets(id, asset_name, asset_code),
+        profiles:user_id(full_name)
+      `
+      )
+      .eq("status", "Disetujui")
+      .lt("due_date", todayStart)
+      .order("due_date", { ascending: true });
+
+    // Calculate days overdue
+    const overdueItems = (overdueLoans || []).map((loan) => {
+      const dueDate = new Date(loan.due_date);
+      const daysOverdue = Math.floor((now - dueDate) / (1000 * 60 * 60 * 24));
+      return {
+        ...loan,
+        days_overdue: daysOverdue,
+      };
+    });
+
+    // 4. KEGIATAN HARI INI
+    // Ruangan yang dipakai hari ini
+    const { data: todayRoomReservations } = await supabaseAdmin
+      .from("room_reservations")
+      .select("id, room_name, event_name, requester_name, start_time, end_time")
+      .eq("status", "Disetujui")
+      .gte("end_time", todayStart)
+      .lte("start_time", todayEnd)
+      .order("start_time", { ascending: true });
+
+    // Kendaraan yang dipakai hari ini
+    const { data: todayTransportLoans } = await supabaseAdmin
+      .from("transport_loans")
+      .select(
+        `
+        id, 
+        borrow_start, 
+        borrow_end, 
+        purpose,
+        origin,
+        destination,
+        transportations(vehicle_name, plate_number, driver_name, driver_whatsapp),
+        profiles:borrower_id(full_name)
+      `
+      )
+      .eq("status", "Disetujui")
+      .gte("borrow_end", todayStart)
+      .lte("borrow_start", todayEnd)
+      .order("borrow_start", { ascending: true });
+
+    // 5. KONDISI ASET (untuk pie chart)
+    const { data: assetConditions } = await supabaseAdmin
+      .from("assets")
+      .select("condition")
+      .not("status", "eq", "Tidak Aktif");
+
+    const conditionSummary = {
+      baik: 0,
+      perluPerbaikan: 0,
+      rusak: 0,
+      tidakDiketahui: 0,
+    };
+
+    (assetConditions || []).forEach((asset) => {
+      const cond = (asset.condition || "").toLowerCase();
+      if (cond === "baik") conditionSummary.baik++;
+      else if (cond === "perlu perbaikan") conditionSummary.perluPerbaikan++;
+      else if (cond === "rusak") conditionSummary.rusak++;
+      else conditionSummary.tidakDiketahui++;
+    });
+
+    // 6. PENDING REQUESTS (gabungan)
+    const [
+      { data: pendingAssetLoans },
+      { data: pendingRoomReservations },
+      { data: pendingTransportLoans },
+    ] = await Promise.all([
+      supabaseAdmin
+        .from("asset_loans")
+        .select(
+          "id, loan_date, due_date, assets(asset_name), profiles:user_id(full_name)"
+        )
+        .eq("status", "Menunggu Persetujuan")
+        .order("loan_date", { ascending: true }),
+      supabaseAdmin
+        .from("room_reservations")
+        .select("*")
+        .eq("status", "Menunggu Persetujuan")
+        .order("start_time", { ascending: true }),
+      supabaseAdmin
+        .from("transport_loans")
+        .select(
+          `
+          id, borrow_start, borrow_end, purpose,
+          transportations(vehicle_name, plate_number),
+          profiles:borrower_id(full_name)
+        `
+        )
+        .eq("status", "Menunggu Persetujuan")
+        .order("borrow_start", { ascending: true }),
+    ]);
+
+    // 7. STATISTIK TRANSPORTASI
+    const { data: transportStats } = await supabaseAdmin
+      .from("transport_loans")
+      .select("id")
+      .eq("status", "Disetujui")
+      .gte("borrow_start", todayStart)
+      .lte("borrow_start", todayEnd);
+
+    res.status(200).json({
+      // Statistik dasar
+      stats: {
+        totalAssets: totalAssets ?? 0,
+        borrowedAssets: borrowedAssets ?? 0,
+        maintenanceAssets: maintenanceAssets ?? 0,
+        totalRooms: totalRooms ?? 0,
+        approvedReservations: approvedReservations ?? 0,
+        pendingReservations: pendingReservations ?? 0,
+        totalTransports: totalTransports ?? 0,
+        activeTransportsToday: transportStats?.length ?? 0,
+      },
+      // Alerts
+      alerts: {
+        vehicleServiceAlerts: vehicleServiceAlerts || [],
+        overdueItems: overdueItems || [],
+      },
+      // Kegiatan hari ini
+      todayActivities: {
+        rooms: todayRoomReservations || [],
+        transports: todayTransportLoans || [],
+      },
+      // Kondisi aset
+      conditionSummary,
+      // Pending requests
+      pendingRequests: {
+        assetLoans: pendingAssetLoans || [],
+        roomReservations: pendingRoomReservations || [],
+        transportLoans: pendingTransportLoans || [],
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Gagal mengambil data dashboard manajemen.",
+      details: error.message,
+    });
+  }
+}
+
+// ============================================================
+// MEMBER DASHBOARD - STATUS TRACKING & QUICK INFO
+// ============================================================
+async function handleMemberDashboard(req, res, supabase, user) {
+  try {
+    const now = new Date();
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    ).toISOString();
+    const todayEnd = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+      23,
+      59,
+      59
+    ).toISOString();
+    const tomorrowEnd = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 1,
+      23,
+      59,
+      59
+    ).toISOString();
+
+    // Get user profile
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .single();
+
+    // 1. PENGINGAT JATUH TEMPO (barang yang harus dikembalikan hari ini atau besok)
+    const { data: dueSoonLoans } = await supabase
+      .from("asset_loans")
+      .select("id, loan_date, due_date, assets(asset_name, asset_code)")
+      .eq("user_id", user.id)
+      .eq("status", "Disetujui")
+      .gte("due_date", todayStart)
+      .lte("due_date", tomorrowEnd)
+      .order("due_date", { ascending: true });
+
+    // Calculate urgency
+    const dueReminders = (dueSoonLoans || []).map((loan) => {
+      const dueDate = new Date(loan.due_date);
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const tomorrow = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate() + 1
+      );
+
+      let urgency = "normal";
+      if (dueDate <= today) urgency = "today";
+      else if (dueDate <= tomorrow) urgency = "tomorrow";
+
+      return { ...loan, urgency };
+    });
+
+    // 2. RIWAYAT PERMINTAAN
+    const { data: assetLoans } = await supabase
+      .from("asset_loans")
+      .select("*, assets(asset_name)")
+      .eq("user_id", user.id)
+      .order("loan_date", { ascending: false })
+      .limit(10);
+
+    const { data: roomReservations } = await supabase
+      .from("room_reservations")
+      .select("*")
+      .eq("requester_name", profile?.full_name || user.email)
+      .order("start_time", { ascending: false })
+      .limit(10);
+
+    const { data: transportLoans } = await supabase
+      .from("transport_loans")
+      .select("*, transportations(vehicle_name, plate_number)")
+      .eq("borrower_id", user.id)
+      .order("borrow_start", { ascending: false })
+      .limit(10);
+
+    // 3. KETERSEDIAAN CEPAT HARI INI
+    // Ambil semua ruangan
+    const { data: allRooms } = await supabase
+      .from("rooms")
+      .select("id, name, lokasi, kapasitas")
+      .order("name", { ascending: true });
+
+    // Ruangan yang sedang dipakai sekarang
+    const { data: busyRooms } = await supabase
+      .from("room_reservations")
+      .select("room_name")
+      .eq("status", "Disetujui")
+      .lte("start_time", now.toISOString())
+      .gte("end_time", now.toISOString());
+
+    const busyRoomNames = new Set((busyRooms || []).map((r) => r.room_name));
+
+    const roomAvailability = (allRooms || []).map((room) => ({
+      ...room,
+      isAvailable: !busyRoomNames.has(room.name),
+    }));
+
+    // Ambil semua kendaraan
+    const { data: allTransports } = await supabase
+      .from("transportations")
+      .select("id, vehicle_name, plate_number, capacity, driver_name")
+      .order("vehicle_name", { ascending: true });
+
+    // Kendaraan yang sedang dipakai sekarang
+    const { data: busyTransports } = await supabase
+      .from("transport_loans")
+      .select("transport_id")
+      .eq("status", "Disetujui")
+      .lte("borrow_start", now.toISOString())
+      .gte("borrow_end", now.toISOString());
+
+    const busyTransportIds = new Set(
+      (busyTransports || []).map((t) => t.transport_id)
+    );
+
+    const transportAvailability = (allTransports || []).map((transport) => ({
+      ...transport,
+      isAvailable: !busyTransportIds.has(transport.id),
+    }));
+
+    // 4. KEGIATAN MENDATANG SAYA (reservasi yang disetujui dalam 7 hari ke depan)
+    const weekFromNow = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate() + 7
+    ).toISOString();
+
+    const { data: upcomingRooms } = await supabase
+      .from("room_reservations")
+      .select("*")
+      .eq("requester_name", profile?.full_name || user.email)
+      .eq("status", "Disetujui")
+      .gte("start_time", todayStart)
+      .lte("start_time", weekFromNow)
+      .order("start_time", { ascending: true });
+
+    const { data: upcomingTransports } = await supabase
+      .from("transport_loans")
+      .select("*, transportations(vehicle_name, plate_number)")
+      .eq("borrower_id", user.id)
+      .eq("status", "Disetujui")
+      .gte("borrow_start", todayStart)
+      .lte("borrow_start", weekFromNow)
+      .order("borrow_start", { ascending: true });
+
+    res.status(200).json({
+      // Pengingat jatuh tempo
+      dueReminders: dueReminders || [],
+      // Riwayat permintaan
+      requests: {
+        assetLoans: assetLoans || [],
+        roomReservations: roomReservations || [],
+        transportLoans: transportLoans || [],
+      },
+      // Ketersediaan cepat
+      availability: {
+        rooms: roomAvailability || [],
+        transports: transportAvailability || [],
+      },
+      // Kegiatan mendatang
+      upcoming: {
+        rooms: upcomingRooms || [],
+        transports: upcomingTransports || [],
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Gagal mengambil data dashboard member.",
       details: error.message,
     });
   }

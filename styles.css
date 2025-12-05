@@ -171,8 +171,7 @@
   backdrop-filter: blur(10px);
   border-radius: 20px;
   padding: 40px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1),
-    0 0 0 1px rgba(255, 255, 255, 0.2);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.2);
   width: 100%;
   max-width: 400px;
   position: relative;
@@ -339,8 +338,7 @@
 .form-group input:focus {
   outline: none;
   border-color: #d97706;
-  box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.1),
-    0 0 20px rgba(217, 119, 6, 0.3);
+  box-shadow: 0 0 0 4px rgba(217, 119, 6, 0.1), 0 0 20px rgba(217, 119, 6, 0.3);
   transform: translateY(-2px);
 }
 
@@ -397,5 +395,194 @@
   }
   .title {
     font-size: 20px;
+  }
+}
+
+/* === DASHBOARD STYLES === */
+
+/* Smooth transitions for dashboard cards */
+.dashboard-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Pulse animation for alerts */
+@keyframes pulse-alert {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.alert-pulse {
+  animation: pulse-alert 2s ease-in-out infinite;
+}
+
+/* Badge animations */
+.badge-bounce {
+  animation: bounce 1s ease-in-out;
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+/* Status indicator dot animation */
+.status-dot {
+  position: relative;
+}
+
+.status-dot::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.status-dot.available::after {
+  background-color: rgba(34, 197, 94, 0.4);
+}
+
+.status-dot.busy::after {
+  background-color: rgba(239, 68, 68, 0.4);
+}
+
+@keyframes ping {
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* Scrollbar styling for dashboard panels */
+.max-h-\[500px\]::-webkit-scrollbar,
+.max-h-\[600px\]::-webkit-scrollbar {
+  width: 6px;
+}
+
+.max-h-\[500px\]::-webkit-scrollbar-track,
+.max-h-\[600px\]::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.max-h-\[500px\]::-webkit-scrollbar-thumb,
+.max-h-\[600px\]::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.max-h-\[500px\]::-webkit-scrollbar-thumb:hover,
+.max-h-\[600px\]::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Tab active state enhancement */
+.member-tab-btn {
+  transition: all 0.2s ease;
+}
+
+.member-tab-btn:hover {
+  background-color: rgba(139, 92, 246, 0.05);
+}
+
+/* Condition chart bar styling */
+.condition-bar {
+  transition: width 0.5s ease-out;
+}
+
+/* Card hover effects */
+.hover\:shadow-lg:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Gradient text for headers (optional enhancement) */
+.gradient-text {
+  background: linear-gradient(135deg, #d97706, #f59e0b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Responsive adjustments for dashboard */
+@media (max-width: 768px) {
+  .grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid-cols-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .grid-cols-2 {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+  }
+}
+
+/* Loading skeleton animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+/* Fade in animation for dashboard content */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+/* Spin animation for loading */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
