@@ -292,7 +292,7 @@ async function handleManagementDashboard(req, res, user) {
 
     // 6. PENDING REQUESTS (gabungan)
     const [
-      { data: pendingAssetLoans },
+      { data: pendingAssetLoansRaw },
       { data: pendingRoomReservations },
       { data: pendingTransportLoans },
     ] = await Promise.all([
@@ -306,8 +306,8 @@ async function handleManagementDashboard(req, res, user) {
           status,
           asset_id,
           asset_unit_id,
-          assets(asset_name, asset_code),
-          profiles:user_id(full_name)
+          user_id,
+          assets(asset_name, asset_code)
         `
         )
         .eq("status", "Menunggu Persetujuan")
@@ -329,6 +329,31 @@ async function handleManagementDashboard(req, res, user) {
         .eq("status", "Menunggu Persetujuan")
         .order("borrow_start", { ascending: true }),
     ]);
+
+    // Get profiles for pending asset loans separately (same pattern as calendar API)
+    const assetLoanUserIds = [
+      ...new Set(
+        (pendingAssetLoansRaw || []).map((loan) => loan.user_id).filter(Boolean)
+      ),
+    ];
+    let assetProfileMap = new Map();
+    if (assetLoanUserIds.length > 0) {
+      const { data: assetProfiles } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", assetLoanUserIds);
+      if (assetProfiles) {
+        assetProfileMap = new Map(
+          assetProfiles.map((profile) => [profile.id, profile.full_name])
+        );
+      }
+    }
+
+    // Merge profiles into pending asset loans
+    const pendingAssetLoans = (pendingAssetLoansRaw || []).map((loan) => ({
+      ...loan,
+      profiles: { full_name: assetProfileMap.get(loan.user_id) || null },
+    }));
 
     // 7. STATISTIK TRANSPORTASI
     const { data: transportStats } = await supabaseAdmin
