@@ -492,6 +492,37 @@ async function renderManagerDashboard() {
             </div>
           </div>
         </div>
+
+        <!-- Unified Calendar Section -->
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+          <div class="bg-gray-800 text-white px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <i class="fas fa-calendar-alt"></i>
+              <h3 class="font-semibold">Kalender Peminjaman & Reservasi</h3>
+            </div>
+            <div class="flex flex-wrap items-center gap-3 text-sm">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                <span>Barang</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                <span>Ruangan</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-purple-500"></span>
+                <span>Kendaraan</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                <span>Menunggu</span>
+              </div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div id="dashboard-calendar" class="min-h-[400px]"></div>
+          </div>
+        </div>
       </div>
     `;
 
@@ -499,6 +530,9 @@ async function renderManagerDashboard() {
     document
       .querySelectorAll(".admin-action-btn")
       .forEach((button) => button.addEventListener("click", handleAdminAction));
+
+    // Initialize the unified calendar
+    await initDashboardCalendar();
   } catch (error) {
     container.innerHTML = `
       <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
@@ -1039,6 +1073,37 @@ async function renderMemberDashboard() {
             </div>
           </div>
         </div>
+
+        <!-- Unified Calendar Section -->
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+          <div class="bg-gray-800 text-white px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <i class="fas fa-calendar-alt"></i>
+              <h3 class="font-semibold">Kalender Peminjaman Saya</h3>
+            </div>
+            <div class="flex flex-wrap items-center gap-3 text-sm">
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                <span>Barang</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                <span>Ruangan</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-purple-500"></span>
+                <span>Kendaraan</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                <span>Menunggu</span>
+              </div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div id="dashboard-calendar" class="min-h-[400px]"></div>
+          </div>
+        </div>
       </div>
     `;
 
@@ -1078,6 +1143,9 @@ async function renderMemberDashboard() {
     document
       .querySelectorAll(".cancel-btn")
       .forEach((btn) => btn.addEventListener("click", handleCancelRequest));
+
+    // Initialize the unified calendar
+    await initDashboardCalendar();
   } catch (error) {
     container.innerHTML = `
       <div class="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
@@ -1304,4 +1372,198 @@ async function handleCancelRequest(e) {
     button.disabled = false;
     button.textContent = "Batalkan";
   }
+}
+
+// ============================================================
+// UNIFIED DASHBOARD CALENDAR
+// ============================================================
+let dashboardCalendarInstance = null;
+
+async function initDashboardCalendar() {
+  const calendarEl = document.getElementById("dashboard-calendar");
+  if (!calendarEl) return;
+
+  // Destroy previous instance if exists
+  if (dashboardCalendarInstance) {
+    dashboardCalendarInstance.destroy();
+    dashboardCalendarInstance = null;
+  }
+
+  // Show loading state
+  calendarEl.innerHTML = `
+    <div class="flex items-center justify-center py-12 text-gray-400">
+      <i class="fas fa-sync-alt animate-spin mr-2"></i>
+      <span>Memuat kalender...</span>
+    </div>
+  `;
+
+  try {
+    // Fetch calendar data
+    const calendarData = await api.get("/api/dashboard?action=calendar");
+    const events = calendarData.events || [];
+
+    // Clear loading state
+    calendarEl.innerHTML = "";
+
+    // Determine initial view based on viewport
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
+
+    // Create calendar
+    dashboardCalendarInstance = new FullCalendar.Calendar(calendarEl, {
+      locale: "id",
+      initialView: isMobile ? "listWeek" : "dayGridMonth",
+      headerToolbar: isMobile
+        ? {
+            left: "prev,next",
+            center: "title",
+            right: "listWeek,timeGridDay",
+          }
+        : {
+            left: "prev,next today",
+            center: "title",
+            right: "dayGridMonth,timeGridWeek,listWeek",
+          },
+      height: isMobile ? "auto" : 500,
+      events: events,
+      eventDisplay: "block",
+      displayEventTime: true,
+      eventTimeFormat: {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      },
+      dayMaxEvents: 3,
+      moreLinkText: (num) => `+${num} lainnya`,
+      noEventsText: "Tidak ada jadwal",
+      buttonText: {
+        today: "Hari Ini",
+        month: "Bulan",
+        week: "Minggu",
+        day: "Hari",
+        list: "Daftar",
+      },
+      // Handle date range changes to fetch new data
+      datesSet: async function (dateInfo) {
+        // Fetch data for new date range
+        const start = dateInfo.startStr;
+        const end = dateInfo.endStr;
+        try {
+          const newData = await api.get(
+            `/api/dashboard?action=calendar&start=${start}&end=${end}`
+          );
+          dashboardCalendarInstance.removeAllEvents();
+          dashboardCalendarInstance.addEventSource(newData.events || []);
+        } catch (err) {
+          console.warn("Failed to refresh calendar events:", err);
+        }
+      },
+      // Event click handler
+      eventClick: function (info) {
+        const props = info.event.extendedProps;
+        let message = "";
+
+        if (props.type === "asset") {
+          message = `📦 Peminjaman Barang\n\n`;
+          message += `Barang: ${props.assetName || "-"}\n`;
+          message += `Kode: ${props.assetCode || "-"}\n`;
+          message += `Peminjam: ${props.borrower || "-"}\n`;
+          message += `Status: ${props.status}`;
+        } else if (props.type === "room") {
+          message = `🏠 Reservasi Ruangan\n\n`;
+          message += `Ruangan: ${props.roomName || "-"}\n`;
+          message += `Kegiatan: ${props.eventName || "-"}\n`;
+          message += `Pemohon: ${props.requester || "-"}\n`;
+          message += `Status: ${props.status}`;
+        } else if (props.type === "transport") {
+          message = `🚐 Peminjaman Kendaraan\n\n`;
+          message += `Kendaraan: ${props.vehicleName || "-"}\n`;
+          message += `Plat: ${props.plateNumber || "-"}\n`;
+          message += `Keperluan: ${props.purpose || "-"}\n`;
+          if (props.origin || props.destination) {
+            message += `Rute: ${props.origin || "?"} → ${
+              props.destination || "?"
+            }\n`;
+          }
+          message += `Peminjam: ${props.borrower || "-"}\n`;
+          message += `Status: ${props.status}`;
+        }
+
+        alert(message);
+      },
+      // Custom event rendering
+      eventDidMount: function (info) {
+        const props = info.event.extendedProps;
+
+        // Add tooltip
+        info.el.setAttribute("title", getEventTooltip(props));
+
+        // Add type indicator icon to event
+        const icon = getTypeIcon(props.type);
+        if (icon && info.el.querySelector(".fc-event-title")) {
+          // Icon is already in title from backend
+        }
+      },
+    });
+
+    dashboardCalendarInstance.render();
+
+    // Handle window resize
+    window.addEventListener("resize", handleCalendarResize);
+  } catch (error) {
+    calendarEl.innerHTML = `
+      <div class="text-center py-12 text-red-500">
+        <i class="fas fa-exclamation-circle text-3xl mb-2"></i>
+        <p>Gagal memuat kalender: ${error.message}</p>
+        <button onclick="initDashboardCalendar()" class="mt-2 text-sm text-blue-600 hover:underline">
+          Coba lagi
+        </button>
+      </div>
+    `;
+  }
+}
+
+function getTypeIcon(type) {
+  switch (type) {
+    case "asset":
+      return "📦";
+    case "room":
+      return "🏠";
+    case "transport":
+      return "🚐";
+    default:
+      return "📅";
+  }
+}
+
+function getEventTooltip(props) {
+  if (props.type === "asset") {
+    return `Barang: ${props.assetName}\nPeminjam: ${props.borrower}\nStatus: ${props.status}`;
+  } else if (props.type === "room") {
+    return `Ruangan: ${props.roomName}\nKegiatan: ${props.eventName}\nStatus: ${props.status}`;
+  } else if (props.type === "transport") {
+    return `Kendaraan: ${props.vehicleName}\nKeperluan: ${props.purpose}\nStatus: ${props.status}`;
+  }
+  return "";
+}
+
+let calendarResizeTimeout = null;
+function handleCalendarResize() {
+  if (calendarResizeTimeout) {
+    clearTimeout(calendarResizeTimeout);
+  }
+  calendarResizeTimeout = setTimeout(() => {
+    if (dashboardCalendarInstance) {
+      const isMobile = window.matchMedia("(max-width: 768px)").matches;
+      const currentView = dashboardCalendarInstance.view.type;
+
+      // Switch view based on viewport
+      if (isMobile && currentView === "dayGridMonth") {
+        dashboardCalendarInstance.changeView("listWeek");
+      } else if (!isMobile && currentView === "listWeek") {
+        dashboardCalendarInstance.changeView("dayGridMonth");
+      }
+
+      dashboardCalendarInstance.updateSize();
+    }
+  }, 250);
 }

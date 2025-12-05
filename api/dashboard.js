@@ -30,10 +30,12 @@ export default async function handler(req, res) {
       return handleManagementDashboard(req, res, user);
     case "member-dashboard":
       return handleMemberDashboard(req, res, supabase, user);
+    case "calendar":
+      return handleCalendarData(req, res, supabase, user);
     default:
       return res.status(400).json({
         error:
-          "Action tidak valid. Gunakan: stats, my-requests, management-dashboard, member-dashboard",
+          "Action tidak valid. Gunakan: stats, my-requests, management-dashboard, member-dashboard, calendar",
       });
   }
 }
@@ -543,6 +545,198 @@ async function handleMemberDashboard(req, res, supabase, user) {
   } catch (error) {
     res.status(500).json({
       error: "Gagal mengambil data dashboard member.",
+      details: error.message,
+    });
+  }
+}
+
+// ============================================================
+// CALENDAR DATA - UNIFIED VIEW FOR ALL RESERVATIONS
+// ============================================================
+async function handleCalendarData(req, res, supabase, user) {
+  // Use service key to get all data (for management) or filter by user (for member)
+  const supabaseAdmin = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_KEY
+  );
+
+  try {
+    // Check user role
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("role, full_name")
+      .eq("id", user.id)
+      .single();
+
+    const isManagement = profile?.role === "management";
+    const userFullName = profile?.full_name || user.email;
+
+    // Get date range from query params (default: 60 days before and after)
+    const { start, end } = req.query;
+    const now = new Date();
+    const rangeStart =
+      start || new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString();
+    const rangeEnd =
+      end || new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString();
+
+    const events = [];
+
+    // 1. ASSET LOANS
+    let assetQuery = supabaseAdmin
+      .from("asset_loans")
+      .select(
+        `
+        id,
+        loan_date,
+        due_date,
+        status,
+        assets(asset_name, asset_code),
+        profiles:user_id(full_name)
+      `
+      )
+      .in("status", ["Disetujui", "Menunggu Persetujuan", "Dipinjam"])
+      .gte("due_date", rangeStart)
+      .lte("loan_date", rangeEnd);
+
+    // If member, only show their own loans
+    if (!isManagement) {
+      assetQuery = assetQuery.eq("user_id", user.id);
+    }
+
+    const { data: assetLoans } = await assetQuery;
+
+    (assetLoans || []).forEach((loan) => {
+      events.push({
+        id: `asset-${loan.id}`,
+        title: `📦 ${loan.assets?.asset_name || "Barang"}`,
+        start: loan.loan_date,
+        end: loan.due_date,
+        type: "asset",
+        status: loan.status,
+        backgroundColor:
+          loan.status === "Menunggu Persetujuan" ? "#f59e0b" : "#3b82f6",
+        borderColor:
+          loan.status === "Menunggu Persetujuan" ? "#d97706" : "#2563eb",
+        textColor: "#ffffff",
+        extendedProps: {
+          type: "asset",
+          assetName: loan.assets?.asset_name,
+          assetCode: loan.assets?.asset_code,
+          borrower: loan.profiles?.full_name,
+          status: loan.status,
+        },
+      });
+    });
+
+    // 2. ROOM RESERVATIONS
+    let roomQuery = supabaseAdmin
+      .from("room_reservations")
+      .select(
+        "id, room_name, event_name, requester_name, start_time, end_time, status"
+      )
+      .in("status", ["Disetujui", "Menunggu Persetujuan"])
+      .gte("end_time", rangeStart)
+      .lte("start_time", rangeEnd);
+
+    // If member, only show their own reservations
+    if (!isManagement) {
+      roomQuery = roomQuery.eq("requester_name", userFullName);
+    }
+
+    const { data: roomReservations } = await roomQuery;
+
+    (roomReservations || []).forEach((res) => {
+      events.push({
+        id: `room-${res.id}`,
+        title: `🏠 ${res.room_name}: ${res.event_name}`,
+        start: res.start_time,
+        end: res.end_time,
+        type: "room",
+        status: res.status,
+        backgroundColor:
+          res.status === "Menunggu Persetujuan" ? "#f59e0b" : "#10b981",
+        borderColor:
+          res.status === "Menunggu Persetujuan" ? "#d97706" : "#059669",
+        textColor: "#ffffff",
+        extendedProps: {
+          type: "room",
+          roomName: res.room_name,
+          eventName: res.event_name,
+          requester: res.requester_name,
+          status: res.status,
+        },
+      });
+    });
+
+    // 3. TRANSPORT LOANS
+    let transportQuery = supabaseAdmin
+      .from("transport_loans")
+      .select(
+        `
+        id,
+        borrow_start,
+        borrow_end,
+        purpose,
+        origin,
+        destination,
+        status,
+        transportations(vehicle_name, plate_number),
+        profiles:borrower_id(full_name)
+      `
+      )
+      .in("status", ["Disetujui", "Menunggu Persetujuan"])
+      .gte("borrow_end", rangeStart)
+      .lte("borrow_start", rangeEnd);
+
+    // If member, only show their own transport loans
+    if (!isManagement) {
+      transportQuery = transportQuery.eq("borrower_id", user.id);
+    }
+
+    const { data: transportLoans } = await transportQuery;
+
+    (transportLoans || []).forEach((loan) => {
+      events.push({
+        id: `transport-${loan.id}`,
+        title: `🚐 ${loan.transportations?.vehicle_name || "Kendaraan"}`,
+        start: loan.borrow_start,
+        end: loan.borrow_end,
+        type: "transport",
+        status: loan.status,
+        backgroundColor:
+          loan.status === "Menunggu Persetujuan" ? "#f59e0b" : "#8b5cf6",
+        borderColor:
+          loan.status === "Menunggu Persetujuan" ? "#d97706" : "#7c3aed",
+        textColor: "#ffffff",
+        extendedProps: {
+          type: "transport",
+          vehicleName: loan.transportations?.vehicle_name,
+          plateNumber: loan.transportations?.plate_number,
+          purpose: loan.purpose,
+          origin: loan.origin,
+          destination: loan.destination,
+          borrower: loan.profiles?.full_name,
+          status: loan.status,
+        },
+      });
+    });
+
+    res.status(200).json({
+      events,
+      meta: {
+        isManagement,
+        rangeStart,
+        rangeEnd,
+        counts: {
+          assets: assetLoans?.length || 0,
+          rooms: roomReservations?.length || 0,
+          transports: transportLoans?.length || 0,
+        },
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      error: "Gagal mengambil data kalender.",
       details: error.message,
     });
   }
