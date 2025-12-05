@@ -600,8 +600,8 @@ async function handleCalendarData(req, res, supabase, user) {
         loan_date,
         due_date,
         status,
-        assets(asset_name, asset_code),
-        profiles:user_id(full_name)
+        user_id,
+        assets(asset_name, asset_code)
       `
       )
       .in("status", ["Disetujui", "Menunggu Persetujuan", "Dipinjam"])
@@ -618,9 +618,33 @@ async function handleCalendarData(req, res, supabase, user) {
     }
 
     // Filter for actual overlap: loan_date <= rangeEnd AND due_date >= rangeStart
-    const assetLoans = (assetLoansRaw || []).filter(
+    const assetLoansFiltered = (assetLoansRaw || []).filter(
       (loan) => new Date(loan.due_date) >= new Date(rangeStart)
     );
+
+    // Get profiles for asset loans separately
+    const userIds = [
+      ...new Set(
+        assetLoansFiltered.map((loan) => loan.user_id).filter(Boolean)
+      ),
+    ];
+    let profileMap = new Map();
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabaseAdmin
+        .from("profiles")
+        .select("id, full_name")
+        .in("id", userIds);
+      if (profiles) {
+        profileMap = new Map(
+          profiles.map((profile) => [profile.id, profile.full_name])
+        );
+      }
+    }
+
+    const assetLoans = assetLoansFiltered.map((loan) => ({
+      ...loan,
+      borrowerName: profileMap.get(loan.user_id) || null,
+    }));
 
     (assetLoans || []).forEach((loan) => {
       events.push({
@@ -639,7 +663,7 @@ async function handleCalendarData(req, res, supabase, user) {
           type: "asset",
           assetName: loan.assets?.asset_name,
           assetCode: loan.assets?.asset_code,
-          borrower: loan.profiles?.full_name,
+          borrower: loan.borrowerName,
           status: loan.status,
         },
       });

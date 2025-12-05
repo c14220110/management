@@ -732,3 +732,68 @@
   color: #6b7280;
   font-style: italic;
 }
+
+/* Custom event type indicators */
+#dashboard-calendar .calendar-event-asset {
+  border-left: 4px solid #2563eb !important;
+}
+
+#dashboard-calendar .calendar-event-room {
+  border-left: 4px solid #059669 !important;
+}
+
+#dashboard-calendar .calendar-event-transport {
+  border-left: 4px solid #7c3aed !important;
+}
+
+/* Event title styling for better visibility */
+#dashboard-calendar .fc-event-title {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Day grid event styling */
+#dashboard-calendar .fc-daygrid-event {
+  padding: 2px 4px;
+  margin: 1px 0;
+  border-radius: 3px;
+  font-size: 0.75rem;
+}
+
+/* List view event styling */
+#dashboard-calendar .fc-list-event {
+  padding: 8px 12px;
+  border-left: 4px solid;
+}
+
+#dashboard-calendar .fc-list-event.fc-event-asset {
+  border-left-color: #2563eb;
+}
+
+#dashboard-calendar .fc-list-event.fc-event-room {
+  border-left-color: #059669;
+}
+
+#dashboard-calendar .fc-list-event.fc-event-transport {
+  border-left-color: #7c3aed;
+}
+
+/* Time grid event styling */
+#dashboard-calendar .fc-timegrid-event {
+  border-left: 4px solid;
+  padding: 2px 4px;
+}
+
+#dashboard-calendar .fc-timegrid-event.fc-event-asset {
+  border-left-color: #2563eb;
+}
+
+#dashboard-calendar .fc-timegrid-event.fc-event-room {
+  border-left-color: #059669;
+}
+
+#dashboard-calendar .fc-timegrid-event.fc-event-transport {
+  border-left-color: #7c3aed;
+}

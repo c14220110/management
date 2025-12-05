@@ -1402,6 +1402,13 @@ async function initDashboardCalendar() {
     const calendarData = await api.get("/api/dashboard?action=calendar");
     const events = calendarData.events || [];
 
+    // Debug logging
+    console.log("Calendar data received:", {
+      eventCount: events.length,
+      events: events,
+      meta: calendarData.meta,
+    });
+
     // Clear loading state
     calendarEl.innerHTML = "";
 
@@ -1424,7 +1431,26 @@ async function initDashboardCalendar() {
             right: "dayGridMonth,timeGridWeek,listWeek",
           },
       height: isMobile ? "auto" : 500,
-      events: events,
+      events: events.map((event) => {
+        // Ensure end date is valid (if same as start, add 1 day)
+        let endDate = event.end;
+        if (!endDate || endDate === event.start) {
+          const start = new Date(event.start);
+          start.setDate(start.getDate() + 1);
+          endDate = start.toISOString();
+        }
+
+        return {
+          ...event,
+          // Ensure all required fields are present
+          start: event.start,
+          end: endDate,
+          title: event.title || "Event",
+          backgroundColor: event.backgroundColor || "#3b82f6",
+          borderColor: event.borderColor || "#2563eb",
+          textColor: event.textColor || "#ffffff",
+        };
+      }),
       eventDisplay: "block",
       displayEventTime: true,
       eventTimeFormat: {
@@ -1435,6 +1461,15 @@ async function initDashboardCalendar() {
       dayMaxEvents: 3,
       moreLinkText: (num) => `+${num} lainnya`,
       noEventsText: "Tidak ada jadwal",
+      eventClassNames: function (info) {
+        // Add custom class based on type
+        const type = info.event.extendedProps?.type;
+        const classes = [`calendar-event-${type || "default"}`];
+        if (type) {
+          classes.push(`fc-event-${type}`);
+        }
+        return classes;
+      },
       buttonText: {
         today: "Hari Ini",
         month: "Bulan",
@@ -1506,6 +1541,21 @@ async function initDashboardCalendar() {
     });
 
     dashboardCalendarInstance.render();
+
+    // Log after render to verify events are displayed
+    setTimeout(() => {
+      const renderedEvents = dashboardCalendarInstance.getEvents();
+      console.log("Calendar rendered with events:", {
+        count: renderedEvents.length,
+        events: renderedEvents.map((e) => ({
+          id: e.id,
+          title: e.title,
+          start: e.startStr,
+          end: e.endStr,
+          type: e.extendedProps?.type,
+        })),
+      });
+    }, 500);
 
     // Handle window resize
     window.addEventListener("resize", handleCalendarResize);
