@@ -317,7 +317,7 @@ async function handleManagementDashboard(req, res, user) {
         `
         )
         // ambil semua yang belum final (bukan Disetujui/Dikembalikan/Ditolak/Selesai)
-        .not("status", "in", '("Disetujui","Dikembalikan","Ditolak","Selesai")')
+        .not("status", "in", "(Disetujui,Dikembalikan,Ditolak,Selesai)")
         .order("loan_date", { ascending: true }),
       supabaseAdmin
         .from("room_reservations")
