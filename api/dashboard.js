@@ -573,11 +573,21 @@ async function handleCalendarData(req, res, supabase, user) {
 
     // Get date range from query params (default: 3 months before and 3 months after)
     const { start, end } = req.query;
+    const normalizeDateString = (val) => {
+      if (!val) return null;
+      // Replace space with + because + turns into space in querystring
+      const cleaned = String(val).replace(" ", "+");
+      const parsed = new Date(cleaned);
+      if (Number.isNaN(parsed.getTime())) return null;
+      return parsed.toISOString();
+    };
+
     const now = new Date();
     const rangeStart =
-      start || new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString();
+      normalizeDateString(start) ||
+      new Date(now.getFullYear(), now.getMonth() - 3, 1).toISOString();
     const rangeEnd =
-      end ||
+      normalizeDateString(end) ||
       new Date(
         now.getFullYear(),
         now.getMonth() + 3,

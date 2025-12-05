@@ -1480,8 +1480,8 @@ async function initDashboardCalendar() {
       // Handle date range changes to fetch new data
       datesSet: async function (dateInfo) {
         // Fetch data for new date range
-        const start = dateInfo.startStr;
-        const end = dateInfo.endStr;
+        const start = encodeURIComponent(dateInfo.startStr);
+        const end = encodeURIComponent(dateInfo.endStr);
         try {
           const newData = await api.get(
             `/api/dashboard?action=calendar&start=${start}&end=${end}`
