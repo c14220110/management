@@ -617,7 +617,6 @@ async function updateTransportLoanStatus(loanId, newStatus) {
     return;
   }
 
-  showLoader();
   try {
     const result = await api.post("/api/management", {
       action: "updateTransportLoanStatus",
@@ -627,8 +626,6 @@ async function updateTransportLoanStatus(loanId, newStatus) {
     await renderTransportPendingView();
   } catch (error) {
     alert("Gagal: " + error.message);
-  } finally {
-    hideLoader();
   }
 }
 
@@ -900,8 +897,6 @@ async function uploadTransportImage(file) {
 
 async function handleTransportFormSubmit(e) {
   e.preventDefault();
-  showLoader();
-
   const transportId = document.getElementById("transport-modal-id").value;
   const action = transportId ? "updateTransportation" : "createTransportation";
 
@@ -965,15 +960,12 @@ async function handleTransportFormSubmit(e) {
     await renderTransportCrudView();
   } catch (error) {
     alert("Gagal menyimpan: " + error.message);
-  } finally {
-    hideLoader();
   }
 }
 
 async function deleteTransportation(transportId) {
   if (!confirm("Yakin ingin menghapus kendaraan ini?")) return;
 
-  showLoader();
   try {
     const result = await api.post("/api/management", {
       action: "deleteTransportation",
@@ -983,7 +975,5 @@ async function deleteTransportation(transportId) {
     await renderTransportCrudView();
   } catch (error) {
     alert("Gagal menghapus: " + error.message);
-  } finally {
-    hideLoader();
   }
 }

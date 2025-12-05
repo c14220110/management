@@ -1512,7 +1512,6 @@ async function handleProductUnitSubmit(event) {
   event.preventDefault();
   const feedback = document.getElementById("product-unit-feedback");
   feedback.textContent = "";
-  showLoader();
   try {
     const form = document.getElementById("product-unit-form");
     const templateId = form.dataset.templateId;
@@ -1542,8 +1541,6 @@ async function handleProductUnitSubmit(event) {
   } catch (error) {
     feedback.textContent = error.message;
     feedback.className = "text-center text-sm font-semibold text-red-600";
-  } finally {
-    hideLoader();
   }
 }
 
@@ -2068,7 +2065,6 @@ function closeAssetModal() {
 
 async function handleAssetFormSubmit(event) {
   event.preventDefault();
-  showLoader();
 
   const feedback = document.getElementById("asset-modal-feedback");
   feedback.textContent = "";
@@ -2114,8 +2110,6 @@ async function handleAssetFormSubmit(event) {
   } catch (error) {
     feedback.textContent = error.message;
     feedback.className = "text-center text-sm font-semibold text-red-600";
-  } finally {
-    hideLoader();
   }
 }
 
@@ -2174,7 +2168,6 @@ async function handleAssetStatusChange(assetId, newStatus) {
     return;
   }
 
-  showLoader();
   try {
     const result = await api.post("/api/management", {
       action: "setAssetStatus",
@@ -2184,8 +2177,6 @@ async function handleAssetStatusChange(assetId, newStatus) {
     await renderBarangManagementView();
   } catch (error) {
     alert("Gagal memperbarui status barang: " + error.message);
-  } finally {
-    hideLoader();
   }
 }
 
