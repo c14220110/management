@@ -295,6 +295,30 @@ export default async function handler(req, res) {
           .json({ message: "Kategori berhasil dibuat.", category: data });
       }
 
+      case "createStockLocation": {
+        const { name, code, type, parent_id, description } = payload || {};
+        if (!name) throw new Error("Nama lokasi wajib diisi.");
+        if (!type)
+          throw new Error(
+            "Tipe lokasi wajib diisi (internal/customer/vendor/scrap)."
+          );
+        const { data, error } = await supabase
+          .from("stock_locations")
+          .insert({
+            name,
+            code: code || null,
+            type,
+            parent_id: parent_id || null,
+            description: description || null,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        return res
+          .status(201)
+          .json({ message: "Lokasi berhasil dibuat.", location: data });
+      }
+
       case "createStockMove": {
         const {
           source_location_id,

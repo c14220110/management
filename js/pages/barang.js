@@ -344,6 +344,13 @@ async function fetchStockLocations() {
   return api.post("/api/management", { action: "getStockLocations" });
 }
 
+async function createStockLocation(payload) {
+  return api.post("/api/management", {
+    action: "createStockLocation",
+    payload,
+  });
+}
+
 async function createProductTemplate(payload) {
   return api.post("/api/management", {
     action: "createProductTemplate",
@@ -1031,6 +1038,7 @@ function openProductTemplateModal() {
   modal.classList.remove("hidden");
   modal.classList.add("flex");
   document.getElementById("product-template-form").reset();
+  updateProductTemplatePhotoPreview("");
   document.getElementById("product-template-feedback").textContent = "";
   populateSelect(
     "product-template-category",
@@ -1084,6 +1092,9 @@ function ensureProductTemplateModal() {
             <select id="product-template-location" class="w-full border border-gray-300 rounded-md px-3 py-2">
               <option value="">Pilih lokasi...</option>
             </select>
+            <button type="button" id="product-template-add-location" class="text-xs text-[#d97706] mt-1 hover:underline">
+              + Tambah lokasi
+            </button>
           </div>
           <div class="md:col-span-2">
             <label class="inline-flex items-center gap-2 text-sm text-gray-700">
@@ -1093,7 +1104,19 @@ function ensureProductTemplateModal() {
           </div>
           <div class="md:col-span-2">
             <label class="block text-sm font-medium text-gray-700 mb-1">URL Foto</label>
-            <input type="url" id="product-template-photo" class="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="https://..." />
+            <div class="flex items-center gap-4">
+              <div class="w-32 h-24 bg-gray-100 rounded-md flex items-center justify-center overflow-hidden border border-gray-200">
+                <img id="product-template-photo-preview" src="" alt="Preview" class="hidden w-full h-full object-cover" />
+                <div id="product-template-photo-placeholder" class="text-xs text-gray-500 text-center px-3">
+                  Tidak ada foto
+                </div>
+              </div>
+              <div class="flex-1 space-y-2">
+                <input type="file" id="product-template-photo-file" accept="image/*" class="block w-full text-sm text-gray-600 border border-gray-300 rounded-md cursor-pointer" />
+                <input type="hidden" id="product-template-photo" />
+                <p class="text-xs text-gray-500">Format JPG/PNG, maksimal 2 MB.</p>
+              </div>
+            </div>
           </div>
           <div class="md:col-span-2">
             <label class="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
@@ -1121,6 +1144,21 @@ function ensureProductTemplateModal() {
     .querySelector("#product-template-add-category")
     .addEventListener("click", openQuickCategoryPrompt);
   modal
+    .querySelector("#product-template-add-location")
+    .addEventListener("click", openQuickLocationPrompt);
+  modal
+    .querySelector("#product-template-photo-file")
+    .addEventListener("change", (event) => {
+      const file = event.target.files?.[0];
+      if (!file) {
+        updateProductTemplatePhotoPreview("");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => updateProductTemplatePhotoPreview(reader.result);
+      reader.readAsDataURL(file);
+    });
+  modal
     .querySelector("#product-template-form")
     .addEventListener("submit", handleProductTemplateSubmit);
 
@@ -1144,14 +1182,22 @@ async function handleProductTemplateSubmit(event) {
   feedback.textContent = "";
   showLoader();
   try {
+    let photoUrl =
+      document.getElementById("product-template-photo").value || null;
+    const file = document.getElementById("product-template-photo-file")
+      .files?.[0];
+    if (file) {
+      photoUrl = await uploadAssetImage(file); // re-use upload helper
+      document.getElementById("product-template-photo").value = photoUrl;
+    }
+
     const payload = {
       name: document.getElementById("product-template-name").value,
       description:
         document.getElementById("product-template-description").value || null,
       category_id:
         document.getElementById("product-template-category").value || null,
-      photo_url:
-        document.getElementById("product-template-photo").value || null,
+      photo_url: photoUrl,
       default_location_id:
         document.getElementById("product-template-location").value || null,
       is_serialized: document.getElementById("product-template-serialized")
@@ -1202,6 +1248,35 @@ async function openQuickCategoryPrompt() {
     );
   } catch (error) {
     alert("Gagal membuat kategori: " + error.message);
+  }
+}
+
+// ====== QUICK LOCATION PROMPT ======
+async function openQuickLocationPrompt() {
+  const name = prompt("Nama lokasi baru (misal: Gudang 2):");
+  if (!name) return;
+  const code = prompt("Kode lokasi (opsional, misal: WH2):") || null;
+  const type =
+    prompt("Tipe lokasi (internal/customer/vendor/scrap):", "internal") ||
+    "internal";
+  const description = prompt("Deskripsi (opsional):") || null;
+  try {
+    await createStockLocation({ name, code, type, description });
+    notifySuccess("Lokasi berhasil dibuat.");
+    const locs = await fetchStockLocations();
+    productInventoryState.locations = locs || [];
+    populateSelect(
+      "product-template-location",
+      productInventoryState.locations,
+      "Pilih lokasi..."
+    );
+    populateSelect(
+      "product-unit-location",
+      productInventoryState.locations,
+      "Pilih lokasi..."
+    );
+  } catch (error) {
+    alert("Gagal membuat lokasi: " + error.message);
   }
 }
 
@@ -1838,6 +1913,24 @@ function populateAssetModalSelect(id, options = []) {
 function updateAssetModalPhotoPreview(src) {
   const preview = document.getElementById("asset-modal-photo-preview");
   const placeholder = document.getElementById("asset-modal-photo-placeholder");
+  if (src) {
+    preview.src = src;
+    preview.classList.remove("hidden");
+    placeholder.classList.add("hidden");
+  } else {
+    preview.src = "";
+    preview.classList.add("hidden");
+    placeholder.classList.remove("hidden");
+  }
+}
+
+// Preview foto untuk modal produk (template)
+function updateProductTemplatePhotoPreview(src) {
+  const preview = document.getElementById("product-template-photo-preview");
+  const placeholder = document.getElementById(
+    "product-template-photo-placeholder"
+  );
+  if (!preview || !placeholder) return;
   if (src) {
     preview.src = src;
     preview.classList.remove("hidden");
