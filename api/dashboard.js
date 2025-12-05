@@ -316,16 +316,6 @@ async function handleManagementDashboard(req, res, user) {
           profiles:user_id(full_name)
         `
         )
-        // ambil semua status pending/menunggu/diproses
-        .or(
-          [
-            "status.ilike.%Menunggu%",
-            "status.eq.Pending",
-            "status.eq.pending",
-            "status.eq.Diproses",
-            "status.eq.diproses",
-          ].join(",")
-        )
         .order("loan_date", { ascending: true }),
       supabaseAdmin
         .from("room_reservations")
@@ -344,6 +334,20 @@ async function handleManagementDashboard(req, res, user) {
         .eq("status", "Menunggu Persetujuan")
         .order("borrow_start", { ascending: true }),
     ]);
+
+    // Filter pending asset loans di sisi server untuk semua status non-final
+    const finalStatuses = new Set([
+      "Disetujui",
+      "Dikembalikan",
+      "Ditolak",
+      "Selesai",
+      "Batal",
+      "BATAL",
+      "Returned",
+    ]);
+    const filteredPendingAssets = (pendingAssetLoans || []).filter(
+      (loan) => !finalStatuses.has((loan.status || "").trim())
+    );
 
     // 7. STATISTIK TRANSPORTASI
     const { data: transportStats } = await supabaseAdmin
@@ -379,7 +383,7 @@ async function handleManagementDashboard(req, res, user) {
       conditionSummary,
       // Pending requests
       pendingRequests: {
-        assetLoans: pendingAssetLoans || [],
+        assetLoans: filteredPendingAssets || [],
         roomReservations: pendingRoomReservations || [],
         transportLoans: pendingTransportLoans || [],
       },
