@@ -316,17 +316,8 @@ async function handleManagementDashboard(req, res, user) {
           profiles:user_id(full_name)
         `
         )
-        // tangkap variasi status pending termasuk yang mengandung kata Menunggu
-        .or(
-          [
-            "status.ilike.%Menunggu%",
-            "status.eq.Menunggu Persetujuan",
-            "status.eq.Pending",
-            "status.eq.pending",
-            "status.eq.Diproses",
-            "status.eq.diproses",
-          ].join(",")
-        )
+        // ambil semua yang belum final (bukan Disetujui/Dikembalikan/Ditolak/Selesai)
+        .not("status", "in", '("Disetujui","Dikembalikan","Ditolak","Selesai")')
         .order("loan_date", { ascending: true }),
       supabaseAdmin
         .from("room_reservations")
