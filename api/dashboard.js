@@ -307,12 +307,6 @@ async function handleManagementDashboard(req, res, user) {
           asset_id,
           asset_unit_id,
           assets(asset_name, asset_code),
-          product_units:product_units!asset_unit_id(
-            id,
-            serial_number,
-            asset_code,
-            template:product_templates(name)
-          ),
           profiles:user_id(full_name)
         `
         )
