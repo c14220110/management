@@ -129,9 +129,22 @@ function renderSingleTable(elementId, users) {
 }
 
 function initializeUserActionMenus() {
-  document.querySelectorAll(".user-action-btn").forEach((button) => {
-    button.addEventListener("click", (event) => {
+  // Use event delegation on the table bodies
+  ['management-table-body', 'member-table-body'].forEach(bodyId => {
+    const tbody = document.getElementById(bodyId);
+    if (!tbody) return;
+
+    // Remove existing listener if any (to avoid duplicates if called multiple times)
+    const newBody = tbody.cloneNode(true);
+    tbody.parentNode.replaceChild(newBody, tbody);
+    
+    newBody.addEventListener('click', (event) => {
+      const button = event.target.closest('.user-action-btn');
+      if (!button) return;
+
       event.preventDefault();
+      event.stopPropagation();
+
       const userData = {
         id: button.dataset.userId,
         name: button.dataset.userName,
