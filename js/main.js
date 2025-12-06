@@ -47,12 +47,6 @@ document.addEventListener("DOMContentLoaded", () => {
   document
     .getElementById("user-modal-form")
     .addEventListener("submit", handleUserFormSubmit);
-  document
-    .getElementById("room-modal-close")
-    .addEventListener("click", closeRoomModal);
-  document
-    .getElementById("room-modal-form")
-    .addEventListener("submit", handleRoomFormSubmit);
 
   injectCalendarResponsiveStyles();
 });

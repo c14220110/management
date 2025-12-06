@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Hanya metode POST yang diizinkan" });
   }
 
-  const { error: authError } = await verifyManagement(req);
+  const { user, error: authError } = await verifyManagement(req);
   if (authError)
     return res.status(403).json({ error: "Access Forbidden: " + authError });
 
