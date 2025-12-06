@@ -238,6 +238,31 @@ function filterManagementTemplates(templates) {
   return result;
 }
 
+function getTemplateCardsHTML(templates) {
+  if (!templates.length) return `<div class="col-span-full text-center py-12 text-gray-500"><i class="fas fa-box-open text-4xl mb-3 text-gray-300"></i><p>Tidak ada produk ditemukan</p></div>`;
+  return templates.map(t => {
+    const photo = t.photo_url || "https://placehold.co/300x200/f3f4f6/9ca3af?text=📦";
+    const stock = t.stock || { total: 0, available: 0 };
+    return `
+      <div class="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 group border border-gray-100">
+        <div class="relative h-36 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50">
+          <img src="${photo}" alt="${t.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
+          <div class="absolute top-2 left-2"><span class="px-2 py-1 rounded-lg text-xs font-medium ${t.is_serialized ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-white'}">${t.is_serialized ? 'Serial' : 'Non-Serial'}</span></div>
+          <div class="absolute top-2 right-2"><button type="button" class="template-action-btn w-8 h-8 bg-white/90 backdrop-blur rounded-lg shadow flex items-center justify-center text-gray-600 hover:bg-white" data-template-id="${t.id}"><i class="fas fa-ellipsis-v"></i></button></div>
+        </div>
+        <div class="p-4">
+          <h3 class="font-bold text-gray-900 truncate text-lg">${t.name}</h3>
+          <p class="text-xs text-gray-500 mt-1 flex items-center gap-1"><i class="fas fa-tag"></i> ${t.category?.name || "-"}</p>
+          <p class="text-xs text-gray-400 mt-1 flex items-center gap-1"><i class="fas fa-map-marker-alt"></i> ${t.default_location?.name || "-"}</p>
+          <div class="mt-3 flex items-center justify-between">
+            <div class="flex items-center gap-2"><span class="text-2xl font-bold text-emerald-600">${stock.available}</span><span class="text-gray-400 text-sm">/ ${stock.total}</span></div>
+            ${stock.borrowed > 0 ? `<span class="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-lg">${stock.borrowed} dipinjam</span>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }).join("");
+}
+
 function bindTemplateCardActions(root) {
   root.querySelectorAll(".template-action-btn").forEach(btn => {
     btn.addEventListener("click", (e) => {
