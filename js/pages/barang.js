@@ -972,6 +972,58 @@ async function handleAdjustStock(templateId) {
   } catch (e) { notifyError(e.message); }
 }
 
+function previewQRCode(title, code) {
+  const content = `
+    <div class="flex flex-col items-center justify-center p-4">
+      <div id="preview-qr" class="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-4"></div>
+      <p class="text-lg font-bold text-gray-800">${title}</p>
+      <p class="text-sm text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded mt-1">${code}</p>
+      <div class="flex gap-3 mt-6 w-full">
+        <button id="preview-print-btn" class="flex-1 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors">
+          <i class="fas fa-print mr-2"></i> Print
+        </button>
+        <button id="preview-download-btn" class="flex-1 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+          <i class="fas fa-download mr-2"></i> Download
+        </button>
+      </div>
+    </div>
+  `;
+  
+  openGlobalModal({
+    title: "Preview QR Code",
+    contentHTML: content,
+    confirmText: "Tutup",
+    onConfirm: () => closeGlobalModal()
+  });
+
+  setTimeout(() => {
+    const container = document.getElementById("preview-qr");
+    if (container) {
+      new QRCode(container, { text: code, width: 200, height: 200 });
+    }
+    
+    document.getElementById("preview-print-btn")?.addEventListener("click", () => printQRCode(title, code));
+    document.getElementById("preview-download-btn")?.addEventListener("click", () => downloadQRCode(code, code));
+  }, 100);
+}
+
+function downloadQRCode(filename, code) {
+  const div = document.createElement("div");
+  const qr = new QRCode(div, { text: code, width: 300, height: 300 });
+  
+  setTimeout(() => {
+    const img = div.querySelector("img");
+    if (img && img.src) {
+      const link = document.createElement("a");
+      link.href = img.src;
+      link.download = `${filename}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  }, 500);
+}
+
 function openProductUnitModal(opts = {}) {
   const { templateId, existing = null } = opts;
   const locOpts = productInventoryState.locations.map(l => `<option value="${l.id}" ${existing?.location?.id === l.id ? "selected" : ""}>${l.name}</option>`).join("");
@@ -995,6 +1047,10 @@ function openProductUnitModal(opts = {}) {
         <div><label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Beli</label><input type="date" name="purchase_date" value="${existing?.purchase_date || ""}" class="w-full px-3 py-2 border border-gray-300 rounded-lg"/></div>
         <div><label class="block text-sm font-medium text-gray-700 mb-1">Harga Beli</label><input type="number" name="purchase_price" value="${existing?.purchase_price || ""}" class="w-full px-3 py-2 border border-gray-300 rounded-lg"/></div>
       </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Catatan (Opsional)</label>
+        <textarea name="notes" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="Contoh: Ada goresan di body belakang">${existing?.notes || ""}</textarea>
+      </div>
     </form>`;
   
   openGlobalModal({ title: existing ? "Edit Unit" : "Tambah Unit Baru", contentHTML: content, confirmText: existing ? "Simpan" : "Tambah", onConfirm: () => handleProductUnitSubmit(templateId, existing?.id) });
@@ -1010,7 +1066,16 @@ function openProductUnitModal(opts = {}) {
 async function handleProductUnitSubmit(templateId, existingId) {
   const form = document.getElementById("product-unit-form");
   const fd = new FormData(form);
-  const payload = { template_id: templateId, asset_code: fd.get("asset_code") || null, serial_number: fd.get("serial_number") || null, location_id: fd.get("location_id") || null, condition: fd.get("condition") || null, purchase_date: fd.get("purchase_date") || null, purchase_price: fd.get("purchase_price") || null };
+  const payload = { 
+    template_id: templateId, 
+    asset_code: fd.get("asset_code") || null, 
+    serial_number: fd.get("serial_number") || null, 
+    location_id: fd.get("location_id") || null, 
+    condition: fd.get("condition") || null, 
+    purchase_date: fd.get("purchase_date") || null, 
+    purchase_price: fd.get("purchase_price") || null,
+    notes: fd.get("notes") || null
+  };
   if (existingId) payload.unitId = existingId;
   try {
     const token = localStorage.getItem("authToken");
@@ -1053,24 +1118,83 @@ async function renderTemplateDetailView(templateId) {
 function getUnitsTableHTML(units, templateId) {
   if (!units.length) return `<p class="text-gray-500 text-center py-6">Belum ada unit.</p>`;
   const statusColors = { available: "bg-emerald-100 text-emerald-700", borrowed: "bg-orange-100 text-orange-700", maintenance: "bg-yellow-100 text-yellow-700", lost: "bg-red-100 text-red-700", scrapped: "bg-gray-100 text-gray-700" };
-  const rows = units.map(u => `<tr class="border-b hover:bg-gray-50"><td class="p-3 font-mono text-sm">${u.asset_code || "-"}</td><td class="p-3 text-sm">${u.serial_number || "-"}</td><td class="p-3"><span class="text-xs px-2 py-1 rounded-lg ${statusColors[u.status] || "bg-gray-100"}">${u.status}</span></td><td class="p-3 text-sm">${u.condition || "-"}</td><td class="p-3 text-sm">${u.location?.name || "-"}</td><td class="p-3 text-center flex items-center justify-center gap-2"><button type="button" class="unit-qr-btn px-2 py-1 text-gray-500 hover:text-gray-800" data-code="${u.asset_code || u.serial_number || u.id}" title="Print QR"><i class="fas fa-qrcode"></i></button><button type="button" class="unit-action-btn px-2 py-1 text-gray-500 hover:text-gray-700" data-unit-id="${u.id}"><i class="fas fa-ellipsis-v"></i></button></td></tr>`).join("");
-  return `<table class="min-w-full text-sm"><thead class="bg-gray-100 text-xs font-semibold text-gray-600 uppercase"><tr><th class="p-3 text-left">Kode</th><th class="p-3 text-left">Serial</th><th class="p-3 text-left">Status</th><th class="p-3 text-left">Kondisi</th><th class="p-3 text-left">Lokasi</th><th class="p-3 text-center">Aksi</th></tr></thead><tbody>${rows}</tbody></table>`;
+  
+  const rows = units.map(u => `
+    <tr class="border-b hover:bg-gray-50 transition-colors">
+      <td class="p-3 font-mono text-sm font-medium text-gray-700">${u.asset_code || "-"}</td>
+      <td class="p-3 text-sm text-gray-600">${u.serial_number || "-"}</td>
+      <td class="p-3"><span class="text-xs px-2.5 py-1 rounded-full font-medium ${statusColors[u.status] || "bg-gray-100"}">${u.status}</span></td>
+      <td class="p-3 text-sm text-gray-600">${u.condition || "-"}</td>
+      <td class="p-3 text-sm text-gray-600">${u.location?.name || "-"}</td>
+      <td class="p-3 text-sm text-gray-500 italic max-w-xs truncate" title="${u.notes || ""}">${u.notes || "-"}</td>
+      <td class="p-3 text-center">
+        <button type="button" class="unit-action-btn w-8 h-8 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors" data-unit-id="${u.id}">
+          <i class="fas fa-ellipsis-v"></i>
+        </button>
+      </td>
+    </tr>
+  `).join("");
+
+  return `
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
+          <tr>
+            <th class="p-3 text-left">Kode Aset</th>
+            <th class="p-3 text-left">Serial Number</th>
+            <th class="p-3 text-left">Status</th>
+            <th class="p-3 text-left">Kondisi</th>
+            <th class="p-3 text-left">Lokasi</th>
+            <th class="p-3 text-left">Catatan</th>
+            <th class="p-3 text-center" style="width: 80px;">Aksi</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100 bg-white">${rows}</tbody>
+      </table>
+    </div>
+  `;
 }
 
 function bindUnitRowActions(container, templateId) {
   container.querySelectorAll(".unit-action-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", async () => {
       const unitId = btn.dataset.unitId;
-      openGlobalActionMenu({ triggerElement: btn, items: [
-        { label: "Edit", icon: "fas fa-edit", className: "text-amber-600", onClick: async () => { const units = await fetchProductUnits(templateId); const u = units.find(x => x.id === unitId); if (u) openProductUnitModal({ templateId, existing: u }); } },
-        { label: "Hapus", icon: "fas fa-trash", className: "text-red-600", onClick: () => confirmDeleteUnit(templateId, unitId) },
-      ] });
-    });
-  });
+      // Fetch unit data freshly to ensure we have the latest code for QR
+      const units = await fetchProductUnits(templateId);
+      const u = units.find(x => x.id === unitId);
+      if (!u) return;
 
-  container.querySelectorAll(".unit-qr-btn").forEach(btn => {
-    btn.addEventListener("click", () => {
-      printQRCode("Asset QR", btn.dataset.code);
+      const qrCodeText = u.asset_code || u.serial_number || u.id;
+
+      openGlobalActionMenu({ 
+        triggerElement: btn, 
+        items: [
+          { 
+            label: "Preview QR", 
+            icon: "fas fa-qrcode", 
+            className: "text-gray-700", 
+            onClick: () => previewQRCode(u.name || "Unit", qrCodeText) 
+          },
+          { 
+            label: "Download QR", 
+            icon: "fas fa-download", 
+            className: "text-blue-600", 
+            onClick: () => downloadQRCode(u.asset_code || "QR", qrCodeText) 
+          },
+          { 
+            label: "Edit Unit", 
+            icon: "fas fa-edit", 
+            className: "text-amber-600", 
+            onClick: () => openProductUnitModal({ templateId, existing: u }) 
+          },
+          { 
+            label: "Hapus Unit", 
+            icon: "fas fa-trash", 
+            className: "text-red-600", 
+            onClick: () => confirmDeleteUnit(templateId, unitId) 
+          },
+        ] 
+      });
     });
   });
 }
