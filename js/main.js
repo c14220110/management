@@ -361,6 +361,102 @@ window.notifySuccess = function notifySuccess(message) {
   }
 };
 
+// ============================================================
+// Error Animation Helpers (Lottie - using Fail.json)
+// ============================================================
+const errorAnimationState = {
+  overlay: null,
+  container: null,
+  messageEl: null,
+  lottieInstance: null,
+  animationData: null,
+  hideTimeout: null,
+};
+
+async function ensureErrorAnimationData() {
+  if (errorAnimationState.animationData) return;
+  const response = await fetch("/Fail.json");
+  if (!response.ok) {
+    throw new Error("Gagal memuat animasi error.");
+  }
+  errorAnimationState.animationData = await response.json();
+}
+
+function ensureErrorAnimationElements() {
+  if (errorAnimationState.overlay) return;
+  const overlay = document.createElement("div");
+  overlay.id = "error-feedback-overlay";
+  overlay.className =
+    "fixed inset-0 bg-black bg-opacity-40 hidden flex items-center justify-center z-50 px-4";
+  overlay.innerHTML = `
+    <div class="bg-white rounded-2xl shadow-2xl px-8 py-6 flex flex-col items-center gap-4 max-w-sm w-full">
+      <div id="error-animation-container" class="w-40 h-40"></div>
+      <p id="error-animation-message" class="text-lg font-semibold text-red-600 text-center"></p>
+      <button id="error-close-btn" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 font-medium">Tutup</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  errorAnimationState.overlay = overlay;
+  errorAnimationState.container = overlay.querySelector("#error-animation-container");
+  errorAnimationState.messageEl = overlay.querySelector("#error-animation-message");
+
+  overlay.querySelector("#error-close-btn").addEventListener("click", hideErrorFeedback);
+  overlay.addEventListener("click", (event) => {
+    if (event.target === overlay) {
+      hideErrorFeedback();
+    }
+  });
+}
+
+function hideErrorFeedback() {
+  if (errorAnimationState.hideTimeout) {
+    clearTimeout(errorAnimationState.hideTimeout);
+    errorAnimationState.hideTimeout = null;
+  }
+  if (errorAnimationState.overlay) {
+    errorAnimationState.overlay.classList.add("hidden");
+  }
+}
+
+async function showErrorFeedback(message = "Terjadi kesalahan!") {
+  try {
+    await ensureLottieLoaded();
+    await ensureErrorAnimationData();
+    ensureErrorAnimationElements();
+
+    if (!errorAnimationState.lottieInstance) {
+      errorAnimationState.lottieInstance = window.lottie.loadAnimation({
+        container: errorAnimationState.container,
+        renderer: "svg",
+        loop: false,
+        autoplay: false,
+        animationData: errorAnimationState.animationData,
+      });
+    } else {
+      errorAnimationState.lottieInstance.stop();
+    }
+
+    errorAnimationState.messageEl.textContent = message;
+    errorAnimationState.overlay.classList.remove("hidden");
+    errorAnimationState.lottieInstance.goToAndPlay(0, true);
+
+    // Don't auto-hide error - user must click to close
+  } catch (error) {
+    console.warn("Error animation gagal:", error);
+    alert(message);
+  }
+}
+
+window.showErrorFeedback = showErrorFeedback;
+window.hideErrorFeedback = hideErrorFeedback;
+window.notifyError = function notifyError(message) {
+  if (typeof showErrorFeedback === "function") {
+    showErrorFeedback(message);
+  } else {
+    alert(message);
+  }
+};
+
 function injectCalendarResponsiveStyles() {
   if (document.getElementById("calendar-responsive-style")) {
     return;

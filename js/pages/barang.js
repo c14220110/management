@@ -362,7 +362,7 @@ function openProductTemplateModal(existing = null) {
 function handlePhotoPreview(e) {
   const file = e.target.files[0];
   if (!file) return;
-  if (file.size > 2 * 1024 * 1024) { alert("Ukuran file melebihi 2MB"); return; }
+  if (file.size > 2 * 1024 * 1024) { notifyError("Ukuran file melebihi 2MB"); return; }
   const preview = document.getElementById("photo-preview");
   const reader = new FileReader();
   reader.onload = (ev) => { preview.innerHTML = `<img src="${ev.target.result}" class="w-full h-full object-cover"/>`; };
@@ -372,8 +372,15 @@ function handlePhotoPreview(e) {
 async function handleProductTemplateSubmit(existingId) {
   const form = document.getElementById("product-template-form");
   const fd = new FormData(form);
+  const name = fd.get("name")?.trim();
   
-  // Handle image upload first if there's a new file
+  // Frontend validation
+  if (!name) {
+    notifyError("Nama produk wajib diisi!");
+    return;
+  }
+  
+  // Handle image upload
   let photoUrl = fd.get("photo_url") || null;
   const photoFile = document.getElementById("photo-file-input")?.files[0];
   if (photoFile) {
@@ -381,11 +388,15 @@ async function handleProductTemplateSubmit(existingId) {
       const confirmBtn = document.getElementById("global-modal-confirm");
       if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Uploading...'; }
       photoUrl = await uploadProductImage(photoFile);
-    } catch (e) { alert("Gagal upload foto: " + e.message); return; }
+    } catch (e) { 
+      notifyError("Gagal upload foto: " + e.message); 
+      resetConfirmButton();
+      return; 
+    }
   }
   
   const payload = {
-    name: fd.get("name"),
+    name: name,
     description: fd.get("description") || null,
     category_id: fd.get("category_id") || null,
     default_location_id: fd.get("default_location_id") || null,
@@ -402,11 +413,22 @@ async function handleProductTemplateSubmit(existingId) {
   try {
     const token = localStorage.getItem("authToken");
     const res = await fetch("/api/management", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: existingId ? "updateProductTemplate" : "createProductTemplate", payload }) });
-    if (!res.ok) throw new Error((await res.json()).error || "Gagal");
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Terjadi kesalahan saat menyimpan produk");
+    }
     closeGlobalModal();
     notifySuccess("Produk berhasil disimpan!");
     await renderBarangManagementView();
-  } catch (e) { alert(e.message); }
+  } catch (e) { 
+    notifyError(e.message); 
+    resetConfirmButton();
+  }
+}
+
+function resetConfirmButton() {
+  const confirmBtn = document.getElementById("global-modal-confirm");
+  if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.innerHTML = 'Simpan'; }
 }
 
 // ============================================================
@@ -467,7 +489,7 @@ function openAddCategoryModal() {
       }
       closeAddCat();
       notifySuccess("Kategori berhasil ditambahkan!");
-    } catch (err) { alert(err.message); }
+    } catch (err) { notifyError(err.message); }
   };
 }
 
@@ -546,7 +568,7 @@ function openAddLocationModal() {
       }
       closeAddLoc();
       notifySuccess("Lokasi berhasil ditambahkan!");
-    } catch (err) { alert(err.message); }
+    } catch (err) { notifyError(err.message); }
   };
 }
 
@@ -577,7 +599,7 @@ async function handleAdjustStock(templateId) {
     const res = await fetch("/api/management", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: "adjustProductQuantity", payload: { templateId, adjustment } }) });
     if (!res.ok) throw new Error((await res.json()).error || "Gagal");
     closeGlobalModal(); notifySuccess("Stok berhasil diupdate!"); await renderBarangManagementView();
-  } catch (e) { alert(e.message); }
+  } catch (e) { notifyError(e.message); }
 }
 
 function openProductUnitModal(opts = {}) {
@@ -613,7 +635,7 @@ async function handleProductUnitSubmit(templateId, existingId) {
     closeGlobalModal(); notifySuccess("Unit berhasil disimpan!");
     const detailContainer = document.getElementById("template-detail-container");
     if (detailContainer) await renderTemplateDetailView(templateId);
-  } catch (e) { alert(e.message); }
+  } catch (e) { notifyError(e.message); }
 }
 
 // ============================================================
@@ -670,7 +692,7 @@ async function confirmDeleteUnit(templateId, unitId) {
     const res = await fetch("/api/management", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: "deleteProductUnit", payload: { unitId } }) });
     if (!res.ok) throw new Error((await res.json()).error);
     notifySuccess("Unit dihapus!"); await renderTemplateDetailView(templateId);
-  } catch (e) { alert(e.message); }
+  } catch (e) { notifyError(e.message); }
 }
 
 async function confirmDeleteTemplate(templateId) {
@@ -680,7 +702,7 @@ async function confirmDeleteTemplate(templateId) {
     const res = await fetch("/api/management", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: "deleteProductTemplate", payload: { templateId } }) });
     if (!res.ok) throw new Error((await res.json()).error);
     notifySuccess("Produk dihapus!"); await renderBarangManagementView();
-  } catch (e) { alert(e.message); }
+  } catch (e) { notifyError(e.message); }
 }
 
 // ============================================================
@@ -691,7 +713,7 @@ async function openMemberBorrowModal(templateId, isSerialized) {
   if (!item) return;
   let unitsOpts = "";
   if (isSerialized) {
-    try { const units = await fetchMemberAvailableUnits(templateId); unitsOpts = units.map(u => `<option value="${u.id}">${u.asset_code || u.serial_number || u.id}</option>`).join(""); if (!units.length) { alert("Tidak ada unit tersedia"); return; } } catch (e) { alert(e.message); return; }
+    try { const units = await fetchMemberAvailableUnits(templateId); unitsOpts = units.map(u => `<option value="${u.id}">${u.asset_code || u.serial_number || u.id}</option>`).join(""); if (!units.length) { notifyError("Tidak ada unit tersedia untuk dipinjam"); return; } } catch (e) { notifyError(e.message); return; }
   }
   const today = new Date().toISOString().split("T")[0];
   const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
@@ -710,7 +732,7 @@ async function handleMemberBorrowSubmit(templateId, isSerialized) {
     const res = await fetch("/api/member?resource=inventory", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
     if (!res.ok) throw new Error((await res.json()).error);
     closeGlobalModal(); notifySuccess("Permintaan peminjaman berhasil!"); await renderBarangMemberView();
-  } catch (e) { alert(e.message); }
+  } catch (e) { notifyError(e.message); }
 }
 
 window.loadBarangPage = loadBarangPage;
