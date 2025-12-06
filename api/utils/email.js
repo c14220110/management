@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js';
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: 'harisay@gmail.com',
+    user: 'kutisarigki@gmail.com',
     pass: 'vefr elhx pbkh jqlb'
   }
 });
@@ -16,7 +16,7 @@ export async function sendEmail({ to, subject, html }) {
   }
   
   const mailOptions = {
-    from: '"GKI Management System" <harisay@gmail.com>',
+    from: '"GKI Management System" <kutisarigki@gmail.com>',
     to: Array.isArray(to) ? to.join(',') : to,
     subject,
     html
