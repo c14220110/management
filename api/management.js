@@ -798,6 +798,196 @@ export default async function handler(req, res) {
           .json({ message: "Transportasi berhasil dihapus." });
       }
 
+      // ============================================================
+      // STOCK OPNAME MANAGEMENT
+      // ============================================================
+      case "createStockOpname": {
+        const { title, notes } = payload;
+        if (!title) throw new Error("Judul stok opname wajib diisi.");
+
+        // Check if there is already an ongoing opname
+        const { data: ongoing } = await supabase
+          .from("stock_opnames")
+          .select("id")
+          .eq("status", "ongoing")
+          .limit(1);
+        
+        if (ongoing && ongoing.length > 0) {
+          throw new Error("Masih ada stok opname yang sedang berlangsung. Selesaikan terlebih dahulu.");
+        }
+
+        const { data, error } = await supabase
+          .from("stock_opnames")
+          .insert({
+            title,
+            notes,
+            status: "ongoing",
+            created_by: user.id
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return res.status(201).json(data);
+      }
+
+      case "getActiveStockOpname": {
+        // Get ongoing opname
+        const { data: opname, error } = await supabase
+          .from("stock_opnames")
+          .select("*")
+          .eq("status", "ongoing")
+          .maybeSingle();
+        
+        if (error) throw error;
+        if (!opname) return res.status(200).json(null);
+
+        // Get stats
+        const { data: items, error: itemsError } = await supabase
+          .from("stock_opname_items")
+          .select(`
+            id,
+            product_template_id,
+            product_unit_id,
+            actual_qty,
+            checked_at,
+            template:product_templates!product_template_id (id, name, category:asset_categories(name))
+          `)
+          .eq("opname_id", opname.id)
+          .order("checked_at", { ascending: false });
+
+        if (itemsError) throw itemsError;
+
+        return res.status(200).json({ opname, items });
+      }
+
+      case "submitOpnameItem": {
+        const { opnameId, templateId, unitId, qty, notes, isScan } = payload;
+        
+        if (!opnameId) throw new Error("Opname ID wajib diisi.");
+        if (!templateId) throw new Error("Template ID wajib diisi.");
+
+        // Get current system stock
+        let systemQty = 0;
+        if (unitId) {
+          // Serialized: 1 if exists and available/borrowed
+          const { data: u } = await supabase.from("product_units").select("status").eq("id", unitId).single();
+          if (u) systemQty = 1; 
+        } else {
+          // Non-serialized: get quantity_on_hand
+          const { data: t } = await supabase.from("product_templates").select("quantity_on_hand").eq("id", templateId).single();
+          if (t) systemQty = t.quantity_on_hand || 0;
+        }
+
+        // Check if item already checked in this opname
+        let existingQuery = supabase.from("stock_opname_items").select("id, actual_qty").eq("opname_id", opnameId);
+        
+        if (unitId) {
+          existingQuery = existingQuery.eq("product_unit_id", unitId);
+        } else {
+          existingQuery = existingQuery.eq("product_template_id", templateId).is("product_unit_id", null);
+        }
+        
+        const { data: existingItem } = await existingQuery.maybeSingle();
+
+        let result;
+        if (existingItem) {
+          // Update existing
+          const newQty = unitId ? 1 : (existingItem.actual_qty + (qty || 1));
+          const { data, error } = await supabase
+            .from("stock_opname_items")
+            .update({
+              actual_qty: newQty,
+              system_qty: systemQty, // Update snapshot
+              checked_at: new Date().toISOString(),
+              checked_by: user.id,
+              notes: notes || null
+            })
+            .eq("id", existingItem.id)
+            .select()
+            .single();
+          if (error) throw error;
+          result = data;
+        } else {
+          // Insert new
+          const { data, error } = await supabase
+            .from("stock_opname_items")
+            .insert({
+              opname_id: opnameId,
+              product_template_id: templateId,
+              product_unit_id: unitId || null,
+              system_qty: systemQty,
+              actual_qty: qty || 1,
+              notes: notes || null,
+              checked_by: user.id
+            })
+            .select()
+            .single();
+          if (error) throw error;
+          result = data;
+        }
+
+        return res.status(200).json(result);
+      }
+
+      case "completeStockOpname": {
+        const { opnameId, notes } = payload;
+        if (!opnameId) throw new Error("Opname ID wajib diisi.");
+
+        const { data, error } = await supabase
+          .from("stock_opnames")
+          .update({
+            status: "completed",
+            end_date: new Date().toISOString(),
+            notes: notes || undefined
+          })
+          .eq("id", opnameId)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        return res.status(200).json(data);
+      }
+
+      case "getOpnameHistory": {
+        const { data, error } = await supabase
+          .from("stock_opnames")
+          .select("*")
+          .eq("status", "completed")
+          .order("end_date", { ascending: false });
+        
+        if (error) throw error;
+        return res.status(200).json(data);
+      }
+
+      case "getOpnameDetail": {
+        const { opnameId } = payload;
+        if (!opnameId) throw new Error("Opname ID wajib diisi.");
+
+        const { data: opname, error: opError } = await supabase
+          .from("stock_opnames")
+          .select("*")
+          .eq("id", opnameId)
+          .single();
+        
+        if (opError) throw opError;
+
+        const { data: items, error: itemsError } = await supabase
+          .from("stock_opname_items")
+          .select(`
+            *,
+            template:product_templates!product_template_id (name, uom, category:asset_categories(name)),
+            unit:product_units!product_unit_id (asset_code, serial_number),
+            checker:profiles!checked_by (full_name)
+          `)
+          .eq("opname_id", opnameId)
+          .order("checked_at", { ascending: true });
+
+        if (itemsError) throw itemsError;
+
+        return res.status(200).json({ opname, items });
+      }
+
       case "getPendingTransportLoans": {
         const { data: pendingTransLoans, error: pendingTransError } =
           await supabase

@@ -69,6 +69,13 @@ function router() {
           '<h1 class="text-2xl text-red-600">Akses Ditolak</h1>';
       }
       break;
+    case "#stok-opname":
+      if (localStorage.getItem("userRole") === "management") {
+        loadStockOpnamePage();
+      } else {
+        contentArea.innerHTML = '<h1 class="text-2xl text-red-600">Akses Ditolak</h1>';
+      }
+      break;
     default:
       window.location.hash = "#dashboard";
       loadDashboardPage();

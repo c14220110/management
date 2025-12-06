@@ -31,6 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
     appLayout.classList.remove("hidden");
     if (localStorage.getItem("userRole") === "management") {
       managementLink.classList.remove("hidden");
+      document.getElementById("stok-opname-link").classList.remove("hidden");
       document.getElementById("website-gki-link").classList.remove("hidden");
     }
 
