@@ -762,11 +762,19 @@ async function handleProductTemplateSubmit(existingId) {
     description: fd.get("description") || null,
     category_id: fd.get("category_id") || null,
     default_location_id: fd.get("default_location_id") || null,
-    is_serialized: fd.get("is_serialized") === "true",
     uom: fd.get("uom") || "unit",
     photo_url: photoUrl,
   };
-  if (!payload.is_serialized) {
+  
+  // Only update is_serialized if the field is enabled (present in FormData)
+  // This prevents overwriting it to false when editing (field is disabled)
+  const isSerializedVal = fd.get("is_serialized");
+  if (isSerializedVal !== null) {
+    payload.is_serialized = isSerializedVal === "true";
+  }
+
+  // Only update stock for non-serialized items if we are creating or if it's explicitly non-serialized
+  if (payload.is_serialized === false) {
     payload.quantity_on_hand = parseInt(fd.get("quantity_on_hand") || "0", 10);
     payload.min_quantity = parseInt(fd.get("min_quantity") || "0", 10);
   }
