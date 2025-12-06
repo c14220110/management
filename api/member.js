@@ -219,11 +219,26 @@ async function handleInventory(req, res, supabase, user) {
         if (insertError) return res.status(500).json({ error: insertError.message });
 
         // Send Notification
+        // Send Notification
+        const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
+        const borrowerName = profile?.full_name || user.email;
+        const itemName = unit.template?.name || "Unit Barang"; // Need to fetch template name if not available in unit object
+        // Actually unit object above selects template_id, not joined template.
+        // I should fetch template name or just say "Unit ID: ..."
+        // Better: Fetch unit with template name.
+        
         const emails = await getManagementEmails('inventory');
         await sendEmail({
           to: emails,
-          subject: 'Permintaan Peminjaman Barang Baru',
-          html: `<p>Ada permintaan peminjaman barang baru dari user. Mohon cek dashboard: <a href="https://gki-management.vercel.app/#dashboard">https://gki-management.vercel.app/#dashboard</a></p>`
+          subject: `Permintaan Peminjaman Barang: ${itemName}`,
+          html: `
+            <h3>Permintaan Peminjaman Baru</h3>
+            <p><strong>Peminjam:</strong> ${borrowerName}</p>
+            <p><strong>Barang:</strong> Unit ID ${unit_id}</p>
+            <p><strong>Tanggal Pinjam:</strong> ${new Date(loan_date).toLocaleDateString('id-ID')}</p>
+            <p><strong>Tanggal Kembali:</strong> ${new Date(due_date).toLocaleDateString('id-ID')}</p>
+            <p>Mohon cek dashboard untuk persetujuan: <a href="https://gki-management.vercel.app/#dashboard">Dashboard</a></p>
+          `
         });
 
         return res.status(201).json({ message: "Permintaan peminjaman berhasil diajukan." });
@@ -274,11 +289,26 @@ async function handleInventory(req, res, supabase, user) {
         if (insertError) return res.status(500).json({ error: insertError.message });
 
         // Send Notification
+        // Send Notification
+        const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
+        const borrowerName = profile?.full_name || user.email;
+        const itemName = template.name || "Barang"; // template object above selects name? No, selects id, is_serialized, quantity_on_hand.
+        // Need to fetch name.
+        const { data: tmplDetails } = await supabase.from("product_templates").select("name").eq("id", template_id).single();
+        const realItemName = tmplDetails?.name || "Barang";
+
         const emails = await getManagementEmails('inventory');
         await sendEmail({
           to: emails,
-          subject: 'Permintaan Peminjaman Barang Baru',
-          html: `<p>Ada permintaan peminjaman barang baru dari user. Mohon cek dashboard: <a href="https://gki-management.vercel.app/#dashboard">https://gki-management.vercel.app/#dashboard</a></p>`
+          subject: `Permintaan Peminjaman Barang: ${realItemName}`,
+          html: `
+            <h3>Permintaan Peminjaman Baru</h3>
+            <p><strong>Peminjam:</strong> ${borrowerName}</p>
+            <p><strong>Barang:</strong> ${realItemName} (Jumlah: ${quantity})</p>
+            <p><strong>Tanggal Pinjam:</strong> ${new Date(loan_date).toLocaleDateString('id-ID')}</p>
+            <p><strong>Tanggal Kembali:</strong> ${new Date(due_date).toLocaleDateString('id-ID')}</p>
+            <p>Mohon cek dashboard untuk persetujuan: <a href="https://gki-management.vercel.app/#dashboard">Dashboard</a></p>
+          `
         });
 
         return res.status(201).json({ message: "Permintaan peminjaman berhasil diajukan." });
@@ -330,11 +360,24 @@ async function handleRooms(req, res, supabase, user) {
         return res.status(500).json({ error: insertError.message });
 
       // Send Notification
+      // Send Notification
       const roomEmails = await getManagementEmails('room');
+      const durationMs = new Date(end_time) - new Date(start_time);
+      const durationHours = Math.round(durationMs / (1000 * 60 * 60));
+      
       await sendEmail({
         to: roomEmails,
-        subject: 'Permintaan Reservasi Ruangan Baru',
-        html: `<p>Ada permintaan reservasi ruangan baru dari user. Mohon cek dashboard: <a href="https://gki-management.vercel.app/#dashboard">https://gki-management.vercel.app/#dashboard</a></p>`
+        subject: `Permintaan Reservasi Ruangan: ${room_name}`,
+        html: `
+          <h3>Permintaan Reservasi Ruangan Baru</h3>
+          <p><strong>Peminjam:</strong> ${profile.full_name || user.email}</p>
+          <p><strong>Ruangan:</strong> ${room_name}</p>
+          <p><strong>Acara:</strong> ${event_name}</p>
+          <p><strong>Waktu Mulai:</strong> ${new Date(start_time).toLocaleString('id-ID')}</p>
+          <p><strong>Waktu Selesai:</strong> ${new Date(end_time).toLocaleString('id-ID')}</p>
+          <p><strong>Durasi:</strong> ${durationHours} Jam</p>
+          <p>Mohon cek dashboard untuk persetujuan: <a href="https://gki-management.vercel.app/#dashboard">Dashboard</a></p>
+        `
       });
 
       return res
@@ -413,11 +456,32 @@ async function handleTransports(req, res, supabase, user) {
       }
 
       // Send Notification
+      // Send Notification
+      const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
+      const borrowerName = profile?.full_name || user.email;
+      
+      const { data: transport } = await supabase.from("transportations").select("vehicle_name").eq("id", transport_id).single();
+      const vehicleName = transport?.vehicle_name || "Kendaraan";
+      
+      const durationMs = new Date(borrow_end) - new Date(borrow_start);
+      const durationHours = Math.round(durationMs / (1000 * 60 * 60));
+      const durationStr = durationHours > 24 ? `${Math.round(durationHours/24)} Hari` : `${durationHours} Jam`;
+
       const transportEmails = await getManagementEmails('transport');
       await sendEmail({
         to: transportEmails,
-        subject: 'Permintaan Peminjaman Transportasi Baru',
-        html: `<p>Ada permintaan peminjaman transportasi baru dari user. Mohon cek dashboard: <a href="https://gki-management.vercel.app/#dashboard">https://gki-management.vercel.app/#dashboard</a></p>`
+        subject: `Permintaan Peminjaman Transportasi: ${vehicleName}`,
+        html: `
+          <h3>Permintaan Peminjaman Transportasi Baru</h3>
+          <p><strong>Peminjam:</strong> ${borrowerName}</p>
+          <p><strong>Kendaraan:</strong> ${vehicleName}</p>
+          <p><strong>Tujuan:</strong> ${destination || '-'}</p>
+          <p><strong>Keperluan:</strong> ${purpose || '-'}</p>
+          <p><strong>Waktu Mulai:</strong> ${new Date(borrow_start).toLocaleString('id-ID')}</p>
+          <p><strong>Waktu Selesai:</strong> ${new Date(borrow_end).toLocaleString('id-ID')}</p>
+          <p><strong>Durasi:</strong> ${durationStr}</p>
+          <p>Mohon cek dashboard untuk persetujuan: <a href="https://gki-management.vercel.app/#dashboard">Dashboard</a></p>
+        `
       });
 
       return res.status(201).json({

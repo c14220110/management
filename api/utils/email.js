@@ -81,7 +81,7 @@ export async function getManagementEmails(requiredPrivilege) {
       .map(u => u.email)
       .filter(email => email); // Ensure no null emails
       
-    return emails;
+    return [...new Set(emails)]; // Ensure unique emails
   } catch (err) {
     console.error("Error in getManagementEmails:", err);
     return [];
