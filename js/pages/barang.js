@@ -83,7 +83,10 @@ async function renderBarangManagementView() {
             <span class="absolute inset-y-0 left-4 flex items-center text-gray-400"><i class="fas fa-search text-lg"></i></span>
             <input id="product-search-input" type="text" value="${productInventoryState.search || ""}" 
               placeholder="Cari nama produk, kategori, atau kode..."
-              class="w-full pl-12 pr-4 py-3.5 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-gray-50 transition-all"/>
+              class="w-full pl-12 pr-12 py-3.5 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-gray-50 transition-all"/>
+            <button id="qr-scan-btn" class="absolute inset-y-0 right-4 flex items-center text-gray-400 hover:text-amber-600 transition-colors" title="Scan QR Code">
+              <i class="fas fa-qrcode text-xl"></i>
+            </button>
           </div>
           
           <!-- Filter Row -->
@@ -152,6 +155,8 @@ async function renderBarangManagementView() {
       productInventoryState.search = e.target.value; 
       renderBarangManagementView(); 
     }, 300));
+    
+    document.getElementById("qr-scan-btn")?.addEventListener("click", handleQRScan);
     
     document.getElementById("product-add-btn")?.addEventListener("click", () => openProductTemplateModal());
     document.getElementById("product-refresh-btn")?.addEventListener("click", () => renderBarangManagementView());
@@ -965,7 +970,13 @@ function openProductUnitModal(opts = {}) {
   const content = `
     <form id="product-unit-form" class="space-y-4">
       <div class="grid grid-cols-2 gap-4">
-        <div><label class="block text-sm font-medium text-gray-700 mb-1">Kode Aset</label><input type="text" name="asset_code" value="${existing?.asset_code || ""}" class="w-full px-3 py-2 border border-gray-300 rounded-lg"/></div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Kode Aset</label>
+          <div class="flex gap-2">
+            <input type="text" name="asset_code" id="unit-asset-code" value="${existing?.asset_code || ""}" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg"/>
+            <button type="button" id="generate-code-btn" class="px-3 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200" title="Generate Code"><i class="fas fa-magic"></i></button>
+          </div>
+        </div>
         <div><label class="block text-sm font-medium text-gray-700 mb-1">Serial Number</label><input type="text" name="serial_number" value="${existing?.serial_number || ""}" class="w-full px-3 py-2 border border-gray-300 rounded-lg"/></div>
       </div>
       <div class="grid grid-cols-2 gap-4">
@@ -977,7 +988,15 @@ function openProductUnitModal(opts = {}) {
         <div><label class="block text-sm font-medium text-gray-700 mb-1">Harga Beli</label><input type="number" name="purchase_price" value="${existing?.purchase_price || ""}" class="w-full px-3 py-2 border border-gray-300 rounded-lg"/></div>
       </div>
     </form>`;
+  
   openGlobalModal({ title: existing ? "Edit Unit" : "Tambah Unit Baru", contentHTML: content, confirmText: existing ? "Simpan" : "Tambah", onConfirm: () => handleProductUnitSubmit(templateId, existing?.id) });
+
+  setTimeout(() => {
+    document.getElementById("generate-code-btn")?.addEventListener("click", () => {
+      const code = "GKI-" + Date.now().toString().slice(-6);
+      document.getElementById("unit-asset-code").value = code;
+    });
+  }, 100);
 }
 
 async function handleProductUnitSubmit(templateId, existingId) {
@@ -1026,7 +1045,7 @@ async function renderTemplateDetailView(templateId) {
 function getUnitsTableHTML(units, templateId) {
   if (!units.length) return `<p class="text-gray-500 text-center py-6">Belum ada unit.</p>`;
   const statusColors = { available: "bg-emerald-100 text-emerald-700", borrowed: "bg-orange-100 text-orange-700", maintenance: "bg-yellow-100 text-yellow-700", lost: "bg-red-100 text-red-700", scrapped: "bg-gray-100 text-gray-700" };
-  const rows = units.map(u => `<tr class="border-b hover:bg-gray-50"><td class="p-3 font-mono text-sm">${u.asset_code || "-"}</td><td class="p-3 text-sm">${u.serial_number || "-"}</td><td class="p-3"><span class="text-xs px-2 py-1 rounded-lg ${statusColors[u.status] || "bg-gray-100"}">${u.status}</span></td><td class="p-3 text-sm">${u.condition || "-"}</td><td class="p-3 text-sm">${u.location?.name || "-"}</td><td class="p-3 text-center"><button type="button" class="unit-action-btn px-2 py-1 text-gray-500 hover:text-gray-700" data-unit-id="${u.id}"><i class="fas fa-ellipsis-v"></i></button></td></tr>`).join("");
+  const rows = units.map(u => `<tr class="border-b hover:bg-gray-50"><td class="p-3 font-mono text-sm">${u.asset_code || "-"}</td><td class="p-3 text-sm">${u.serial_number || "-"}</td><td class="p-3"><span class="text-xs px-2 py-1 rounded-lg ${statusColors[u.status] || "bg-gray-100"}">${u.status}</span></td><td class="p-3 text-sm">${u.condition || "-"}</td><td class="p-3 text-sm">${u.location?.name || "-"}</td><td class="p-3 text-center flex items-center justify-center gap-2"><button type="button" class="unit-qr-btn px-2 py-1 text-gray-500 hover:text-gray-800" data-code="${u.asset_code || u.serial_number || u.id}" title="Print QR"><i class="fas fa-qrcode"></i></button><button type="button" class="unit-action-btn px-2 py-1 text-gray-500 hover:text-gray-700" data-unit-id="${u.id}"><i class="fas fa-ellipsis-v"></i></button></td></tr>`).join("");
   return `<table class="min-w-full text-sm"><thead class="bg-gray-100 text-xs font-semibold text-gray-600 uppercase"><tr><th class="p-3 text-left">Kode</th><th class="p-3 text-left">Serial</th><th class="p-3 text-left">Status</th><th class="p-3 text-left">Kondisi</th><th class="p-3 text-left">Lokasi</th><th class="p-3 text-center">Aksi</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
@@ -1038,6 +1057,12 @@ function bindUnitRowActions(container, templateId) {
         { label: "Edit", icon: "fas fa-edit", className: "text-amber-600", onClick: async () => { const units = await fetchProductUnits(templateId); const u = units.find(x => x.id === unitId); if (u) openProductUnitModal({ templateId, existing: u }); } },
         { label: "Hapus", icon: "fas fa-trash", className: "text-red-600", onClick: () => confirmDeleteUnit(templateId, unitId) },
       ] });
+    });
+  });
+
+  container.querySelectorAll(".unit-qr-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      printQRCode("Asset QR", btn.dataset.code);
     });
   });
 }
@@ -1094,3 +1119,77 @@ async function handleMemberBorrowSubmit(templateId, isSerialized) {
 
 window.loadBarangPage = loadBarangPage;
 window.renderBarangListView = renderBarangListView;
+
+// ============================================================
+// QR CODE HANDLERS
+// ============================================================
+function handleQRScan() {
+  const content = `
+    <div class="flex flex-col items-center">
+      <div id="qr-reader" style="width: 100%; max-width: 400px;"></div>
+      <p class="text-sm text-gray-500 mt-4">Arahkan kamera ke QR Code barang</p>
+    </div>
+  `;
+  
+  openGlobalModal({
+    title: "Scan QR Code",
+    contentHTML: content,
+    confirmText: "Tutup",
+    onConfirm: () => { 
+      closeGlobalModal(); 
+    }
+  });
+
+  // Initialize scanner after modal is open
+  setTimeout(() => {
+    if (!document.getElementById("qr-reader")) return;
+    
+    // Check if Html5QrcodeScanner is defined
+    if (typeof Html5QrcodeScanner === 'undefined') {
+      document.getElementById("qr-reader").innerHTML = '<p class="text-red-500">Library QR Scanner tidak dimuat. Cek koneksi internet.</p>';
+      return;
+    }
+
+    const scanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 250 });
+    scanner.render((decodedText) => {
+      // Success
+      try { scanner.clear(); } catch(e){}
+      closeGlobalModal();
+      
+      // Update search
+      productInventoryState.search = decodedText;
+      renderBarangManagementView();
+      notifySuccess(`Ditemukan: ${decodedText}`);
+    }, (error) => {
+      // Ignore parse errors
+    });
+    
+    // Cleanup on modal close
+    const closeBtn = document.getElementById("global-modal-close");
+    const confirmBtn = document.getElementById("global-modal-confirm");
+    const cleanup = () => { try { scanner.clear(); } catch(e){} };
+    if(closeBtn) closeBtn.addEventListener("click", cleanup);
+    if(confirmBtn) confirmBtn.addEventListener("click", cleanup);
+  }, 200);
+}
+
+function printQRCode(title, code) {
+  const win = window.open('', '', 'height=500,width=500');
+  win.document.write('<html><head><title>Print QR</title>');
+  win.document.write('<style>body{font-family:sans-serif;text-align:center;padding:20px;} .label{border:2px solid #000;padding:20px;display:inline-block;border-radius:10px;} h3{margin:10px 0 5px;font-size:18px;} p{margin:0;font-size:14px;color:#555;}</style>');
+  win.document.write('</head><body>');
+  win.document.write('<div class="label">');
+  win.document.write(`<div id="print-qr"></div>`);
+  win.document.write(`<h3>${title}</h3>`);
+  win.document.write(`<p>${code}</p>`);
+  win.document.write('</div>');
+  
+  win.document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>');
+  win.document.write('<script>');
+  win.document.write(`new QRCode(document.getElementById("print-qr"), { text: "${code}", width: 150, height: 150 });`);
+  win.document.write('setTimeout(() => { window.print(); window.close(); }, 800);');
+  win.document.write('</script>');
+  
+  win.document.write('</body></html>');
+  win.document.close();
+}
