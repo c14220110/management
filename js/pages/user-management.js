@@ -23,12 +23,12 @@ async function loadUserManagementPage() {
           </button>
         </div>
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <table class="min-w-full text-sm text-left">
+          <table class="min-w-full text-sm text-left table-fixed">
             <thead class="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
               <tr>
-                <th class="p-4">Nama Lengkap</th>
-                <th class="p-4">Email</th>
-                <th class="p-4 text-center">Aksi</th>
+                <th class="p-4 w-[40%]">Nama Lengkap</th>
+                <th class="p-4 w-[40%]">Email</th>
+                <th class="p-4 text-center w-[20%]">Aksi</th>
               </tr>
             </thead>
             <tbody id="management-table-body" class="divide-y divide-gray-100"></tbody>
@@ -45,12 +45,12 @@ async function loadUserManagementPage() {
           </button>
         </div>
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <table class="min-w-full text-sm text-left">
+          <table class="min-w-full text-sm text-left table-fixed">
             <thead class="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
               <tr>
-                <th class="p-4">Nama Lengkap</th>
-                <th class="p-4">Email</th>
-                <th class="p-4 text-center">Aksi</th>
+                <th class="p-4 w-[40%]">Nama Lengkap</th>
+                <th class="p-4 w-[40%]">Email</th>
+                <th class="p-4 text-center w-[20%]">Aksi</th>
               </tr>
             </thead>
             <tbody id="member-table-body" class="divide-y divide-gray-100"></tbody>
