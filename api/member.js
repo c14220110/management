@@ -1,6 +1,7 @@
 // File: /api/member.js
 // Consolidated API for member operations: inventory, rooms, transports, cancel
 import { createClient } from "@supabase/supabase-js";
+import { sendEmail, getManagementEmails } from "./utils/email.js";
 
 // Service client for inventory (bypasses RLS)
 function getServiceClient() {
@@ -216,6 +217,15 @@ async function handleInventory(req, res, supabase, user) {
         });
 
         if (insertError) return res.status(500).json({ error: insertError.message });
+
+        // Send Notification
+        const emails = await getManagementEmails('inventory');
+        await sendEmail({
+          to: emails,
+          subject: 'Permintaan Peminjaman Barang Baru',
+          html: `<p>Ada permintaan peminjaman barang baru dari user. Mohon cek dashboard: <a href="https://gki-management.vercel.app/#dashboard">https://gki-management.vercel.app/#dashboard</a></p>`
+        });
+
         return res.status(201).json({ message: "Permintaan peminjaman berhasil diajukan." });
       }
 
@@ -262,6 +272,15 @@ async function handleInventory(req, res, supabase, user) {
         });
 
         if (insertError) return res.status(500).json({ error: insertError.message });
+
+        // Send Notification
+        const emails = await getManagementEmails('inventory');
+        await sendEmail({
+          to: emails,
+          subject: 'Permintaan Peminjaman Barang Baru',
+          html: `<p>Ada permintaan peminjaman barang baru dari user. Mohon cek dashboard: <a href="https://gki-management.vercel.app/#dashboard">https://gki-management.vercel.app/#dashboard</a></p>`
+        });
+
         return res.status(201).json({ message: "Permintaan peminjaman berhasil diajukan." });
       }
 
@@ -309,6 +328,15 @@ async function handleRooms(req, res, supabase, user) {
         });
       if (insertError)
         return res.status(500).json({ error: insertError.message });
+
+      // Send Notification
+      const roomEmails = await getManagementEmails('room');
+      await sendEmail({
+        to: roomEmails,
+        subject: 'Permintaan Reservasi Ruangan Baru',
+        html: `<p>Ada permintaan reservasi ruangan baru dari user. Mohon cek dashboard: <a href="https://gki-management.vercel.app/#dashboard">https://gki-management.vercel.app/#dashboard</a></p>`
+      });
+
       return res
         .status(201)
         .json({ message: "Permintaan reservasi ruangan berhasil diajukan." });
@@ -383,6 +411,14 @@ async function handleTransports(req, res, supabase, user) {
       if (insertError) {
         return res.status(500).json({ error: insertError.message });
       }
+
+      // Send Notification
+      const transportEmails = await getManagementEmails('transport');
+      await sendEmail({
+        to: transportEmails,
+        subject: 'Permintaan Peminjaman Transportasi Baru',
+        html: `<p>Ada permintaan peminjaman transportasi baru dari user. Mohon cek dashboard: <a href="https://gki-management.vercel.app/#dashboard">https://gki-management.vercel.app/#dashboard</a></p>`
+      });
 
       return res.status(201).json({
         message: "Permintaan peminjaman transportasi berhasil diajukan.",
