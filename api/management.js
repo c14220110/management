@@ -616,7 +616,7 @@ export default async function handler(req, res) {
       }
 
       case "createUser": {
-        const { fullName, email, password } = payload;
+        const { fullName, email, password, role } = payload;
         const {
           data: { user: newUser },
           error: createError,
@@ -624,7 +624,7 @@ export default async function handler(req, res) {
           email,
           password,
           email_confirm: true,
-          user_metadata: { role: "member", full_name: fullName },
+          user_metadata: { role: role || "member", full_name: fullName },
         });
         if (createError) throw createError;
         return res.status(201).json({
