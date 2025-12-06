@@ -50,12 +50,8 @@ async function handleLogin(e) {
     loginScreen.style.display = "none";
     appLayout.classList.remove("hidden");
 
-    if (userRole === "management") {
-      managementLink.classList.remove("hidden");
-      document.getElementById("stok-opname-link").classList.remove("hidden");
-      document
-        .getElementById("website-gki-link")
-        .classList.remove("hidden");
+    if (window.updateSidebarVisibility) {
+      window.updateSidebarVisibility();
     }
 
     window.location.hash = "#dashboard";
