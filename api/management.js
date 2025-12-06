@@ -972,20 +972,41 @@ export default async function handler(req, res) {
         
         if (opError) throw opError;
 
+        // Fetch items without joining profiles directly to avoid FK issues
         const { data: items, error: itemsError } = await supabase
           .from("stock_opname_items")
           .select(`
             *,
             template:product_templates!product_template_id (name, uom, category:asset_categories(name)),
-            unit:product_units!product_unit_id (asset_code, serial_number),
-            checker:profiles!checked_by (full_name)
+            unit:product_units!product_unit_id (asset_code, serial_number)
           `)
           .eq("opname_id", opnameId)
           .order("checked_at", { ascending: true });
 
         if (itemsError) throw itemsError;
 
-        return res.status(200).json({ opname, items });
+        // Manually fetch checker profiles
+        const checkerIds = [...new Set(items.map(i => i.checked_by).filter(Boolean))];
+        let profilesMap = {};
+        
+        if (checkerIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", checkerIds);
+          
+          if (profiles) {
+            profiles.forEach(p => profilesMap[p.id] = p);
+          }
+        }
+
+        // Attach checker info
+        const itemsWithChecker = items.map(item => ({
+          ...item,
+          checker: profilesMap[item.checked_by] || { full_name: "Unknown" }
+        }));
+
+        return res.status(200).json({ opname, items: itemsWithChecker });
       }
 
       case "getPendingTransportLoans": {
