@@ -102,16 +102,37 @@ function renderActiveOpname(container) {
   
   // Calculate Stats
   const totalChecked = items.length;
-  // Note: Total items in system is harder to calculate perfectly without fetching all units, 
-  // but we can estimate or just show "Checked Items".
-  // For progress, we can group by category.
   
+  // Calculate Overall Progress
+  let totalItemsSystem = 0;
+  let totalItemsChecked = 0;
+  
+  // Group by category for chart
   const categoryStats = {};
+  
+  // Initialize all categories with 0
+  templates.forEach(t => {
+    const catName = t.category?.name || "Lainnya";
+    if (!categoryStats[catName]) {
+      categoryStats[catName] = { total: 0, checked: 0 };
+    }
+    
+    // Add to total system items
+    const stock = t.is_serialized ? (t.stock?.total || 0) : (t.quantity_on_hand || 0);
+    totalItemsSystem += stock;
+    categoryStats[catName].total += stock;
+  });
+
+  // Count checked items
   items.forEach(item => {
     const catName = item.template?.category?.name || "Lainnya";
-    if (!categoryStats[catName]) categoryStats[catName] = 0;
-    categoryStats[catName]++;
+    if (categoryStats[catName]) {
+      categoryStats[catName].checked += item.actual_qty;
+    }
+    totalItemsChecked += item.actual_qty;
   });
+
+  const overallProgress = totalItemsSystem > 0 ? Math.round((totalItemsChecked / totalItemsSystem) * 100) : 0;
 
   container.innerHTML = `
     <!-- Header -->
@@ -125,9 +146,26 @@ function renderActiveOpname(container) {
           <h2 class="text-2xl font-bold text-gray-800">${active.title}</h2>
           <p class="text-gray-500 text-sm mt-1">${active.notes || "Tidak ada catatan"}</p>
         </div>
-        <button id="finish-opname-btn" class="px-6 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 shadow-lg shadow-red-200 transition-all font-medium flex items-center gap-2">
-          <i class="fas fa-flag-checkered"></i> Selesai Opname
-        </button>
+        <div class="flex items-center gap-4">
+          <div class="text-right hidden md:block">
+            <p class="text-xs text-gray-500 uppercase font-bold tracking-wider">Total Progress</p>
+            <p class="text-2xl font-bold text-amber-600">${overallProgress}%</p>
+          </div>
+          <button id="finish-opname-btn" class="px-6 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 shadow-lg shadow-red-200 transition-all font-medium flex items-center gap-2">
+            <i class="fas fa-flag-checkered"></i> Selesai Opname
+          </button>
+        </div>
+      </div>
+      
+      <!-- Progress Bar -->
+      <div class="mt-6">
+        <div class="flex justify-between text-sm mb-2">
+          <span class="text-gray-600 font-medium">Kelengkapan Data (${totalItemsChecked} / ${totalItemsSystem} item)</span>
+          <span class="font-bold text-amber-600">${overallProgress}%</span>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+          <div class="bg-gradient-to-r from-amber-400 to-orange-500 h-3 rounded-full transition-all duration-500" style="width: ${overallProgress}%"></div>
+        </div>
       </div>
     </div>
 
@@ -165,10 +203,10 @@ function renderActiveOpname(container) {
         <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div class="p-4 border-b border-gray-100 flex justify-between items-center">
             <h3 class="font-bold text-gray-800">Aktivitas Terakhir</h3>
-            <span class="text-xs bg-gray-100 px-2 py-1 rounded-lg text-gray-600">${items.length} item dicek</span>
+            <span class="text-xs bg-gray-100 px-2 py-1 rounded-lg text-gray-600">${items.length} entri</span>
           </div>
           <div class="divide-y divide-gray-50 max-h-[500px] overflow-y-auto">
-            ${items.length ? items.map(item => `
+            ${items.length ? items.slice().reverse().map(item => `
               <div class="p-4 hover:bg-gray-50 transition-colors flex items-center justify-between">
                 <div class="flex items-center gap-3">
                   <div class="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500">
@@ -201,19 +239,26 @@ function renderActiveOpname(container) {
       <div class="space-y-6">
         <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <h3 class="font-bold text-gray-800 mb-4">Progress Kategori</h3>
-          <div class="space-y-4">
-            ${Object.entries(categoryStats).map(([cat, count]) => `
+          <div class="space-y-5">
+            ${Object.entries(categoryStats).map(([cat, stats]) => {
+              const pct = stats.total > 0 ? Math.round((stats.checked / stats.total) * 100) : 0;
+              const colorClass = pct === 100 ? 'bg-green-500' : (pct > 50 ? 'bg-amber-500' : 'bg-gray-300');
+              
+              return `
               <div>
                 <div class="flex justify-between text-sm mb-1">
-                  <span class="text-gray-600">${cat}</span>
-                  <span class="font-medium text-gray-900">${count}</span>
+                  <span class="text-gray-700 font-medium">${cat}</span>
+                  <span class="text-xs text-gray-500">${stats.checked}/${stats.total}</span>
                 </div>
-                <div class="w-full bg-gray-100 rounded-full h-2">
-                  <div class="bg-amber-500 h-2 rounded-full" style="width: 100%"></div>
+                <div class="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+                  <div class="${colorClass} h-2.5 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                </div>
+                <div class="text-right mt-0.5">
+                  <span class="text-[10px] font-bold text-gray-400">${pct}%</span>
                 </div>
               </div>
-            `).join("")}
-            ${Object.keys(categoryStats).length === 0 ? '<p class="text-sm text-gray-400 italic">Belum ada data</p>' : ''}
+            `}).join("")}
+            ${Object.keys(categoryStats).length === 0 ? '<p class="text-sm text-gray-400 italic">Belum ada data kategori</p>' : ''}
           </div>
         </div>
       </div>
@@ -419,6 +464,9 @@ async function processScannedItem(code) {
 }
 
 function openManualInputModal() {
+  // Filter templates: Show all, but we will handle unit filtering dynamically
+  // For non-serialized, we could check if actual_qty >= quantity_on_hand, but usually we allow re-checking or adding more.
+  // Let's just show all templates for now.
   const tmplOpts = opnameState.templates.map(t => `<option value="${t.id}">${t.name} (${t.category?.name || '-'})</option>`).join("");
   
   const content = `
@@ -436,6 +484,7 @@ function openManualInputModal() {
         <select name="unit_id" id="manual-unit-select" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
           <option value="">-- Pilih Unit --</option>
         </select>
+        <p id="manual-unit-hint" class="text-xs text-gray-500 mt-1 hidden">Unit yang sudah dicek tidak ditampilkan.</p>
       </div>
 
       <div id="manual-qty-section">
@@ -500,6 +549,7 @@ function openManualInputModal() {
     const unitSelect = document.getElementById("manual-unit-select");
     const unitSection = document.getElementById("manual-unit-section");
     const qtySection = document.getElementById("manual-qty-section");
+    const unitHint = document.getElementById("manual-unit-hint");
 
     tmplSelect?.addEventListener("change", async (e) => {
       const tid = e.target.value;
@@ -519,10 +569,23 @@ function openManualInputModal() {
         });
         const units = await res.json();
         
-        unitSelect.innerHTML = '<option value="">-- Pilih Unit --</option>' + 
-          units.map(u => `<option value="${u.id}">${u.asset_code || u.serial_number} (${u.status})</option>`).join("");
+        // Filter out units that are already checked in this opname
+        const checkedUnitIds = new Set(opnameState.items.map(i => i.product_unit_id).filter(Boolean));
+        const availableUnits = units.filter(u => !checkedUnitIds.has(u.id));
+
+        if (availableUnits.length === 0) {
+           unitSelect.innerHTML = '<option value="">-- Semua unit sudah dicek --</option>';
+           unitSelect.disabled = true;
+        } else {
+           unitSelect.disabled = false;
+           unitSelect.innerHTML = '<option value="">-- Pilih Unit --</option>' + 
+             availableUnits.map(u => `<option value="${u.id}">${u.asset_code || u.serial_number} (${u.status})</option>`).join("");
+        }
+        unitHint.classList.remove("hidden");
+
       } else {
         unitSection.classList.add("hidden");
+        unitHint.classList.add("hidden");
         qtySection.classList.remove("hidden");
         unitSelect.value = "";
       }
