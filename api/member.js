@@ -2,10 +2,19 @@
 // Consolidated API for member operations: inventory, rooms, transports, cancel
 import { createClient } from "@supabase/supabase-js";
 
+// Service client for inventory (bypasses RLS)
+function getServiceClient() {
+  return createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_KEY
+  );
+}
+
 export default async function handler(req, res) {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Token dibutuhkan." });
 
+  // Use anon key with user token for auth operations
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_ANON_KEY,
@@ -29,7 +38,8 @@ export default async function handler(req, res) {
   // Handle resource-based operations
   switch (resource) {
     case "inventory":
-      return handleInventory(req, res, supabase, user);
+      // Use service client for inventory to bypass RLS
+      return handleInventory(req, res, getServiceClient(), user);
     case "rooms":
       return handleRooms(req, res, supabase, user);
     case "transports":
@@ -38,6 +48,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Resource tidak valid. Gunakan: inventory, rooms, transports" });
   }
 }
+
 
 // ============================================================
 // INVENTORY HANDLER (New system using product_templates & product_units)
@@ -149,9 +160,8 @@ async function handleInventory(req, res, supabase, user) {
         }
       });
 
-      // Filter only items with available stock
-      const availableItems = result.filter((t) => t.stock.available > 0);
-      return res.status(200).json(availableItems);
+      // Return all items (member can see all, but only borrow available ones)
+      return res.status(200).json(result);
     }
 
     case "POST": {
