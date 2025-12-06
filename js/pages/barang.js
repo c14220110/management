@@ -148,33 +148,256 @@ function bindTemplateCardActions(root) {
 }
 
 // ============================================================
-// MEMBER VIEW
+// MEMBER VIEW - Improved UI with Filters
 // ============================================================
+const memberFilterState = {
+  category: "all",
+  availability: "all", // all, available, unavailable
+  sortBy: "name", // name, available
+};
+
 async function renderBarangMemberView() {
   const container = document.getElementById("barang-content-area");
-  container.innerHTML = `<div class="bg-white rounded-lg shadow p-6"><p class="text-gray-500">Memuat inventori...</p></div>`;
+  container.innerHTML = `<div class="flex items-center justify-center py-12"><i class="fas fa-spinner fa-spin text-3xl text-amber-500"></i></div>`;
+  
   try {
     const items = await fetchMemberInventory();
     memberInventoryState.items = items || [];
-    const visible = memberInventoryState.items.filter(i => !memberInventoryState.search || i.name?.toLowerCase().includes(memberInventoryState.search.toLowerCase()));
+    
+    // Get unique categories for filter
+    const categories = [...new Set(memberInventoryState.items.map(i => i.category?.name || "Lainnya"))].sort();
+    
+    // Apply filters
+    const filtered = applyMemberFilters(memberInventoryState.items);
+    
     container.innerHTML = `
       <div class="space-y-6">
-        <div class="flex items-center gap-4">
-          <div class="flex-1 relative"><span class="absolute inset-y-0 left-3 flex items-center text-gray-400"><i class="fas fa-search"></i></span><input id="member-search" type="text" value="${memberInventoryState.search || ""}" placeholder="Cari barang..." class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 bg-gray-50"/></div>
+        <!-- Header with Title -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h1 class="text-2xl font-bold text-gray-800">Peminjaman Barang</h1>
+          <button id="member-refresh-btn" class="px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 flex items-center gap-2 shadow-sm self-start sm:self-auto">
+            <i class="fas fa-sync"></i> Refresh
+          </button>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">${getMemberCardsHTML(visible)}</div>
-      </div>`;
-    document.getElementById("member-search")?.addEventListener("input", (e) => { memberInventoryState.search = e.target.value; renderBarangMemberView(); });
+        
+        <!-- Search & Filters Bar -->
+        <div class="bg-white rounded-2xl shadow-md p-4 lg:p-6 space-y-4">
+          <!-- Search Bar - Full Width -->
+          <div class="relative">
+            <span class="absolute inset-y-0 left-4 flex items-center text-gray-400"><i class="fas fa-search text-lg"></i></span>
+            <input id="member-search" type="text" value="${memberInventoryState.search || ""}" 
+              placeholder="Cari nama barang, kategori, atau lokasi..."
+              class="w-full pl-12 pr-4 py-3.5 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-gray-50 transition-all"/>
+          </div>
+          
+          <!-- Filter Row -->
+          <div class="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <!-- Category Filter -->
+            <div class="flex-1 sm:max-w-xs">
+              <label class="block text-xs font-medium text-gray-500 mb-1 ml-1">Kategori</label>
+              <select id="member-filter-category" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-amber-500 text-gray-700">
+                <option value="all" ${memberFilterState.category === "all" ? "selected" : ""}>Semua Kategori</option>
+                ${categories.map(c => `<option value="${c}" ${memberFilterState.category === c ? "selected" : ""}>${c}</option>`).join("")}
+              </select>
+            </div>
+            
+            <!-- Availability Filter -->
+            <div class="flex-1 sm:max-w-xs">
+              <label class="block text-xs font-medium text-gray-500 mb-1 ml-1">Ketersediaan</label>
+              <select id="member-filter-availability" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-amber-500 text-gray-700">
+                <option value="all" ${memberFilterState.availability === "all" ? "selected" : ""}>Semua</option>
+                <option value="available" ${memberFilterState.availability === "available" ? "selected" : ""}>Tersedia</option>
+                <option value="unavailable" ${memberFilterState.availability === "unavailable" ? "selected" : ""}>Tidak Tersedia</option>
+              </select>
+            </div>
+            
+            <!-- Sort -->
+            <div class="flex-1 sm:max-w-xs">
+              <label class="block text-xs font-medium text-gray-500 mb-1 ml-1">Urutkan</label>
+              <select id="member-filter-sort" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-amber-500 text-gray-700">
+                <option value="name" ${memberFilterState.sortBy === "name" ? "selected" : ""}>Nama (A-Z)</option>
+                <option value="available" ${memberFilterState.sortBy === "available" ? "selected" : ""}>Stok Terbanyak</option>
+                <option value="category" ${memberFilterState.sortBy === "category" ? "selected" : ""}>Kategori</option>
+              </select>
+            </div>
+            
+            <!-- Reset Filter Button -->
+            <div class="sm:self-end">
+              <button id="member-reset-filter" class="w-full sm:w-auto px-4 py-2.5 text-gray-600 hover:text-amber-600 border border-gray-200 rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2">
+                <i class="fas fa-times"></i> Reset
+              </button>
+            </div>
+          </div>
+          
+          <!-- Results Count -->
+          <div class="flex items-center justify-between text-sm text-gray-500 pt-2 border-t border-gray-100">
+            <span><strong class="text-gray-800">${filtered.length}</strong> dari ${memberInventoryState.items.length} barang</span>
+            ${memberFilterState.category !== "all" || memberFilterState.availability !== "all" || memberInventoryState.search ? 
+              '<span class="text-amber-600"><i class="fas fa-filter mr-1"></i>Filter aktif</span>' : ''}
+          </div>
+        </div>
+        
+        <!-- Items Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          ${getMemberCardsHTML(filtered)}
+        </div>
+      </div>
+    `;
+    
+    // Event listeners
+    document.getElementById("member-search")?.addEventListener("input", debounce((e) => { 
+      memberInventoryState.search = e.target.value; 
+      renderBarangMemberView(); 
+    }, 300));
+    
+    document.getElementById("member-filter-category")?.addEventListener("change", (e) => {
+      memberFilterState.category = e.target.value;
+      renderBarangMemberView();
+    });
+    
+    document.getElementById("member-filter-availability")?.addEventListener("change", (e) => {
+      memberFilterState.availability = e.target.value;
+      renderBarangMemberView();
+    });
+    
+    document.getElementById("member-filter-sort")?.addEventListener("change", (e) => {
+      memberFilterState.sortBy = e.target.value;
+      renderBarangMemberView();
+    });
+    
+    document.getElementById("member-reset-filter")?.addEventListener("click", () => {
+      memberInventoryState.search = "";
+      memberFilterState.category = "all";
+      memberFilterState.availability = "all";
+      memberFilterState.sortBy = "name";
+      renderBarangMemberView();
+    });
+    
+    document.getElementById("member-refresh-btn")?.addEventListener("click", () => renderBarangMemberView());
+    
     bindMemberCards(container);
-  } catch (error) { container.innerHTML = `<div class="bg-red-50 text-red-700 p-4 rounded-lg">${error.message}</div>`; }
+  } catch (error) { 
+    container.innerHTML = `<div class="bg-red-50 text-red-700 p-6 rounded-xl border border-red-200"><i class="fas fa-exclamation-circle mr-2"></i>${error.message}</div>`; 
+  }
+}
+
+function applyMemberFilters(items) {
+  let result = [...items];
+  
+  // Search filter
+  if (memberInventoryState.search) {
+    const q = memberInventoryState.search.toLowerCase();
+    result = result.filter(i => 
+      i.name?.toLowerCase().includes(q) || 
+      i.category?.name?.toLowerCase().includes(q) ||
+      i.default_location?.name?.toLowerCase().includes(q)
+    );
+  }
+  
+  // Category filter
+  if (memberFilterState.category !== "all") {
+    result = result.filter(i => (i.category?.name || "Lainnya") === memberFilterState.category);
+  }
+  
+  // Availability filter
+  if (memberFilterState.availability === "available") {
+    result = result.filter(i => (i.stock?.available || 0) > 0);
+  } else if (memberFilterState.availability === "unavailable") {
+    result = result.filter(i => (i.stock?.available || 0) === 0);
+  }
+  
+  // Sort
+  if (memberFilterState.sortBy === "name") {
+    result.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  } else if (memberFilterState.sortBy === "available") {
+    result.sort((a, b) => (b.stock?.available || 0) - (a.stock?.available || 0));
+  } else if (memberFilterState.sortBy === "category") {
+    result.sort((a, b) => (a.category?.name || "").localeCompare(b.category?.name || ""));
+  }
+  
+  return result;
+}
+
+function debounce(fn, delay) {
+  let timer;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
 }
 
 function getMemberCardsHTML(items) {
-  if (!items.length) return `<div class="col-span-full text-center py-12 text-gray-500">Tidak ada barang tersedia</div>`;
+  if (!items.length) {
+    return `
+      <div class="col-span-full flex flex-col items-center justify-center py-16 text-gray-400">
+        <i class="fas fa-search text-5xl mb-4"></i>
+        <p class="text-lg font-medium">Tidak ada barang ditemukan</p>
+        <p class="text-sm">Coba ubah filter atau kata kunci pencarian</p>
+      </div>
+    `;
+  }
+  
   return items.map(item => {
-    const photo = item.photo_url || "https://placehold.co/200x150/f3f4f6/9ca3af?text=📦";
-    const stock = item.stock || { available: 0 };
-    return `<div class="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"><img src="${photo}" alt="${item.name}" class="w-full h-32 object-cover"/><div class="p-4"><h3 class="font-semibold text-gray-900 truncate">${item.name}</h3><p class="text-xs text-gray-500 mt-1">${item.category?.name || "-"}</p><div class="mt-3 flex items-center justify-between"><span class="text-sm"><strong class="text-emerald-600">${stock.available}</strong> tersedia</span><button type="button" class="member-borrow-btn px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm rounded-lg font-medium" data-template-id="${item.id}" data-is-serialized="${item.is_serialized}">Pinjam</button></div></div></div>`;
+    const photo = item.photo_url || "https://placehold.co/300x200/f3f4f6/9ca3af?text=📦";
+    const stock = item.stock || { available: 0, total: 0 };
+    const isAvailable = stock.available > 0;
+    const isSerialized = item.is_serialized;
+    
+    return `
+      <div class="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 group border border-gray-100 flex flex-col">
+        <!-- Image -->
+        <div class="relative h-40 sm:h-36 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50">
+          <img src="${photo}" alt="${item.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='https://placehold.co/300x200/f3f4f6/9ca3af?text=📦'"/>
+          
+          <!-- Type Badge -->
+          <div class="absolute top-2 left-2">
+            <span class="px-2.5 py-1 rounded-lg text-xs font-semibold ${isSerialized ? 'bg-blue-500/90 text-white' : 'bg-emerald-500/90 text-white'} backdrop-blur-sm">
+              ${isSerialized ? '<i class="fas fa-barcode mr-1"></i>Serial' : '<i class="fas fa-cubes mr-1"></i>Qty'}
+            </span>
+          </div>
+          
+          <!-- Availability Badge -->
+          <div class="absolute top-2 right-2">
+            <span class="px-2.5 py-1 rounded-lg text-xs font-semibold ${isAvailable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+              ${isAvailable ? `${stock.available} tersedia` : 'Habis'}
+            </span>
+          </div>
+        </div>
+        
+        <!-- Content -->
+        <div class="p-4 flex-1 flex flex-col">
+          <h3 class="font-bold text-gray-900 text-base line-clamp-2 mb-2">${item.name}</h3>
+          
+          <div class="space-y-1 text-xs text-gray-500 mb-3">
+            <p class="flex items-center gap-1.5">
+              <i class="fas fa-tag text-amber-500 w-4"></i>
+              <span>${item.category?.name || "Lainnya"}</span>
+            </p>
+            <p class="flex items-center gap-1.5">
+              <i class="fas fa-map-marker-alt text-blue-500 w-4"></i>
+              <span>${item.default_location?.name || "-"}</span>
+            </p>
+          </div>
+          
+          <!-- Footer -->
+          <div class="mt-auto pt-3 border-t border-gray-100">
+            ${isAvailable ? `
+              <button type="button" 
+                class="member-borrow-btn w-full py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm rounded-xl font-semibold hover:from-amber-600 hover:to-orange-600 shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                data-template-id="${item.id}" 
+                data-is-serialized="${item.is_serialized}">
+                <i class="fas fa-hand-holding"></i> Pinjam
+              </button>
+            ` : `
+              <button type="button" 
+                class="w-full py-2.5 bg-gray-100 text-gray-400 text-sm rounded-xl font-medium cursor-not-allowed flex items-center justify-center gap-2" disabled>
+                <i class="fas fa-times-circle"></i> Tidak Tersedia
+              </button>
+            `}
+          </div>
+        </div>
+      </div>
+    `;
   }).join("");
 }
 
