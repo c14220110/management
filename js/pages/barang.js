@@ -36,33 +36,37 @@ async function renderBarangListView() {
 // ============================================================
 // MANAGEMENT VIEW
 // ============================================================
+// ============================================================
+// MANAGEMENT VIEW
+// ============================================================
+const managementFilterState = {
+  category: "all",
+  location: "all",
+  stockStatus: "all", // all, available, low, out
+  sortBy: "name", // name, stock_high, stock_low
+};
+
 async function renderBarangManagementView() {
   const container = document.getElementById("barang-content-area");
-  container.innerHTML = `<div class="bg-white rounded-lg shadow p-6"><p class="text-gray-500">Memuat data...</p></div>`;
+  container.innerHTML = `<div class="flex items-center justify-center py-12"><i class="fas fa-spinner fa-spin text-3xl text-amber-500"></i></div>`;
 
   try {
     await ensureInventoryMeta();
     const templates = await fetchProductTemplates();
     productInventoryState.templates = templates || [];
     
-    const categoryCounts = {};
-    productInventoryState.templates.forEach(t => {
-      const catName = t.category?.name || "Lainnya";
-      categoryCounts[catName] = (categoryCounts[catName] || 0) + 1;
-    });
+    // Get unique categories and locations for filters
+    const categories = [...new Set(productInventoryState.templates.map(t => t.category?.name || "Lainnya"))].sort();
+    const locations = [...new Set(productInventoryState.templates.map(t => t.default_location?.name || "Tanpa Lokasi"))].sort();
     
-    const visible = filterProductTemplates(productInventoryState.templates, productInventoryState.search, productInventoryState.selectedCategory);
-    const categoryTabsHTML = getCategoryTabsHTML(categoryCounts);
+    const visible = filterManagementTemplates(productInventoryState.templates);
 
     container.innerHTML = `
       <div class="space-y-6">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div class="flex-1 relative max-w-md">
-            <span class="absolute inset-y-0 left-3 flex items-center text-gray-400"><i class="fas fa-search"></i></span>
-            <input id="product-search-input" type="text" value="${productInventoryState.search || ""}" placeholder="Cari produk..."
-              class="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-gray-50"/>
-          </div>
-          <div class="flex gap-3">
+        <!-- Header with Title & Actions -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h1 class="text-2xl font-bold text-gray-800">Manajemen Inventaris</h1>
+          <div class="flex gap-3 self-start sm:self-auto">
             <button id="product-add-btn" class="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-600 shadow-lg shadow-amber-500/30 flex items-center gap-2 transition-all">
               <i class="fas fa-plus"></i> Tambah Produk
             </button>
@@ -71,61 +75,166 @@ async function renderBarangManagementView() {
             </button>
           </div>
         </div>
-        ${categoryTabsHTML}
+        
+        <!-- Search & Filters Bar -->
+        <div class="bg-white rounded-2xl shadow-md p-4 lg:p-6 space-y-4">
+          <!-- Search Bar - Full Width -->
+          <div class="relative">
+            <span class="absolute inset-y-0 left-4 flex items-center text-gray-400"><i class="fas fa-search text-lg"></i></span>
+            <input id="product-search-input" type="text" value="${productInventoryState.search || ""}" 
+              placeholder="Cari nama produk, kategori, atau kode..."
+              class="w-full pl-12 pr-4 py-3.5 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-gray-50 transition-all"/>
+          </div>
+          
+          <!-- Filter Row -->
+          <div class="flex flex-col sm:flex-row gap-3 sm:items-center">
+            <!-- Category Filter -->
+            <div class="flex-1 sm:max-w-xs">
+              <label class="block text-xs font-medium text-gray-500 mb-1 ml-1">Kategori</label>
+              <select id="mgmt-filter-category" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-amber-500 text-gray-700">
+                <option value="all" ${managementFilterState.category === "all" ? "selected" : ""}>Semua Kategori</option>
+                ${categories.map(c => `<option value="${c}" ${managementFilterState.category === c ? "selected" : ""}>${c}</option>`).join("")}
+              </select>
+            </div>
+            
+            <!-- Location Filter -->
+            <div class="flex-1 sm:max-w-xs">
+              <label class="block text-xs font-medium text-gray-500 mb-1 ml-1">Lokasi</label>
+              <select id="mgmt-filter-location" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-amber-500 text-gray-700">
+                <option value="all" ${managementFilterState.location === "all" ? "selected" : ""}>Semua Lokasi</option>
+                ${locations.map(l => `<option value="${l}" ${managementFilterState.location === l ? "selected" : ""}>${l}</option>`).join("")}
+              </select>
+            </div>
+
+            <!-- Stock Status Filter -->
+            <div class="flex-1 sm:max-w-xs">
+              <label class="block text-xs font-medium text-gray-500 mb-1 ml-1">Status Stok</label>
+              <select id="mgmt-filter-stock" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-amber-500 text-gray-700">
+                <option value="all" ${managementFilterState.stockStatus === "all" ? "selected" : ""}>Semua Status</option>
+                <option value="available" ${managementFilterState.stockStatus === "available" ? "selected" : ""}>Tersedia</option>
+                <option value="low" ${managementFilterState.stockStatus === "low" ? "selected" : ""}>Stok Menipis</option>
+                <option value="out" ${managementFilterState.stockStatus === "out" ? "selected" : ""}>Habis</option>
+              </select>
+            </div>
+            
+            <!-- Sort -->
+            <div class="flex-1 sm:max-w-xs">
+              <label class="block text-xs font-medium text-gray-500 mb-1 ml-1">Urutkan</label>
+              <select id="mgmt-filter-sort" class="w-full px-3 py-2.5 border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-amber-500 text-gray-700">
+                <option value="name" ${managementFilterState.sortBy === "name" ? "selected" : ""}>Nama (A-Z)</option>
+                <option value="stock_high" ${managementFilterState.sortBy === "stock_high" ? "selected" : ""}>Stok Terbanyak</option>
+                <option value="stock_low" ${managementFilterState.sortBy === "stock_low" ? "selected" : ""}>Stok Sedikit</option>
+              </select>
+            </div>
+            
+            <!-- Reset Filter Button -->
+            <div class="sm:self-end">
+              <button id="mgmt-reset-filter" class="w-full sm:w-auto px-4 py-2.5 text-gray-600 hover:text-amber-600 border border-gray-200 rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2">
+                <i class="fas fa-times"></i> Reset
+              </button>
+            </div>
+          </div>
+          
+          <!-- Results Count -->
+          <div class="flex items-center justify-between text-sm text-gray-500 pt-2 border-t border-gray-100">
+            <span><strong class="text-gray-800">${visible.length}</strong> dari ${productInventoryState.templates.length} produk</span>
+            ${managementFilterState.category !== "all" || managementFilterState.location !== "all" || managementFilterState.stockStatus !== "all" || productInventoryState.search ? 
+              '<span class="text-amber-600"><i class="fas fa-filter mr-1"></i>Filter aktif</span>' : ''}
+          </div>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">${getTemplateCardsHTML(visible)}</div>
       </div>
     `;
 
-    document.getElementById("product-search-input")?.addEventListener("input", (e) => { productInventoryState.search = e.target.value; setTimeout(() => renderBarangManagementView(), 300); });
+    // Event Listeners
+    document.getElementById("product-search-input")?.addEventListener("input", debounce((e) => { 
+      productInventoryState.search = e.target.value; 
+      renderBarangManagementView(); 
+    }, 300));
+    
     document.getElementById("product-add-btn")?.addEventListener("click", () => openProductTemplateModal());
     document.getElementById("product-refresh-btn")?.addEventListener("click", () => renderBarangManagementView());
-    container.querySelectorAll(".category-tab").forEach(tab => { tab.addEventListener("click", () => { productInventoryState.selectedCategory = tab.dataset.category; renderBarangManagementView(); }); });
+    
+    document.getElementById("mgmt-filter-category")?.addEventListener("change", (e) => {
+      managementFilterState.category = e.target.value;
+      renderBarangManagementView();
+    });
+    
+    document.getElementById("mgmt-filter-location")?.addEventListener("change", (e) => {
+      managementFilterState.location = e.target.value;
+      renderBarangManagementView();
+    });
+
+    document.getElementById("mgmt-filter-stock")?.addEventListener("change", (e) => {
+      managementFilterState.stockStatus = e.target.value;
+      renderBarangManagementView();
+    });
+    
+    document.getElementById("mgmt-filter-sort")?.addEventListener("change", (e) => {
+      managementFilterState.sortBy = e.target.value;
+      renderBarangManagementView();
+    });
+    
+    document.getElementById("mgmt-reset-filter")?.addEventListener("click", () => {
+      productInventoryState.search = "";
+      managementFilterState.category = "all";
+      managementFilterState.location = "all";
+      managementFilterState.stockStatus = "all";
+      managementFilterState.sortBy = "name";
+      renderBarangManagementView();
+    });
+
     bindTemplateCardActions(container);
   } catch (error) {
     container.innerHTML = `<div class="bg-red-50 text-red-700 p-4 rounded-lg">${error.message}</div>`;
   }
 }
 
-function getCategoryTabsHTML(counts) {
-  const total = productInventoryState.templates.length;
-  const selected = productInventoryState.selectedCategory;
-  let tabs = `<button class="category-tab px-4 py-2 rounded-full text-sm font-medium transition-all ${selected === 'all' ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}" data-category="all">Semua <span class="ml-1 px-2 py-0.5 rounded-full text-xs ${selected === 'all' ? 'bg-white/20' : 'bg-gray-100'}">${total}</span></button>`;
-  Object.entries(counts).sort((a,b) => b[1] - a[1]).forEach(([cat, count]) => {
-    const isActive = selected === cat;
-    tabs += `<button class="category-tab px-4 py-2 rounded-full text-sm font-medium transition-all ${isActive ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}" data-category="${cat}">${cat} <span class="ml-1 px-2 py-0.5 rounded-full text-xs ${isActive ? 'bg-white/20' : 'bg-gray-100'}">${count}</span></button>`;
-  });
-  return `<div class="flex flex-wrap gap-2 pb-2">${tabs}</div>`;
-}
+function filterManagementTemplates(templates) {
+  let result = [...templates];
+  
+  // Search
+  if (productInventoryState.search) {
+    const q = productInventoryState.search.toLowerCase();
+    result = result.filter(t => 
+      t.name?.toLowerCase().includes(q) || 
+      t.category?.name?.toLowerCase().includes(q) ||
+      t.default_location?.name?.toLowerCase().includes(q)
+    );
+  }
+  
+  // Category
+  if (managementFilterState.category !== "all") {
+    result = result.filter(t => (t.category?.name || "Lainnya") === managementFilterState.category);
+  }
+  
+  // Location
+  if (managementFilterState.location !== "all") {
+    result = result.filter(t => (t.default_location?.name || "Tanpa Lokasi") === managementFilterState.location);
+  }
 
-function getTemplateCardsHTML(templates) {
-  if (!templates.length) return `<div class="col-span-full text-center py-12 text-gray-500"><i class="fas fa-box-open text-4xl mb-3 text-gray-300"></i><p>Tidak ada produk ditemukan</p></div>`;
-  return templates.map(t => {
-    const photo = t.photo_url || "https://placehold.co/300x200/f3f4f6/9ca3af?text=📦";
-    const stock = t.stock || { total: 0, available: 0 };
-    return `
-      <div class="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 group border border-gray-100">
-        <div class="relative h-36 overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50">
-          <img src="${photo}" alt="${t.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
-          <div class="absolute top-2 left-2"><span class="px-2 py-1 rounded-lg text-xs font-medium ${t.is_serialized ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-white'}">${t.is_serialized ? 'Serial' : 'Non-Serial'}</span></div>
-          <div class="absolute top-2 right-2"><button type="button" class="template-action-btn w-8 h-8 bg-white/90 backdrop-blur rounded-lg shadow flex items-center justify-center text-gray-600 hover:bg-white" data-template-id="${t.id}"><i class="fas fa-ellipsis-v"></i></button></div>
-        </div>
-        <div class="p-4">
-          <h3 class="font-bold text-gray-900 truncate text-lg">${t.name}</h3>
-          <p class="text-xs text-gray-500 mt-1 flex items-center gap-1"><i class="fas fa-tag"></i> ${t.category?.name || "-"}</p>
-          <p class="text-xs text-gray-400 mt-1 flex items-center gap-1"><i class="fas fa-map-marker-alt"></i> ${t.default_location?.name || "-"}</p>
-          <div class="mt-3 flex items-center justify-between">
-            <div class="flex items-center gap-2"><span class="text-2xl font-bold text-emerald-600">${stock.available}</span><span class="text-gray-400 text-sm">/ ${stock.total}</span></div>
-            ${stock.borrowed > 0 ? `<span class="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-lg">${stock.borrowed} dipinjam</span>` : ''}
-          </div>
-        </div>
-      </div>`;
-  }).join("");
-}
-
-function filterProductTemplates(templates, search, category) {
-  let result = templates;
-  if (category && category !== "all") result = result.filter(t => (t.category?.name || "Lainnya") === category);
-  if (search) { const q = search.toLowerCase(); result = result.filter(t => t.name?.toLowerCase().includes(q) || t.category?.name?.toLowerCase().includes(q)); }
+  // Stock Status
+  if (managementFilterState.stockStatus !== "all") {
+    result = result.filter(t => {
+      const stock = t.stock || { available: 0, total: 0 };
+      const min = t.min_quantity || 0;
+      if (managementFilterState.stockStatus === "available") return stock.available > 0;
+      if (managementFilterState.stockStatus === "out") return stock.available === 0;
+      if (managementFilterState.stockStatus === "low") return stock.available > 0 && stock.available <= min;
+      return true;
+    });
+  }
+  
+  // Sort
+  if (managementFilterState.sortBy === "name") {
+    result.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  } else if (managementFilterState.sortBy === "stock_high") {
+    result.sort((a, b) => (b.stock?.available || 0) - (a.stock?.available || 0));
+  } else if (managementFilterState.sortBy === "stock_low") {
+    result.sort((a, b) => (a.stock?.available || 0) - (b.stock?.available || 0));
+  }
+  
   return result;
 }
 

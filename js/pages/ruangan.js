@@ -1,351 +1,457 @@
 /**
- * Ruangan (Rooms) Page Module
- * Handles room management for both members and management users
+ * Ruangan (Room) Page Module
+ * Handles Room Management (CRUD + Image Upload) and Member Reservation
  */
+
+const roomState = {
+  rooms: [],
+  search: "",
+  selectedLocation: "all",
+};
 
 async function loadRuanganPage() {
   const contentArea = document.getElementById("content-area");
   showLoader();
   try {
     contentArea.innerHTML = "";
-    const template = document
-      .getElementById("ruangan-template")
-      .content.cloneNode(true);
+    const template = document.getElementById("ruangan-template").content.cloneNode(true);
     contentArea.appendChild(template);
-    const container = document.getElementById("ruangan-content-area");
-    if (localStorage.getItem("userRole") === "management") {
-      await renderRuanganManagementView(container);
+    
+    const role = localStorage.getItem("userRole");
+    if (role === "management") {
+      await renderRuanganManagementView();
     } else {
-      await renderRuanganListView();
+      await renderRuanganMemberView();
     }
   } catch (error) {
-    contentArea.innerHTML = `<p class="text-red-500">Terjadi error saat memuat halaman ruangan: ${error.message}</p>`;
+    contentArea.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
   } finally {
     hideLoader();
   }
 }
 
-async function renderRuanganManagementView(container) {
-  container.innerHTML = `<p>Memuat data manajemen ruangan...</p>`;
+// ============================================================
+// MANAGEMENT VIEW
+// ============================================================
+async function renderRuanganManagementView() {
+  const container = document.getElementById("ruangan-content-area");
+  container.innerHTML = `<div class="flex items-center justify-center py-12"><i class="fas fa-spinner fa-spin text-3xl text-amber-500"></i></div>`;
+
   try {
-    const [rooms, users] = await Promise.all([
-      api.post("/api/management", { action: "getRooms" }),
-      api.post("/api/management", { action: "getUsers" }),
-    ]);
-    const managementUsers = users.filter((u) => u.role === "management");
-    const managerOptionsHTML = managementUsers
-      .map((m) => `<option value="${m.id}">${m.full_name}</option>`)
-      .join("");
+    const rooms = await fetchRooms();
+    roomState.rooms = rooms || [];
+    
+    const locations = [...new Set(roomState.rooms.map(r => r.lokasi || "Tanpa Lokasi"))].sort();
+    const filtered = filterRooms(roomState.rooms);
 
-    container.innerHTML = `<div class="flex justify-end mb-4"><button id="add-room-btn" class="bg-[#d97706] text-white font-bold py-2 px-4 rounded-md hover:bg-[#b46504]"><i class="fas fa-plus mr-2"></i>Tambah Ruangan</button></div>
-      <div class="bg-white p-4 rounded-lg shadow-md">
-          <div class="overflow-x-auto">
-              <table class="min-w-full"><thead class="bg-gray-100"><tr><th class="text-left p-3">Nama Ruangan</th><th class="text-left p-3">Lokasi</th><th class="text-left p-3">Kapasitas</th><th class="text-left p-3">Penanggung Jawab</th><th class="text-center p-3">Aksi</th></tr></thead>
-              <tbody id="room-table-body">${rooms
-                .map(
-                  (room) => `
-                  <tr class="border-b">
-                      <td class="p-3">${room.name}</td>
-                      <td class="p-3">${room.lokasi || "-"}</td>
-                      <td class="p-3">${room.kapasitas || "-"}</td>
-                      <td class="p-3">${
-                        room.penanggung_jawab?.full_name ||
-                        "<i>Belum diatur</i>"
-                      }</td>
-                      <td class="p-3 whitespace-nowrap text-center">
-                          <button type="button" class="room-action-btn action-menu-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none" data-room-id="${
-                            room.id
-                          }" data-room-name="${
-                    room.name
-                  }" data-room-data='${JSON.stringify(room)}'>
-                              <i class="fas fa-ellipsis-v"></i>
-                          </button>
-                      </td>
-                  </tr>`
-                )
-                .join("")}
-              </tbody></table>
+    container.innerHTML = `
+      <div class="space-y-6">
+        <!-- Header & Actions -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h2 class="text-xl font-semibold text-gray-800">Daftar Ruangan</h2>
+          <div class="flex gap-3 self-start sm:self-auto">
+            <button id="room-add-btn" class="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-600 shadow-lg shadow-amber-500/30 flex items-center gap-2 transition-all">
+              <i class="fas fa-plus"></i> Tambah Ruangan
+            </button>
+            <button id="room-refresh-btn" class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 flex items-center gap-2 shadow-sm">
+              <i class="fas fa-sync"></i>
+            </button>
           </div>
-      </div>`;
+        </div>
 
-    document
-      .getElementById("add-room-btn")
-      .addEventListener("click", () =>
-        openRoomModal("create", {}, managerOptionsHTML)
-      );
+        <!-- Search & Filter -->
+        <div class="bg-white rounded-2xl shadow-md p-4 lg:p-6 space-y-4">
+          <div class="flex flex-col sm:flex-row gap-4">
+            <div class="flex-1 relative">
+              <span class="absolute inset-y-0 left-4 flex items-center text-gray-400"><i class="fas fa-search"></i></span>
+              <input id="room-search" type="text" value="${roomState.search || ""}" 
+                placeholder="Cari nama ruangan atau lokasi..."
+                class="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-gray-50 transition-all"/>
+            </div>
+            <div class="sm:w-64">
+              <select id="room-filter-location" class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-amber-500 text-gray-700">
+                <option value="all" ${roomState.selectedLocation === "all" ? "selected" : ""}>Semua Lokasi</option>
+                ${locations.map(l => `<option value="${l}" ${roomState.selectedLocation === l ? "selected" : ""}>${l}</option>`).join("")}
+              </select>
+            </div>
+          </div>
+        </div>
 
-    initializeRoomActionMenus(container, managerOptionsHTML);
+        <!-- Room Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          ${getRoomCardsHTML(filtered, true)}
+        </div>
+      </div>
+    `;
+
+    // Event Listeners
+    document.getElementById("room-search")?.addEventListener("input", debounce((e) => {
+      roomState.search = e.target.value;
+      renderRuanganManagementView();
+    }, 300));
+
+    document.getElementById("room-filter-location")?.addEventListener("change", (e) => {
+      roomState.selectedLocation = e.target.value;
+      renderRuanganManagementView();
+    });
+
+    document.getElementById("room-add-btn")?.addEventListener("click", () => openRoomModal());
+    document.getElementById("room-refresh-btn")?.addEventListener("click", () => renderRuanganManagementView());
+
+    bindRoomCardActions(container);
+
   } catch (error) {
-    container.innerHTML = `<p class="text-red-500">Gagal memuat data: ${error.message}</p>`;
+    container.innerHTML = `<div class="bg-red-50 text-red-700 p-6 rounded-xl border border-red-200"><i class="fas fa-exclamation-circle mr-2"></i>${error.message}</div>`;
   }
 }
 
-function initializeRoomActionMenus(container, managerOptionsHTML) {
-  const buttons = container.querySelectorAll(".room-action-btn");
-  buttons.forEach((button) => {
-    button.addEventListener("click", (event) => {
-      event.preventDefault();
-      const roomData = JSON.parse(button.dataset.roomData);
-      const roomName = button.dataset.roomName;
-      const roomId = button.dataset.roomId;
-      openGlobalActionMenu({
-        triggerElement: button,
-        items: [
-          {
-            label: "Edit",
-            icon: "fas fa-edit",
-            className: "text-amber-600",
-            onClick: () => openRoomModal("edit", roomData, managerOptionsHTML),
-          },
-          {
-            label: "Lihat Jadwal",
-            icon: "fas fa-calendar-alt",
-            className: "text-gray-700",
-            onClick: () => renderRuanganScheduleView_Management(roomName),
-          },
-          {
-            label: "Hapus",
-            icon: "fas fa-trash-alt",
-            className: "text-red-600",
-            onClick: () => {
-              if (!confirm("Apakah Anda yakin ingin menghapus ruangan ini?")) {
-                return;
-              }
-              api
-                .post("/api/management", {
-                  action: "deleteRoom",
-                  payload: { roomId },
-                })
-                .then((res) => {
-                  notifySuccess(res.message);
-                  renderRuanganManagementView(
-                    document.getElementById("ruangan-content-area")
-                  );
-                })
-                .catch((err) => alert(`Gagal menghapus: ${err.message}`));
-            },
-          },
-        ],
-      });
+// ============================================================
+// MEMBER VIEW
+// ============================================================
+async function renderRuanganMemberView() {
+  const container = document.getElementById("ruangan-content-area");
+  container.innerHTML = `<div class="flex items-center justify-center py-12"><i class="fas fa-spinner fa-spin text-3xl text-amber-500"></i></div>`;
+
+  try {
+    const rooms = await fetchRooms(); // Member uses same fetch for now, API handles permission if needed
+    roomState.rooms = rooms || [];
+    const filtered = filterRooms(roomState.rooms);
+
+    container.innerHTML = `
+      <div class="space-y-6">
+        <div class="bg-white rounded-2xl shadow-md p-4 lg:p-6">
+          <div class="relative">
+            <span class="absolute inset-y-0 left-4 flex items-center text-gray-400"><i class="fas fa-search"></i></span>
+            <input id="member-room-search" type="text" value="${roomState.search || ""}" 
+              placeholder="Cari ruangan..."
+              class="w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-gray-50 transition-all"/>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          ${getRoomCardsHTML(filtered, false)}
+        </div>
+      </div>
+    `;
+
+    document.getElementById("member-room-search")?.addEventListener("input", debounce((e) => {
+      roomState.search = e.target.value;
+      renderRuanganMemberView();
+    }, 300));
+
+    bindMemberRoomActions(container);
+
+  } catch (error) {
+    container.innerHTML = `<div class="bg-red-50 text-red-700 p-6 rounded-xl border border-red-200"><i class="fas fa-exclamation-circle mr-2"></i>${error.message}</div>`;
+  }
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function filterRooms(rooms) {
+  let result = [...rooms];
+  if (roomState.search) {
+    const q = roomState.search.toLowerCase();
+    result = result.filter(r => r.name?.toLowerCase().includes(q) || r.lokasi?.toLowerCase().includes(q));
+  }
+  if (roomState.selectedLocation !== "all") {
+    result = result.filter(r => (r.lokasi || "Tanpa Lokasi") === roomState.selectedLocation);
+  }
+  return result;
+}
+
+function getRoomCardsHTML(rooms, isManagement) {
+  if (!rooms.length) {
+    return `<div class="col-span-full text-center py-12 text-gray-500"><i class="fas fa-door-open text-4xl mb-3 text-gray-300"></i><p>Tidak ada ruangan ditemukan</p></div>`;
+  }
+
+  return rooms.map(room => {
+    const photo = room.image_url || "https://placehold.co/400x300/f3f4f6/9ca3af?text=Ruangan";
+    return `
+      <div class="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 group border border-gray-100 flex flex-col">
+        <div class="relative h-48 overflow-hidden bg-gray-100">
+          <img src="${photo}" alt="${room.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='https://placehold.co/400x300/f3f4f6/9ca3af?text=Ruangan'"/>
+          <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-4">
+            <h3 class="text-white font-bold text-lg shadow-sm">${room.name}</h3>
+            <p class="text-white/90 text-sm"><i class="fas fa-map-marker-alt mr-1"></i> ${room.lokasi || "-"}</p>
+          </div>
+          ${isManagement ? `
+            <div class="absolute top-2 right-2">
+              <button class="room-action-btn w-8 h-8 bg-white/90 backdrop-blur rounded-lg shadow flex items-center justify-center text-gray-600 hover:bg-white" data-room-id="${room.id}">
+                <i class="fas fa-ellipsis-v"></i>
+              </button>
+            </div>
+          ` : ''}
+        </div>
+        <div class="p-4 flex-1 flex flex-col gap-3">
+          <div class="grid grid-cols-2 gap-2 text-sm text-gray-600">
+            <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
+              <i class="fas fa-users text-blue-500"></i>
+              <span>${room.kapasitas || 0} Orang</span>
+            </div>
+            <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
+              <i class="fas fa-user-tie text-emerald-500"></i>
+              <span class="truncate">${room.penanggung_jawab?.full_name || "-"}</span>
+            </div>
+          </div>
+          
+          ${!isManagement ? `
+            <button class="book-room-btn w-full mt-auto py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-600 shadow-md transition-all" data-room-id="${room.id}" data-room-name="${room.name}">
+              Reservasi Ruangan
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function bindRoomCardActions(container) {
+  container.querySelectorAll(".room-action-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const roomId = btn.dataset.roomId;
+      const room = roomState.rooms.find(r => r.id === roomId);
+      if (!room) return;
+      
+      const items = [
+        { label: "Edit", icon: "fas fa-edit", className: "text-amber-600", onClick: () => openRoomModal(room) },
+        { label: "Hapus", icon: "fas fa-trash", className: "text-red-600", onClick: () => confirmDeleteRoom(roomId) },
+      ];
+      openGlobalActionMenu({ triggerElement: btn, items });
     });
   });
 }
 
-async function renderRuanganListView() {
-  const container = document.getElementById("ruangan-content-area");
-  container.innerHTML = `<p>Memuat daftar ruangan...</p>`;
-  try {
-    const rooms = await api.get("/api/member?resource=rooms");
-    let listHTML = '<div class="space-y-4">';
-    rooms.forEach((room) => {
-      listHTML += `<div data-name="${room.name}" class="room-item bg-white p-4 rounded-lg shadow-md cursor-pointer hover:shadow-xl transition-shadow flex items-center"><i class="fas fa-building text-2xl text-gray-400 mr-4"></i><h3 class="font-bold text-lg">${room.name}</h3></div>`;
+function bindMemberRoomActions(container) {
+  container.querySelectorAll(".book-room-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      // Use existing reservation modal logic if available or create new
+      // For now, assuming we use a simple prompt or redirect, but ideally a modal
+      // Reusing the existing room reservation modal logic from dashboard/member pages if possible
+      // Or implementing a simple one here.
+      openReservationModal(btn.dataset.roomName);
     });
-    listHTML += "</div>";
-    container.innerHTML = listHTML;
-    document.querySelectorAll(".room-item").forEach((item) => {
-      item.addEventListener("click", () => {
-        const roomName = item.dataset.name;
-        renderRuanganDetailView(roomName);
-      });
-    });
-  } catch (error) {
-    container.innerHTML = `<p class="text-red-500">Gagal memuat ruangan: ${error.message}</p>`;
-  }
+  });
 }
 
-async function renderRuanganDetailView(roomName) {
-  const container = document.getElementById("ruangan-content-area");
-  container.innerHTML = `<p>Memuat detail dan jadwal untuk ${roomName}...</p>`;
+// ============================================================
+// MODALS & FORMS
+// ============================================================
+async function openRoomModal(existing = null) {
+  const isEdit = !!existing;
+  
+  // Fetch users for PIC dropdown
+  let users = [];
   try {
-    const schedule = await api.get(
-      `/api/schedule?type=room&name=${encodeURIComponent(roomName)}`
-    );
-    const calendarEvents = schedule.map((reservation) => ({
-      title: reservation.event_name,
-      start: reservation.start_time,
-      end: reservation.end_time,
-      backgroundColor: "#3b82f6",
-      borderColor: "#3b82f6",
-    }));
-    container.innerHTML = `<div class="bg-white p-6 rounded-lg shadow-md">
-          <button id="back-to-room-list-btn" class="mb-4 text-amber-600 hover:underline"><i class="fas fa-arrow-left mr-2"></i>Kembali ke Daftar Ruangan</button>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div class="md:col-span-1"><h2 class="text-2xl font-bold">${roomName}</h2><p class="text-gray-600 mt-2">Gunakan kalender di sebelah kanan untuk melihat jadwal yang sudah terisi.</p><div id="reservation-section-container" class="mt-6"></div></div>
-              <div class="md:col-span-2"><h3 class="text-xl font-semibold mb-2">Kalender Reservasi</h3><div id="detail-calendar" class="w-full h-full"></div></div>
-          </div></div>`;
-    const calendarEl = document.getElementById("detail-calendar");
-    if (fullCalendarInstance) fullCalendarInstance.destroy();
-    fullCalendarInstance = new FullCalendar.Calendar(
-      calendarEl,
-      window.getResponsiveCalendarOptions({
-        locale: "id",
-        events: calendarEvents,
-        eventDidMount(info) {
-          info.el.title = info.event.title;
-        },
-      })
-    );
-    fullCalendarInstance.render();
-    document
-      .getElementById("back-to-room-list-btn")
-      .addEventListener("click", renderRuanganListView);
-    const reservationContainer = document.getElementById(
-      "reservation-section-container"
-    );
-    if (localStorage.getItem("userRole") === "member") {
-      reservationContainer.innerHTML = `<button id="show-reservation-form-btn" class="w-full bg-[#d97706] text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700">Reservasi Ruangan Ini</button>
-          <form id="detail-reservation-form" class="hidden mt-4 space-y-4">
-              <div><label for="res-event-name" class="block text-sm font-medium text-gray-700">Nama Kegiatan</label><input type="text" id="res-event-name" required class="w-full p-2 border border-gray-300 rounded-md"></div>
-              <div><label for="res-start-time" class="block text-sm font-medium text-gray-700">Waktu Mulai</label><input type="datetime-local" id="res-start-time" required class="w-full p-2 border border-gray-300 rounded-md"></div>
-              <div><label for="res-end-time" class="block text-sm font-medium text-gray-700">Waktu Selesai</label><input type="datetime-local" id="res-end-time" required class="w-full p-2 border border-gray-300 rounded-md"></div>
-              <button type="submit" class="w-full bg-green-600 text-white font-bold py-2 px-4 rounded-md hover:bg-green-700">Kirim Permintaan</button>
-              <p id="detail-reservation-feedback" class="text-center font-semibold"></p>
-          </form>`;
-      const showFormBtn = document.getElementById("show-reservation-form-btn");
-      const detailReservationForm = document.getElementById(
-        "detail-reservation-form"
-      );
-      showFormBtn.addEventListener("click", () => {
-        detailReservationForm.classList.remove("hidden");
-        showFormBtn.classList.add("hidden");
-      });
-      detailReservationForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const feedback = document.getElementById("detail-reservation-feedback");
-        feedback.textContent = "Mengirim...";
-        feedback.className = "text-center font-semibold text-amber-600";
-        try {
-          await api.post("/api/member?resource=rooms", {
-            room_name: roomName,
-            event_name: document.getElementById("res-event-name").value,
-            start_time: document.getElementById("res-start-time").value,
-            end_time: document.getElementById("res-end-time").value,
-          });
-          feedback.textContent = "Permintaan berhasil dikirim!";
-          feedback.className = "text-center font-semibold text-green-600";
-          detailReservationForm.reset();
-          renderRuanganDetailView(roomName);
-        } catch (error) {
-          feedback.textContent = `Gagal: ${error.message}`;
-          feedback.className = "text-center font-semibold text-red-600";
-        }
-      });
-    }
-  } catch (error) {
-    container.innerHTML = `<p class="text-red-500">Gagal memuat detail ruangan: ${error.message}</p>`;
-  }
-}
+    const token = localStorage.getItem("authToken");
+    const res = await fetch("/api/management", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: "getUsers" }) });
+    if (res.ok) users = await res.json();
+  } catch (e) { console.error("Failed to fetch users", e); }
+  
+  const userOpts = users.map(u => `<option value="${u.id}" ${existing?.penanggung_jawab_id === u.id ? "selected" : ""}>${u.full_name} (${u.email})</option>`).join("");
 
-async function renderRuanganScheduleView_Management(roomName) {
-  const container = document.getElementById("ruangan-content-area");
-  container.innerHTML = `<p>Memuat jadwal untuk ${roomName}...</p>`;
-  showLoader();
-
-  try {
-    const schedule = await api.get(
-      `/api/schedule?type=room&name=${encodeURIComponent(roomName)}`
-    );
-    const calendarEvents = schedule.map((reservation) => ({
-      title: reservation.event_name,
-      start: reservation.start_time,
-      end: reservation.end_time,
-      backgroundColor: "#3b82f6",
-      borderColor: "#3b82f6",
-    }));
-
-    container.innerHTML = `
-          <div class="bg-white p-6 rounded-lg shadow-md">
-              <button id="back-to-management-view-btn" class="mb-4 text-amber-600 hover:underline"><i class="fas fa-arrow-left mr-2"></i>Kembali ke Manajemen Ruangan</button>
-              <h2 class="text-2xl font-bold mb-4">Jadwal untuk ${roomName}</h2>
-              <div id="management-schedule-calendar" class="w-full h-full"></div>
+  const content = `
+    <form id="room-form" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Nama Ruangan *</label>
+        <input type="text" name="name" value="${existing?.name || ""}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"/>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Lokasi</label>
+        <input type="text" name="lokasi" value="${existing?.lokasi || ""}" class="w-full px-3 py-2 border border-gray-300 rounded-lg"/>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Kapasitas (Orang)</label>
+        <input type="number" name="kapasitas" value="${existing?.kapasitas || 0}" class="w-full px-3 py-2 border border-gray-300 rounded-lg"/>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Penanggung Jawab</label>
+        <select name="penanggung_jawab_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+          <option value="">-- Pilih PIC --</option>
+          ${userOpts}
+        </select>
+      </div>
+      
+      <!-- Image Upload -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Foto Ruangan</label>
+        <div class="flex items-center gap-4">
+          <div id="room-photo-preview" class="w-24 h-24 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300">
+            ${existing?.image_url ? `<img src="${existing.image_url}" class="w-full h-full object-cover"/>` : '<i class="fas fa-image text-gray-400 text-2xl"></i>'}
           </div>
-      `;
+          <div class="flex-1">
+            <input type="file" name="photo_file" id="room-photo-input" accept="image/*" class="hidden"/>
+            <input type="hidden" name="image_url" value="${existing?.image_url || ""}"/>
+            <button type="button" id="upload-room-photo-btn" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+              <i class="fas fa-upload mr-2"></i> Pilih Foto
+            </button>
+            <p class="text-xs text-gray-500 mt-1">Max 2MB</p>
+          </div>
+        </div>
+      </div>
+    </form>
+  `;
 
-    const calendarEl = document.getElementById("management-schedule-calendar");
-    if (fullCalendarInstance) {
-      fullCalendarInstance.destroy();
+  openGlobalModal({
+    title: isEdit ? "Edit Ruangan" : "Tambah Ruangan Baru",
+    contentHTML: content,
+    confirmText: isEdit ? "Simpan" : "Tambah",
+    onConfirm: () => handleRoomSubmit(existing?.id),
+  });
+
+  setTimeout(() => {
+    document.getElementById("upload-room-photo-btn")?.addEventListener("click", () => document.getElementById("room-photo-input")?.click());
+    document.getElementById("room-photo-input")?.addEventListener("change", handleRoomPhotoPreview);
+  }, 100);
+}
+
+function handleRoomPhotoPreview(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { notifyError("Ukuran file melebihi 2MB"); return; }
+  const preview = document.getElementById("room-photo-preview");
+  const reader = new FileReader();
+  reader.onload = (ev) => { preview.innerHTML = `<img src="${ev.target.result}" class="w-full h-full object-cover"/>`; };
+  reader.readAsDataURL(file);
+}
+
+async function handleRoomSubmit(existingId) {
+  const form = document.getElementById("room-form");
+  const fd = new FormData(form);
+  const name = fd.get("name")?.trim();
+  
+  if (!name) { notifyError("Nama ruangan wajib diisi!"); return; }
+
+  // Upload Image
+  let imageUrl = fd.get("image_url") || null;
+  const photoFile = document.getElementById("room-photo-input")?.files[0];
+  if (photoFile) {
+    try {
+      const confirmBtn = document.getElementById("global-modal-confirm");
+      if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Uploading...'; }
+      imageUrl = await uploadRoomImage(photoFile);
+    } catch (e) { 
+      notifyError("Gagal upload foto: " + e.message); 
+      const confirmBtn = document.getElementById("global-modal-confirm");
+      if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.innerHTML = 'Simpan'; }
+      return; 
     }
-    fullCalendarInstance = new FullCalendar.Calendar(
-      calendarEl,
-      window.getResponsiveCalendarOptions({
-        locale: "id",
-        events: calendarEvents,
-        eventDidMount(info) {
-          info.el.title = info.event.title;
-        },
-      })
-    );
-    fullCalendarInstance.render();
-
-    document
-      .getElementById("back-to-management-view-btn")
-      .addEventListener("click", loadRuanganPage);
-  } catch (error) {
-    container.innerHTML = `<p class="text-red-500">Gagal memuat jadwal: ${error.message}</p>`;
-  } finally {
-    hideLoader();
   }
-}
 
-function openRoomModal(mode, roomData = {}, managerOptionsHTML) {
-  const modal = document.getElementById("room-modal");
-  const form = document.getElementById("room-modal-form");
-  form.reset();
-  document.getElementById("room-modal-feedback").textContent = "";
-  const pjSelect = document.getElementById("room-penanggung-jawab");
-  pjSelect.innerHTML = `<option value="">-- Pilih Penanggung Jawab --</option>${managerOptionsHTML}`;
-  if (mode === "edit") {
-    document.getElementById("room-modal-title").textContent = "Edit Ruangan";
-    document.getElementById("room-id").value = roomData.id;
-    document.getElementById("room-name").value = roomData.name;
-    document.getElementById("room-lokasi").value = roomData.lokasi || "";
-    document.getElementById("room-kapasitas").value = roomData.kapasitas || "";
-    pjSelect.value = roomData.penanggung_jawab?.id || "";
-  } else {
-    document.getElementById("room-modal-title").textContent =
-      "Tambah Ruangan Baru";
-    document.getElementById("room-id").value = "";
-  }
-  modal.classList.remove("hidden");
-  modal.classList.add("flex");
-}
-
-function closeRoomModal() {
-  document.getElementById("room-modal").classList.add("hidden");
-  document.getElementById("room-modal").classList.remove("flex");
-}
-
-async function handleRoomFormSubmit(e) {
-  e.preventDefault();
-  const feedback = document.getElementById("room-modal-feedback");
-  const button = e.target.querySelector('button[type="submit"]');
-  button.disabled = true;
-  feedback.textContent = "Menyimpan...";
-  const roomId = document.getElementById("room-id").value;
-  const action = roomId ? "updateRoom" : "createRoom";
   const payload = {
-    name: document.getElementById("room-name").value,
-    lokasi: document.getElementById("room-lokasi").value,
-    kapasitas:
-      parseInt(document.getElementById("room-kapasitas").value) || null,
-    penanggung_jawab_id: document.getElementById("room-penanggung-jawab").value,
+    name,
+    lokasi: fd.get("lokasi"),
+    kapasitas: parseInt(fd.get("kapasitas") || "0"),
+    penanggung_jawab_id: fd.get("penanggung_jawab_id") || null,
+    image_url: imageUrl,
   };
-  if (!payload.penanggung_jawab_id) {
-    feedback.textContent = "Error: Penanggung Jawab wajib dipilih.";
-    button.disabled = false;
-    return;
-  }
-  if (action === "updateRoom") payload.roomId = roomId;
+  if (existingId) payload.id = existingId;
+
   try {
-    const result = await api.post("/api/management", { action, payload });
-    notifySuccess(result.message);
-    closeRoomModal();
-    renderRuanganManagementView(
-      document.getElementById("ruangan-content-area")
-    );
-  } catch (error) {
-    feedback.textContent = `Error: ${error.message}`;
-  } finally {
-    button.disabled = false;
-  }
+    const token = localStorage.getItem("authToken");
+    const action = existingId ? "updateRoom" : "createRoom";
+    const res = await fetch("/api/management", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ action, payload }) });
+    
+    if (!res.ok) throw new Error((await res.json()).error || "Gagal menyimpan ruangan");
+    
+    closeGlobalModal();
+    notifySuccess("Ruangan berhasil disimpan!");
+    await renderRuanganManagementView();
+  } catch (e) { notifyError(e.message); }
 }
+
+async function confirmDeleteRoom(roomId) {
+  if (!confirm("Apakah Anda yakin ingin menghapus ruangan ini?")) return;
+  try {
+    const token = localStorage.getItem("authToken");
+    const res = await fetch("/api/management", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: "deleteRoom", payload: { id: roomId } }) });
+    if (!res.ok) throw new Error((await res.json()).error || "Gagal menghapus ruangan");
+    notifySuccess("Ruangan berhasil dihapus!");
+    await renderRuanganManagementView();
+  } catch (e) { notifyError(e.message); }
+}
+
+function openReservationModal(roomName) {
+  // Simple reservation modal reusing existing logic if possible, or new simple form
+  const content = `
+    <form id="reservation-form" class="space-y-4">
+      <div><label class="block text-sm font-medium text-gray-700">Nama Kegiatan</label><input type="text" name="event_name" required class="w-full px-3 py-2 border rounded-lg"/></div>
+      <div><label class="block text-sm font-medium text-gray-700">Ruangan</label><input type="text" name="room_name" value="${roomName || ""}" readonly class="w-full px-3 py-2 border rounded-lg bg-gray-100"/></div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="block text-sm font-medium text-gray-700">Mulai</label><input type="datetime-local" name="start_time" required class="w-full px-3 py-2 border rounded-lg"/></div>
+        <div><label class="block text-sm font-medium text-gray-700">Selesai</label><input type="datetime-local" name="end_time" required class="w-full px-3 py-2 border rounded-lg"/></div>
+      </div>
+    </form>
+  `;
+  
+  openGlobalModal({
+    title: "Reservasi Ruangan",
+    contentHTML: content,
+    confirmText: "Ajukan",
+    onConfirm: async () => {
+      const form = document.getElementById("reservation-form");
+      const fd = new FormData(form);
+      const payload = {
+        event_name: fd.get("event_name"),
+        room_name: fd.get("room_name"),
+        start_time: fd.get("start_time"),
+        end_time: fd.get("end_time"),
+      };
+      
+      try {
+        const token = localStorage.getItem("authToken");
+        const res = await fetch("/api/member?resource=rooms", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+        if (!res.ok) throw new Error((await res.json()).error);
+        closeGlobalModal();
+        notifySuccess("Reservasi berhasil diajukan!");
+      } catch (e) { notifyError(e.message); }
+    }
+  });
+}
+
+// ============================================================
+// API
+// ============================================================
+async function fetchRooms() {
+  const token = localStorage.getItem("authToken");
+  // Use management API for management role to get full details including image_url if not available in member API yet
+  // Or update member API to return image_url
+  const role = localStorage.getItem("userRole");
+  const endpoint = role === "management" ? "/api/management" : "/api/member?resource=rooms";
+  const body = role === "management" ? JSON.stringify({ action: "getRooms" }) : null;
+  const method = role === "management" ? "POST" : "GET";
+  
+  const res = await fetch(endpoint, { method, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body });
+  if (!res.ok) throw new Error("Gagal mengambil data ruangan");
+  return res.json();
+}
+
+async function uploadRoomImage(file) {
+  const token = localStorage.getItem("authToken");
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  
+  const res = await fetch("/api/website-hero-video", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ fileName: file.name, mimeType: file.type, base64Data: base64, target: "assets" }),
+  });
+  if (!res.ok) throw new Error("Gagal upload gambar");
+  const data = await res.json();
+  return data.url;
+}
+
+function debounce(fn, delay) {
+  let timer;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
+window.loadRuanganPage = loadRuanganPage;

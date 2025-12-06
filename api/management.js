@@ -679,6 +679,7 @@ export default async function handler(req, res) {
             name,
             lokasi,
             kapasitas,
+            image_url,
             penanggung_jawab: profiles (id, full_name)
           `);
         if (getRoomsError) throw getRoomsError;
@@ -686,10 +687,10 @@ export default async function handler(req, res) {
       }
 
       case "createRoom": {
-        const { name, lokasi, kapasitas, penanggung_jawab_id } = payload;
+        const { name, lokasi, kapasitas, penanggung_jawab_id, image_url } = payload;
         const { error: createRoomError } = await supabase
           .from("rooms")
-          .insert({ name, lokasi, kapasitas, penanggung_jawab_id });
+          .insert({ name, lokasi, kapasitas, penanggung_jawab_id, image_url });
         if (createRoomError) throw createRoomError;
         return res
           .status(201)
@@ -697,11 +698,11 @@ export default async function handler(req, res) {
       }
 
       case "updateRoom": {
-        const { roomId, ...updateRoomData } = payload;
+        const { id, ...updateRoomData } = payload;
         const { error: updateRoomError } = await supabase
           .from("rooms")
           .update(updateRoomData)
-          .eq("id", roomId);
+          .eq("id", id);
         if (updateRoomError) throw updateRoomError;
         return res
           .status(200)

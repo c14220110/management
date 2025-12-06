@@ -282,7 +282,7 @@ async function handleRooms(req, res, supabase, user) {
     case "GET":
       const { data, error } = await supabase
         .from("rooms")
-        .select("name")
+        .select("name, lokasi, kapasitas, image_url")
         .order("name", { ascending: true });
       if (error) return res.status(500).json({ error: error.message });
       return res.status(200).json(data);
