@@ -46,6 +46,7 @@ async function handleLogin(e) {
 
     if (userRole === "management") {
       managementLink.classList.remove("hidden");
+      document.getElementById("stok-opname-link").classList.remove("hidden");
       document
         .getElementById("website-gki-link")
         .classList.remove("hidden");
