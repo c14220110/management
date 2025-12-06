@@ -40,40 +40,68 @@ function router() {
     );
   });
 
+  // Helper to check privilege
+  const hasPrivilege = (priv) => {
+    const userRole = localStorage.getItem("userRole");
+    if (userRole !== "management") return false;
+    
+    const privileges = localStorage.getItem("userPrivileges");
+    if (!privileges) return true; // Full access if no privileges defined (backward compat)
+    
+    try {
+      const privs = JSON.parse(privileges);
+      return Array.isArray(privs) && privs.includes(priv);
+    } catch (e) {
+      return false;
+    }
+  };
+
   contentArea.innerHTML = "";
   switch (hash) {
     case "#dashboard":
       loadDashboardPage();
       break;
     case "#barang":
-      loadBarangPage();
+      if (localStorage.getItem("userRole") === "member" || hasPrivilege("inventory")) {
+        loadBarangPage();
+      } else {
+        contentArea.innerHTML = `<h1 class="text-2xl text-red-600 p-8">Akses Ditolak: Anda tidak memiliki izin untuk mengakses halaman Barang.</h1>`;
+      }
       break;
     case "#ruangan":
-      loadRuanganPage();
+      if (localStorage.getItem("userRole") === "member" || hasPrivilege("room")) {
+        loadRuanganPage();
+      } else {
+        contentArea.innerHTML = `<h1 class="text-2xl text-red-600 p-8">Akses Ditolak: Anda tidak memiliki izin untuk mengakses halaman Ruangan.</h1>`;
+      }
       break;
     case "#transportasi":
-      loadTransportasiPage();
+      if (localStorage.getItem("userRole") === "member" || hasPrivilege("transport")) {
+        loadTransportasiPage();
+      } else {
+        contentArea.innerHTML = `<h1 class="text-2xl text-red-600 p-8">Akses Ditolak: Anda tidak memiliki izin untuk mengakses halaman Transportasi.</h1>`;
+      }
       break;
     case "#user-management":
-      if (localStorage.getItem("userRole") === "management") {
+      if (hasPrivilege("users")) {
         loadUserManagementPage();
       } else {
-        contentArea.innerHTML = `<h1 class="text-2xl text-red-600">Akses Ditolak</h1>`;
+        contentArea.innerHTML = `<h1 class="text-2xl text-red-600 p-8">Akses Ditolak: Anda tidak memiliki izin untuk mengakses halaman User Management.</h1>`;
       }
       break;
     case "#website-gki":
-      if (localStorage.getItem("userRole") === "management") {
+      if (hasPrivilege("website")) {
         loadWebsiteGkiPage();
       } else {
         contentArea.innerHTML =
-          '<h1 class="text-2xl text-red-600">Akses Ditolak</h1>';
+          '<h1 class="text-2xl text-red-600 p-8">Akses Ditolak: Anda tidak memiliki izin untuk mengakses halaman Website GKI.</h1>';
       }
       break;
     case "#stok-opname":
-      if (localStorage.getItem("userRole") === "management") {
+      if (hasPrivilege("stock_opname")) {
         loadStockOpnamePage();
       } else {
-        contentArea.innerHTML = '<h1 class="text-2xl text-red-600">Akses Ditolak</h1>';
+        contentArea.innerHTML = '<h1 class="text-2xl text-red-600 p-8">Akses Ditolak: Anda tidak memiliki izin untuk mengakses halaman Stok Opname.</h1>';
       }
       break;
     default:

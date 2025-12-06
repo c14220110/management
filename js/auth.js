@@ -15,6 +15,7 @@ function logout() {
   localStorage.removeItem("authToken");
   localStorage.removeItem("userRole");
   localStorage.removeItem("userFullName");
+  localStorage.removeItem("userPrivileges");
   window.location.replace("/");
 }
 
@@ -40,6 +41,11 @@ async function handleLogin(e) {
       "userFullName",
       data.user.full_name || data.user.email
     );
+    if (data.user.privileges) {
+      localStorage.setItem("userPrivileges", JSON.stringify(data.user.privileges));
+    } else {
+      localStorage.removeItem("userPrivileges");
+    }
 
     loginScreen.style.display = "none";
     appLayout.classList.remove("hidden");

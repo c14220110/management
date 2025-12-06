@@ -23,10 +23,10 @@ export default async function handler(req, res) {
       throw new Error(loginError.message || "Email atau password salah.");
     }
 
-    // PERUBAHAN DI SINI: Ambil role dan full_name
+    // PERUBAHAN DI SINI: Ambil role, full_name, dan privileges
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
-      .select("role, full_name") // <-- Minta full_name juga
+      .select("role, full_name, privileges") // <-- Minta privileges juga
       .eq("id", sessionData.user.id)
       .single();
 
@@ -37,13 +37,15 @@ export default async function handler(req, res) {
     // Gabungkan data ke dalam user object untuk dikirim ke frontend
     const userRole = profileData ? profileData.role : "member";
     const userFullName = profileData ? profileData.full_name : email; // Jika nama kosong, pakai email
+    const userPrivileges = profileData ? profileData.privileges : null;
 
     sessionData.user.user_metadata = {
       ...sessionData.user.user_metadata,
       role: userRole,
     };
-    // Tambahkan full_name langsung ke objek user
+    // Tambahkan full_name dan privileges langsung ke objek user
     sessionData.user.full_name = userFullName;
+    sessionData.user.privileges = userPrivileges;
 
     res.status(200).json(sessionData);
   } catch (error) {

@@ -3,6 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 // Helper untuk verifikasi role management
+// Helper untuk verifikasi role management
 async function verifyManagement(req) {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return { user: null, error: "Token tidak ditemukan." };
@@ -20,14 +21,24 @@ async function verifyManagement(req) {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, privileges")
     .eq("id", user.id)
     .single();
 
   if (profileError || profile?.role !== "management")
     return { user: null, error: "Akses ditolak." };
 
-  return { user, error: null };
+  return { user, profile, error: null };
+}
+
+// Helper untuk cek privilege
+function checkPrivilege(profile, requiredPrivilege) {
+  // Jika privileges null/undefined, anggap full access (backward compatibility / super admin)
+  // Atau jika privileges array kosong, berarti tidak punya akses apa-apa?
+  // Mari kita buat default: jika null -> full access. Jika array -> cek isi.
+  if (!profile.privileges) return true; 
+  if (Array.isArray(profile.privileges) && profile.privileges.includes(requiredPrivilege)) return true;
+  return false;
 }
 
 export default async function handler(req, res) {
@@ -35,7 +46,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Hanya metode POST yang diizinkan" });
   }
 
-  const { user, error: authError } = await verifyManagement(req);
+  const { user, profile, error: authError } = await verifyManagement(req);
   if (authError)
     return res.status(403).json({ error: "Access Forbidden: " + authError });
 
@@ -52,6 +63,7 @@ export default async function handler(req, res) {
       // INVENTORY - PRODUCT TEMPLATE & UNITS
       // ============================================================
       case "getProductTemplates": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
         const { data: templates, error: tmplError } = await supabase
           .from("product_templates")
           .select(
@@ -148,6 +160,7 @@ export default async function handler(req, res) {
       }
 
       case "getProductUnits": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
         const { templateId } = payload || {};
         if (!templateId)
           throw new Error("templateId dibutuhkan untuk melihat unit.");
@@ -178,6 +191,7 @@ export default async function handler(req, res) {
       }
 
       case "createProductTemplate": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
         const {
           name,
           description,
@@ -215,6 +229,7 @@ export default async function handler(req, res) {
       }
 
       case "updateProductTemplate": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
         const { id, ...fields } = payload || {};
         if (!id) throw new Error("ID template wajib diisi.");
         
@@ -246,6 +261,7 @@ export default async function handler(req, res) {
       }
 
       case "adjustProductQuantity": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
         // Untuk adjust quantity non-serialized items
         const { templateId, adjustment, notes } = payload || {};
         if (!templateId) throw new Error("Template ID wajib diisi.");
@@ -279,6 +295,7 @@ export default async function handler(req, res) {
       }
 
       case "deleteProductTemplate": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
         const { templateId } = payload || {};
         if (!templateId) throw new Error("Template ID wajib diisi.");
 
@@ -303,6 +320,7 @@ export default async function handler(req, res) {
       }
 
       case "createProductUnit": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
         const {
           template_id,
           serial_number,
@@ -364,6 +382,7 @@ export default async function handler(req, res) {
       }
 
       case "updateProductUnit": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
         const { unitId, ...fields } = payload || {};
         if (!unitId) throw new Error("Unit ID wajib diisi.");
 
@@ -394,6 +413,7 @@ export default async function handler(req, res) {
       }
 
       case "deleteProductUnit": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
         const { unitId } = payload || {};
         if (!unitId) throw new Error("Unit ID wajib diisi.");
 
@@ -420,6 +440,7 @@ export default async function handler(req, res) {
       }
 
       case "getStockLocations": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
         const { data, error } = await supabase
           .from("stock_locations")
           .select(`
@@ -435,6 +456,7 @@ export default async function handler(req, res) {
       }
 
       case "findUnitByCode": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
         const { code } = payload || {};
         if (!code) throw new Error("Kode atau serial wajib diisi.");
         const { data, error } = await supabase
@@ -465,6 +487,7 @@ export default async function handler(req, res) {
       }
 
       case "createStockLocation": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
         const { name, code, type, parent_id, description, commission_id } = payload || {};
         if (!name) throw new Error("Nama lokasi wajib diisi.");
         if (!type)
@@ -490,6 +513,7 @@ export default async function handler(req, res) {
       }
 
       case "createCategory": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
         const { name, code, description, parent_id } = payload || {};
         if (!name) throw new Error("Nama kategori wajib diisi.");
         const { data, error } = await supabase
@@ -509,6 +533,7 @@ export default async function handler(req, res) {
       }
 
       case "getAssetMeta": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
         const [
           { data: commissions, error: commissionError },
           { data: categories, error: categoryError },
@@ -541,6 +566,7 @@ export default async function handler(req, res) {
       // ASSET LOANS MANAGEMENT
       // ============================================================
       case "updateLoanStatus": {
+        if (!checkPrivilege(profile, "transport")) throw new Error("Akses ditolak: Butuh privilege 'transport'");
         const { loanId, newStatus } = payload;
         
         // Get loan info
@@ -581,6 +607,7 @@ export default async function handler(req, res) {
       }
 
       case "updateReservationStatus": {
+        if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
         const { reservationId, newStatus: newReservationStatus } = payload;
         await supabase
           .from("room_reservations")
@@ -595,6 +622,7 @@ export default async function handler(req, res) {
       // USER MANAGEMENT
       // ============================================================
       case "getUsers": {
+        if (!checkPrivilege(profile, "users")) throw new Error("Akses ditolak: Butuh privilege 'users'");
         const {
           data: { users },
           error: listError,
@@ -609,6 +637,7 @@ export default async function handler(req, res) {
             ...user,
             full_name: profile?.full_name,
             role: profile?.role || "member",
+            privileges: profile?.privileges || [],
           };
         });
 
@@ -616,7 +645,8 @@ export default async function handler(req, res) {
       }
 
       case "createUser": {
-        const { fullName, email, password, role } = payload;
+        if (!checkPrivilege(profile, "users")) throw new Error("Akses ditolak: Butuh privilege 'users'");
+        const { fullName, email, password, role, privileges } = payload;
         const {
           data: { user: newUser },
           error: createError,
@@ -627,6 +657,12 @@ export default async function handler(req, res) {
           user_metadata: { role: role || "member", full_name: fullName },
         });
         if (createError) throw createError;
+
+        // Jika role management, update privileges di profiles
+        if (role === 'management' && privileges) {
+           await supabase.from('profiles').update({ privileges }).eq('id', newUser.id);
+        }
+
         return res.status(201).json({
           message: "User member baru berhasil dibuat.",
           user: newUser,
@@ -634,7 +670,8 @@ export default async function handler(req, res) {
       }
 
       case "updateUser": {
-        const { userId, ...updateData } = payload;
+        if (!checkPrivilege(profile, "users")) throw new Error("Akses ditolak: Butuh privilege 'users'");
+        const { userId, privileges, ...updateData } = payload;
         const authUpdate = {};
         if (updateData.email) authUpdate.email = updateData.email;
         if (updateData.password) authUpdate.password = updateData.password;
@@ -654,12 +691,19 @@ export default async function handler(req, res) {
             .eq("id", userId);
           if (profileUpdateError) throw profileUpdateError;
         }
+
+        // Update privileges jika ada
+        if (privileges !== undefined) {
+           await supabase.from('profiles').update({ privileges }).eq('id', userId);
+        }
+
         return res
           .status(200)
           .json({ message: "Data user berhasil diperbarui." });
       }
 
       case "deleteUser": {
+        if (!checkPrivilege(profile, "users")) throw new Error("Akses ditolak: Butuh privilege 'users'");
         const { userId: deleteId } = payload;
         const { error: deleteError } = await supabase.auth.admin.deleteUser(
           deleteId
@@ -672,6 +716,7 @@ export default async function handler(req, res) {
       // ROOM MANAGEMENT
       // ============================================================
       case "getRooms": {
+        if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
         const { data: rooms, error: getRoomsError } = await supabase.from(
           "rooms"
         ).select(`
@@ -687,6 +732,7 @@ export default async function handler(req, res) {
       }
 
       case "createRoom": {
+        if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
         const { name, lokasi, kapasitas, penanggung_jawab_id, image_url } = payload;
         const { error: createRoomError } = await supabase
           .from("rooms")
@@ -698,6 +744,7 @@ export default async function handler(req, res) {
       }
 
       case "updateRoom": {
+        if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
         const { id, ...updateRoomData } = payload;
         const { error: updateRoomError } = await supabase
           .from("rooms")
@@ -710,6 +757,7 @@ export default async function handler(req, res) {
       }
 
       case "deleteRoom": {
+        if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
         const { roomId: deleteRoomId } = payload;
         const { error: deleteRoomError } = await supabase
           .from("rooms")
@@ -723,6 +771,7 @@ export default async function handler(req, res) {
       // TRANSPORTATION MANAGEMENT
       // ============================================================
       case "getTransportations": {
+        if (!checkPrivilege(profile, "transport")) throw new Error("Akses ditolak: Butuh privilege 'transport'");
         const { data: transports, error: getTransError } = await supabase
           .from("transportations")
           .select(
@@ -737,6 +786,7 @@ export default async function handler(req, res) {
       }
 
       case "createTransportation": {
+        if (!checkPrivilege(profile, "transport")) throw new Error("Akses ditolak: Butuh privilege 'transport'");
         const {
           vehicle_name,
           plate_number,
@@ -775,6 +825,7 @@ export default async function handler(req, res) {
       }
 
       case "updateTransportation": {
+        if (!checkPrivilege(profile, "transport")) throw new Error("Akses ditolak: Butuh privilege 'transport'");
         const { transportId, ...updateTransData } = payload;
         const { error: updateTransError } = await supabase
           .from("transportations")
@@ -787,6 +838,7 @@ export default async function handler(req, res) {
       }
 
       case "deleteTransportation": {
+        if (!checkPrivilege(profile, "transport")) throw new Error("Akses ditolak: Butuh privilege 'transport'");
         const { transportId: deleteTransId } = payload;
         const { error: deleteTransError } = await supabase
           .from("transportations")
@@ -802,6 +854,7 @@ export default async function handler(req, res) {
       // STOCK OPNAME MANAGEMENT
       // ============================================================
       case "createStockOpname": {
+        if (!checkPrivilege(profile, "stock_opname")) throw new Error("Akses ditolak: Butuh privilege 'stock_opname'");
         const { title, notes } = payload;
         if (!title) throw new Error("Judul stok opname wajib diisi.");
 
@@ -832,6 +885,7 @@ export default async function handler(req, res) {
       }
 
       case "getActiveStockOpname": {
+        if (!checkPrivilege(profile, "stock_opname")) throw new Error("Akses ditolak: Butuh privilege 'stock_opname'");
         // Get ongoing opname
         const { data: opname, error } = await supabase
           .from("stock_opnames")
@@ -862,6 +916,7 @@ export default async function handler(req, res) {
       }
 
       case "submitOpnameItem": {
+        if (!checkPrivilege(profile, "stock_opname")) throw new Error("Akses ditolak: Butuh privilege 'stock_opname'");
         const { opnameId, templateId, unitId, qty, notes, isScan } = payload;
         
         if (!opnameId) throw new Error("Opname ID wajib diisi.");
@@ -931,6 +986,7 @@ export default async function handler(req, res) {
       }
 
       case "completeStockOpname": {
+        if (!checkPrivilege(profile, "stock_opname")) throw new Error("Akses ditolak: Butuh privilege 'stock_opname'");
         const { opnameId, notes } = payload;
         if (!opnameId) throw new Error("Opname ID wajib diisi.");
 
@@ -950,6 +1006,7 @@ export default async function handler(req, res) {
       }
 
       case "getOpnameHistory": {
+        if (!checkPrivilege(profile, "stock_opname")) throw new Error("Akses ditolak: Butuh privilege 'stock_opname'");
         const { data, error } = await supabase
           .from("stock_opnames")
           .select("*")
@@ -961,6 +1018,7 @@ export default async function handler(req, res) {
       }
 
       case "getOpnameDetail": {
+        if (!checkPrivilege(profile, "stock_opname")) throw new Error("Akses ditolak: Butuh privilege 'stock_opname'");
         const { opnameId } = payload;
         if (!opnameId) throw new Error("Opname ID wajib diisi.");
 
@@ -1010,6 +1068,7 @@ export default async function handler(req, res) {
       }
 
       case "getPendingTransportLoans": {
+        if (!checkPrivilege(profile, "transport")) throw new Error("Akses ditolak: Butuh privilege 'transport'");
         const { data: pendingTransLoans, error: pendingTransError } =
           await supabase
             .from("transport_loans")
@@ -1027,6 +1086,7 @@ export default async function handler(req, res) {
       }
 
       case "updateTransportLoanStatus": {
+        if (!checkPrivilege(profile, "transport")) throw new Error("Akses ditolak: Butuh privilege 'transport'");
         const { loanId: transLoanId, newStatus: transLoanStatus } = payload;
         const { error: updateTransLoanError } = await supabase
           .from("transport_loans")

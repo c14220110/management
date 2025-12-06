@@ -120,6 +120,7 @@ function renderSingleTable(elementId, users) {
           data-user-name="${user.full_name || user.email}"
           data-user-email="${user.email}"
           data-user-role="${user.role || 'member'}"
+          data-user-privileges='${JSON.stringify(user.privileges || [])}'
         >
           <i class="fas fa-ellipsis-v"></i>
         </button>
@@ -149,7 +150,8 @@ function initializeUserActionMenus() {
         id: button.dataset.userId,
         name: button.dataset.userName,
         email: button.dataset.userEmail,
-        role: button.dataset.userRole
+        role: button.dataset.userRole,
+        privileges: JSON.parse(button.dataset.userPrivileges || '[]')
       };
       
       openGlobalActionMenu({
@@ -214,6 +216,19 @@ function openUserModal(mode, userData = {}, role = "member") {
     document.getElementById("user-id").value = "";
   }
   
+  // Handle Privileges UI
+  const privContainer = document.getElementById("user-privileges-container");
+  if (role === "management") {
+    privContainer.classList.remove("hidden");
+    const checkboxes = privContainer.querySelectorAll("input[name='privileges']");
+    const userPrivs = userData.privileges || [];
+    checkboxes.forEach(cb => {
+      cb.checked = mode === "edit" ? userPrivs.includes(cb.value) : false;
+    });
+  } else {
+    privContainer.classList.add("hidden");
+  }
+  
   modal.classList.remove("hidden");
   modal.classList.add("flex");
 }
@@ -238,6 +253,11 @@ async function handleUserFormSubmit(e) {
     email: document.getElementById("user-email").value,
     role: role 
   };
+
+  if (role === "management") {
+    const checkboxes = document.querySelectorAll("input[name='privileges']:checked");
+    payload.privileges = Array.from(checkboxes).map(cb => cb.value);
+  }
   
   const password = document.getElementById("user-password").value;
   if (password) payload.password = password;
