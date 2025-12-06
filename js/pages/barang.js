@@ -1151,15 +1151,36 @@ function handleQRScan() {
     }
 
     const scanner = new Html5QrcodeScanner("qr-reader", { fps: 10, qrbox: 250 });
-    scanner.render((decodedText) => {
+    scanner.render(async (decodedText) => {
       // Success
       try { scanner.clear(); } catch(e){}
       closeGlobalModal();
       
-      // Update search
+      // Try to find unit by code
+      try {
+        const token = localStorage.getItem("authToken");
+        const res = await fetch("/api/management", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ action: "findUnitByCode", payload: { code: decodedText } })
+        });
+        
+        if (res.ok) {
+          const unit = await res.json();
+          if (unit && unit.template) {
+            notifySuccess(`Unit ditemukan: ${unit.asset_code || unit.serial_number}`);
+            await renderTemplateDetailView(unit.template.id);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error("QR Lookup failed", e);
+      }
+
+      // Fallback: Update search
       productInventoryState.search = decodedText;
       renderBarangManagementView();
-      notifySuccess(`Ditemukan: ${decodedText}`);
+      notifySuccess(`Mencari: ${decodedText}`);
     }, (error) => {
       // Ignore parse errors
     });
