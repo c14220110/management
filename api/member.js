@@ -373,8 +373,8 @@ async function handleRooms(req, res, supabase, user) {
           <p><strong>Peminjam:</strong> ${profile.full_name || user.email}</p>
           <p><strong>Ruangan:</strong> ${room_name}</p>
           <p><strong>Acara:</strong> ${event_name}</p>
-          <p><strong>Waktu Mulai:</strong> ${new Date(start_time).toLocaleString('id-ID')}</p>
-          <p><strong>Waktu Selesai:</strong> ${new Date(end_time).toLocaleString('id-ID')}</p>
+          <p><strong>Waktu Mulai:</strong> ${new Date(start_time).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</p>
+          <p><strong>Waktu Selesai:</strong> ${new Date(end_time).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</p>
           <p><strong>Durasi:</strong> ${durationHours} Jam</p>
           <p>Mohon cek dashboard untuk persetujuan: <a href="https://gki-management.vercel.app/#dashboard">Dashboard</a></p>
         `
@@ -477,8 +477,8 @@ async function handleTransports(req, res, supabase, user) {
           <p><strong>Kendaraan:</strong> ${vehicleName}</p>
           <p><strong>Tujuan:</strong> ${destination || '-'}</p>
           <p><strong>Keperluan:</strong> ${purpose || '-'}</p>
-          <p><strong>Waktu Mulai:</strong> ${new Date(borrow_start).toLocaleString('id-ID')}</p>
-          <p><strong>Waktu Selesai:</strong> ${new Date(borrow_end).toLocaleString('id-ID')}</p>
+          <p><strong>Waktu Mulai:</strong> ${new Date(borrow_start).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</p>
+          <p><strong>Waktu Selesai:</strong> ${new Date(borrow_end).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</p>
           <p><strong>Durasi:</strong> ${durationStr}</p>
           <p>Mohon cek dashboard untuk persetujuan: <a href="https://gki-management.vercel.app/#dashboard">Dashboard</a></p>
         `

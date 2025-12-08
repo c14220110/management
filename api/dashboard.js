@@ -2,6 +2,17 @@
 // Consolidated API for dashboard operations: stats, my-requests, management-dashboard, member-dashboard, calendar
 import { createClient } from "@supabase/supabase-js";
 
+// Helper: Get current date in WIB (Asia/Jakarta) timezone
+function getWIBDate() {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+}
+
+// Helper: Get WIB ISO string for current time
+function getWIBISOString() {
+  const date = getWIBDate();
+  return date.toISOString();
+}
+
 export default async function handler(req, res) {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Token dibutuhkan." });

@@ -2,6 +2,12 @@
 
 import { createClient } from "@supabase/supabase-js";
 
+// Helper: Get current date in WIB (Asia/Jakarta) timezone
+function getWIBISOString() {
+  const date = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
+  return date.toISOString();
+}
+
 // Helper untuk verifikasi role management
 // Helper untuk verifikasi role management
 async function verifyManagement(req) {
@@ -580,7 +586,7 @@ export default async function handler(req, res) {
         // Update loan status
         const updateData = { status: newStatus };
         if (newStatus === "Dikembalikan") {
-          updateData.return_date = new Date().toISOString();
+          updateData.return_date = getWIBISOString();
         }
 
         const { error: updateError } = await supabase
@@ -632,12 +638,13 @@ export default async function handler(req, res) {
         const { data: profiles } = await supabase.from("profiles").select("*");
 
         const usersWithProfiles = users.map((user) => {
-          const profile = profiles.find((p) => p.id === user.id);
+          const userProfile = profiles.find((p) => p.id === user.id);
           return {
             ...user,
-            full_name: profile?.full_name,
-            role: profile?.role || "member",
-            privileges: profile?.privileges || [],
+            full_name: userProfile?.full_name,
+            role: userProfile?.role || "member",
+            privileges: userProfile?.privileges || [],
+            is_deleted: userProfile?.is_deleted || false,
           };
         });
 
@@ -710,6 +717,22 @@ export default async function handler(req, res) {
         );
         if (deleteError) throw deleteError;
         return res.status(200).json({ message: "User berhasil dihapus." });
+      }
+
+      case "toggleUserStatus": {
+        if (!checkPrivilege(profile, "users")) throw new Error("Akses ditolak: Butuh privilege 'users'");
+        const { userId, isDeleted } = payload;
+        if (!userId) throw new Error("User ID wajib diisi.");
+
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({ is_deleted: isDeleted })
+          .eq("id", userId);
+
+        if (updateError) throw updateError;
+        
+        const message = isDeleted ? "User berhasil dinonaktifkan." : "User berhasil diaktifkan kembali.";
+        return res.status(200).json({ message });
       }
 
       // ============================================================

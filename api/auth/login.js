@@ -26,12 +26,17 @@ export default async function handler(req, res) {
     // PERUBAHAN DI SINI: Ambil role, full_name, dan privileges
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
-      .select("role, full_name, privileges") // <-- Minta privileges juga
+      .select("role, full_name, privileges, is_deleted") // <-- Tambah is_deleted
       .eq("id", sessionData.user.id)
       .single();
 
     if (profileError && profileError.code !== "PGRST116") {
       throw new Error("Gagal mengambil data profil pengguna.");
+    }
+
+    // Check if user is deactivated
+    if (profileData?.is_deleted === true) {
+      throw new Error("Akun Anda telah dinonaktifkan. Hubungi administrator.");
     }
 
     // Gabungkan data ke dalam user object untuk dikirim ke frontend

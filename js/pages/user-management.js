@@ -3,6 +3,31 @@
  * Handles user CRUD operations for management role
  */
 
+// State for search and filtering
+const userManagementState = {
+  search: "",
+  allUsers: []
+};
+
+// Debounce utility
+function debounce(fn, delay) {
+  let timer;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn.apply(this, args), delay);
+  };
+}
+
+// Filter users by search query
+function filterUsers(users, query) {
+  if (!query) return users;
+  const q = query.toLowerCase();
+  return users.filter(u => 
+    (u.full_name || '').toLowerCase().includes(q) ||
+    (u.email || '').toLowerCase().includes(q)
+  );
+}
+
 async function loadUserManagementPage() {
   const contentArea = document.getElementById("content-area");
   showLoader();
@@ -14,6 +39,16 @@ async function loadUserManagementPage() {
     contentArea.appendChild(template);
     const container = document.getElementById("user-management-content-area");
     container.innerHTML = `
+      <!-- Search Bar -->
+      <div class="bg-white rounded-2xl shadow-md p-4 lg:p-6 mb-6">
+        <div class="relative">
+          <span class="absolute inset-y-0 left-4 flex items-center text-gray-400"><i class="fas fa-search text-lg"></i></span>
+          <input id="user-search-input" type="text" value="${userManagementState.search || ""}" 
+            placeholder="Cari nama pengguna atau email..."
+            class="w-full pl-12 pr-4 py-3.5 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-gray-50 transition-all"/>
+        </div>
+      </div>
+
       <!-- Management Users Section -->
       <div class="mb-8">
         <div class="flex justify-between items-center mb-4">
@@ -62,6 +97,12 @@ async function loadUserManagementPage() {
     document.getElementById("add-management-btn").addEventListener("click", () => openUserModal("create", {}, "management"));
     document.getElementById("add-member-btn").addEventListener("click", () => openUserModal("create", {}, "member"));
     
+    // Search handler
+    document.getElementById("user-search-input")?.addEventListener("input", debounce((e) => {
+      userManagementState.search = e.target.value;
+      renderUserTables(userManagementState.allUsers);
+    }, 300));
+    
     await refreshUserTable();
   } catch (error) {
     contentArea.innerHTML = `<p class="text-red-500">Terjadi error saat memuat halaman user: ${error.message}</p>`;
@@ -81,6 +122,7 @@ async function refreshUserTable() {
     const users = await api.post("/api/management", {
       action: "getUsers",
     });
+    userManagementState.allUsers = users; // Store in state
     renderUserTables(users);
   } catch (error) {
     const errHtml = `<tr><td colspan="3" class="p-4 text-center text-red-500">Gagal memuat data: ${error.message}</td></tr>`;
@@ -90,8 +132,11 @@ async function refreshUserTable() {
 }
 
 function renderUserTables(users) {
-  const mgmtUsers = users.filter(u => u.role === "management");
-  const memberUsers = users.filter(u => u.role === "member" || !u.role);
+  // Apply search filter
+  const filtered = filterUsers(users, userManagementState.search);
+  
+  const mgmtUsers = filtered.filter(u => u.role === "management");
+  const memberUsers = filtered.filter(u => u.role === "member" || !u.role);
 
   renderSingleTable("management-table-body", mgmtUsers);
   renderSingleTable("member-table-body", memberUsers);
@@ -108,9 +153,15 @@ function renderSingleTable(elementId, users) {
     return;
   }
 
-  tbody.innerHTML = users.map(user => `
-    <tr class="hover:bg-gray-50 transition-colors">
-      <td class="p-4 font-medium text-gray-800">${user.full_name || user.email}</td>
+  tbody.innerHTML = users.map(user => {
+    const isDeactivated = user.is_deleted === true;
+    const rowClass = isDeactivated ? 'bg-gray-100 opacity-60' : 'hover:bg-gray-50';
+    const nameDisplay = user.full_name || user.email;
+    const statusBadge = isDeactivated ? '<span class="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-600 rounded-full">Nonaktif</span>' : '';
+    
+    return `
+    <tr class="${rowClass} transition-colors">
+      <td class="p-4 font-medium text-gray-800">${nameDisplay}${statusBadge}</td>
       <td class="p-4 text-gray-600">${user.email}</td>
       <td class="p-4 text-center">
         <button
@@ -121,12 +172,14 @@ function renderSingleTable(elementId, users) {
           data-user-email="${user.email}"
           data-user-role="${user.role || 'member'}"
           data-user-privileges='${JSON.stringify(user.privileges || [])}'
+          data-user-deleted="${isDeactivated}"
         >
           <i class="fas fa-ellipsis-v"></i>
         </button>
       </td>
     </tr>
-  `).join("");
+  `;
+  }).join("");
 }
 
 function initializeUserActionMenus() {
@@ -146,12 +199,14 @@ function initializeUserActionMenus() {
       event.preventDefault();
       event.stopPropagation();
 
+      const isDeactivated = button.dataset.userDeleted === 'true';
       const userData = {
         id: button.dataset.userId,
         name: button.dataset.userName,
         email: button.dataset.userEmail,
         role: button.dataset.userRole,
-        privileges: JSON.parse(button.dataset.userPrivileges || '[]')
+        privileges: JSON.parse(button.dataset.userPrivileges || '[]'),
+        is_deleted: isDeactivated
       };
       
       openGlobalActionMenu({
@@ -162,6 +217,12 @@ function initializeUserActionMenus() {
             icon: "fas fa-edit",
             className: "text-amber-600",
             onClick: () => openUserModal("edit", userData, userData.role),
+          },
+          {
+            label: isDeactivated ? "Aktifkan" : "Nonaktifkan",
+            icon: isDeactivated ? "fas fa-user-check" : "fas fa-user-slash",
+            className: isDeactivated ? "text-green-600" : "text-gray-600",
+            onClick: () => toggleUserStatus(userData.id, !isDeactivated),
           },
           {
             label: "Hapus",
@@ -188,6 +249,23 @@ async function deleteUserAccount(userId) {
     refreshUserTable();
   } catch (err) {
     alert(`Gagal menghapus: ${err.message}`);
+  }
+}
+
+async function toggleUserStatus(userId, isDeleted) {
+  const action = isDeleted ? "menonaktifkan" : "mengaktifkan";
+  if (!confirm(`Apakah Anda yakin ingin ${action} user ini?`)) {
+    return;
+  }
+  try {
+    const res = await api.post("/api/management", {
+      action: "toggleUserStatus",
+      payload: { userId, isDeleted },
+    });
+    notifySuccess(res.message);
+    refreshUserTable();
+  } catch (err) {
+    alert(`Gagal ${action}: ${err.message}`);
   }
 }
 

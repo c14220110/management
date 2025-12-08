@@ -78,7 +78,7 @@ async function renderManagerDashboard() {
           </div>
           <div class="flex items-center gap-2 text-sm text-gray-500">
             <i class="fas fa-clock"></i>
-            <span>Update: ${new Date().toLocaleString("id-ID")}</span>
+            <span>Update: ${new Date().toLocaleString("id-ID", { timeZone: 'Asia/Jakarta' })}</span>
           </div>
         </div>
 
@@ -359,10 +359,12 @@ async function renderManagerDashboard() {
                               ${startTime.toLocaleTimeString("id-ID", {
                                 hour: "2-digit",
                                 minute: "2-digit",
+                                timeZone: 'Asia/Jakarta'
                               })} - 
                               ${endTime.toLocaleTimeString("id-ID", {
                                 hour: "2-digit",
                                 minute: "2-digit",
+                                timeZone: 'Asia/Jakarta'
                               })}
                             </p>
                           </div>
@@ -439,10 +441,12 @@ async function renderManagerDashboard() {
                               ${startTime.toLocaleTimeString("id-ID", {
                                 hour: "2-digit",
                                 minute: "2-digit",
+                                timeZone: 'Asia/Jakarta'
                               })} - 
                               ${endTime.toLocaleTimeString("id-ID", {
                                 hour: "2-digit",
                                 minute: "2-digit",
+                                timeZone: 'Asia/Jakarta'
                               })}
                             </p>
                           </div>
