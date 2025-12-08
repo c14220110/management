@@ -635,9 +635,8 @@ export default async function handler(req, res) {
           .from("asset_loans")
           .select(`
             *,
-            profiles:user_id(full_name, email),
             product_templates:product_template_id(name),
-            product_units:asset_unit_id(asset_code, serial_number, template:product_template_id(name))
+            product_units:asset_unit_id(asset_code, serial_number, template:product_templates!template_id(name))
           `)
           .order("loan_date", { ascending: false });
         
@@ -648,9 +647,18 @@ export default async function handler(req, res) {
         const { data, error } = await query;
         if (error) throw error;
         
-        // Add item_name for easier access
+        // Fetch profiles separately for user_id (since user_id references auth.users, not profiles directly)
+        const userIds = [...new Set((data || []).map(d => d.user_id).filter(Boolean))];
+        let profilesMap = {};
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", userIds);
+          (profiles || []).forEach(p => profilesMap[p.id] = p);
+        }
+        
+        // Add item_name and profiles for easier access
         const result = (data || []).map(loan => ({
           ...loan,
+          profiles: profilesMap[loan.user_id] || null,
           item_name: loan.product_templates?.name || loan.product_units?.template?.name || 'Barang'
         }));
         
@@ -665,7 +673,7 @@ export default async function handler(req, res) {
           .from("transport_loans")
           .select(`
             *,
-            profiles:user_id(full_name, email),
+            profiles:borrower_id(full_name),
             transportations:transport_id(vehicle_name, plate_number)
           `)
           .order("borrow_start", { ascending: false });

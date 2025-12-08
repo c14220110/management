@@ -39,11 +39,12 @@ export async function getManagementEmails(requiredPrivilege) {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // 1. Get all profiles with role 'management'
+    // 1. Get all active profiles with role 'management' (exclude deactivated users)
     const { data: profiles, error } = await supabase
       .from('profiles')
       .select('id, privileges')
-      .eq('role', 'management');
+      .eq('role', 'management')
+      .eq('is_deleted', false);  // Exclude deactivated users
     
     if (error || !profiles) {
       console.error('Error fetching management profiles:', error);
