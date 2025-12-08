@@ -395,11 +395,16 @@ function openReservationModal(roomName) {
     onConfirm: async () => {
       const form = document.getElementById("reservation-form");
       const fd = new FormData(form);
+      
+      // Append WIB timezone offset to datetime-local values
+      const startRaw = fd.get("start_time");
+      const endRaw = fd.get("end_time");
+      
       const payload = {
         event_name: fd.get("event_name"),
         room_name: fd.get("room_name"),
-        start_time: fd.get("start_time"),
-        end_time: fd.get("end_time"),
+        start_time: startRaw ? startRaw + ":00+07:00" : null,
+        end_time: endRaw ? endRaw + ":00+07:00" : null,
       };
       
       try {

@@ -284,10 +284,15 @@ async function handleTransportBorrowSubmit(e) {
   showLoader();
 
   try {
+    // Append WIB timezone offset to datetime-local values
+    // datetime-local gives "2025-12-11T13:18", we need "2025-12-11T13:18:00+07:00"
+    const borrowStartRaw = document.getElementById("transport-borrow-start").value;
+    const borrowEndRaw = document.getElementById("transport-borrow-end").value;
+    
     const payload = {
       transport_id: document.getElementById("transport-borrow-id").value,
-      borrow_start: document.getElementById("transport-borrow-start").value,
-      borrow_end: document.getElementById("transport-borrow-end").value,
+      borrow_start: borrowStartRaw ? borrowStartRaw + ":00+07:00" : null,
+      borrow_end: borrowEndRaw ? borrowEndRaw + ":00+07:00" : null,
       purpose: document.getElementById("transport-borrow-purpose").value,
       origin: document.getElementById("transport-borrow-origin").value,
       destination: document.getElementById("transport-borrow-destination")
