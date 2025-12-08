@@ -625,6 +625,79 @@ export default async function handler(req, res) {
       }
 
       // ============================================================
+      // HISTORY REPORTS
+      // ============================================================
+      case "getAssetLoanHistory": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
+        const { startDate, endDate, status } = payload;
+        
+        let query = supabase
+          .from("asset_loans")
+          .select(`
+            *,
+            profiles:user_id(full_name, email),
+            product_templates:product_template_id(name),
+            product_units:asset_unit_id(asset_code, serial_number, template:product_template_id(name))
+          `)
+          .order("loan_date", { ascending: false });
+        
+        if (startDate) query = query.gte("loan_date", startDate);
+        if (endDate) query = query.lte("loan_date", endDate);
+        if (status) query = query.eq("status", status);
+        
+        const { data, error } = await query;
+        if (error) throw error;
+        
+        // Add item_name for easier access
+        const result = (data || []).map(loan => ({
+          ...loan,
+          item_name: loan.product_templates?.name || loan.product_units?.template?.name || 'Barang'
+        }));
+        
+        return res.status(200).json(result);
+      }
+
+      case "getTransportLoanHistory": {
+        if (!checkPrivilege(profile, "transport")) throw new Error("Akses ditolak: Butuh privilege 'transport'");
+        const { startDate, endDate, status } = payload;
+        
+        let query = supabase
+          .from("transport_loans")
+          .select(`
+            *,
+            profiles:user_id(full_name, email),
+            transportations:transport_id(vehicle_name, plate_number)
+          `)
+          .order("borrow_start", { ascending: false });
+        
+        if (startDate) query = query.gte("borrow_start", startDate);
+        if (endDate) query = query.lte("borrow_start", endDate);
+        if (status) query = query.eq("status", status);
+        
+        const { data, error } = await query;
+        if (error) throw error;
+        return res.status(200).json(data || []);
+      }
+
+      case "getRoomReservationHistory": {
+        if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
+        const { startDate, endDate, status } = payload;
+        
+        let query = supabase
+          .from("room_reservations")
+          .select("*")
+          .order("start_time", { ascending: false });
+        
+        if (startDate) query = query.gte("start_time", startDate);
+        if (endDate) query = query.lte("start_time", endDate);
+        if (status) query = query.eq("status", status);
+        
+        const { data, error } = await query;
+        if (error) throw error;
+        return res.status(200).json(data || []);
+      }
+
+      // ============================================================
       // USER MANAGEMENT
       // ============================================================
       case "getUsers": {

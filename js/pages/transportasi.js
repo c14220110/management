@@ -326,44 +326,12 @@ async function renderTransportManagementView() {
     managementUserListForTransport = [];
   }
 
-  container.innerHTML = `
-    <div class="mb-6">
-      <div class="flex flex-wrap gap-2">
-        <button onclick="showTransportManagementTab('list')" id="tab-transport-list" 
-          class="px-4 py-2 rounded-md bg-[#d97706] text-white font-semibold">
-          Daftar Kendaraan
-        </button>
-        <button onclick="showTransportManagementTab('pending')" id="tab-transport-pending" 
-          class="px-4 py-2 rounded-md bg-gray-200 text-gray-700 font-semibold">
-          Pending Requests
-        </button>
-      </div>
-    </div>
-    <div id="transport-management-content"></div>
-  `;
-
-  await showTransportManagementTab("list");
+  // Directly render the vehicle list (no tabs needed)
+  await renderTransportCrudView(container);
 }
 
-async function showTransportManagementTab(tab) {
-  document.getElementById("tab-transport-list").className =
-    tab === "list"
-      ? "px-4 py-2 rounded-md bg-[#d97706] text-white font-semibold"
-      : "px-4 py-2 rounded-md bg-gray-200 text-gray-700 font-semibold";
-  document.getElementById("tab-transport-pending").className =
-    tab === "pending"
-      ? "px-4 py-2 rounded-md bg-[#d97706] text-white font-semibold"
-      : "px-4 py-2 rounded-md bg-gray-200 text-gray-700 font-semibold";
-
-  if (tab === "list") {
-    await renderTransportCrudView();
-  } else {
-    await renderTransportPendingView();
-  }
-}
-
-async function renderTransportCrudView() {
-  const content = document.getElementById("transport-management-content");
+async function renderTransportCrudView(container) {
+  if (!container) container = document.getElementById("transportasi-content-area");
   showLoader();
 
   try {
@@ -371,8 +339,11 @@ async function renderTransportCrudView() {
       action: "getTransportations",
     });
 
-    content.innerHTML = `
-      <div class="flex justify-end mb-4">
+    container.innerHTML = `
+      <div class="flex justify-end mb-4 gap-3">
+        <button onclick="openHistoryModal('transport')" class="px-4 py-2 bg-white border border-gray-200 rounded-md text-gray-600 hover:bg-gray-50 flex items-center gap-2 shadow-sm">
+          <i class="fas fa-history"></i> Lihat Riwayat
+        </button>
         <button onclick="openTransportModal('create')" class="bg-[#d97706] text-white font-bold py-2 px-4 rounded-md hover:bg-[#b45309]">
           <i class="fas fa-plus mr-2"></i>Tambah Kendaraan
         </button>
@@ -421,9 +392,9 @@ async function renderTransportCrudView() {
         </table>
       </div>
     `;
-    initializeTransportActionMenus(content);
+    initializeTransportActionMenus(container);
   } catch (error) {
-    content.innerHTML = `<p class="text-red-500">Gagal memuat data: ${error.message}</p>`;
+    container.innerHTML = `<p class="text-red-500">Gagal memuat data: ${error.message}</p>`;
   } finally {
     hideLoader();
   }
@@ -525,109 +496,6 @@ async function renderTransportScheduleManagementView(transportData) {
   }
 }
 
-async function renderTransportPendingView() {
-  const content = document.getElementById("transport-management-content");
-  showLoader();
-
-  try {
-    const pendingLoans = await api.post("/api/management", {
-      action: "getPendingTransportLoans",
-    });
-
-    content.innerHTML = `
-      <div class="bg-white rounded-lg shadow-md overflow-x-auto">
-        <table class="min-w-full">
-          <thead class="bg-gray-100">
-            <tr>
-              <th class="text-left p-3">Pemohon</th>
-              <th class="text-left p-3">Kendaraan</th>
-              <th class="text-left p-3">Jadwal</th>
-              <th class="text-left p-3">Keperluan</th>
-              <th class="text-left p-3">Rute</th>
-              <th class="text-left p-3">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              !pendingLoans || pendingLoans.length === 0
-                ? `<tr><td colspan="6" class="p-4 text-center text-gray-500">Tidak ada permintaan menunggu.</td></tr>`
-                : pendingLoans
-                    .map(
-                      (loan) => `
-                <tr class="border-b hover:bg-gray-50">
-                  <td class="p-3 font-medium">${
-                    loan.profiles?.full_name || "-"
-                  }</td>
-                  <td class="p-3">
-                    ${loan.transportations?.vehicle_name || "-"}<br>
-                    <span class="text-xs text-gray-500">${
-                      loan.transportations?.plate_number || ""
-                    }</span>
-                  </td>
-                  <td class="p-3 text-sm">
-                    ${new Date(loan.borrow_start).toLocaleString("id-ID")}<br>
-                    <span class="text-gray-500">s/d</span><br>
-                    ${new Date(loan.borrow_end).toLocaleString("id-ID")}
-                  </td>
-                  <td class="p-3">${loan.purpose || "-"}</td>
-                  <td class="p-3 text-sm">
-                    ${loan.origin || "-"} → ${loan.destination || "-"}<br>
-                    <span class="text-xs text-gray-500">${
-                      loan.passengers_count || 1
-                    } org</span>
-                  </td>
-                  <td class="p-3 whitespace-nowrap">
-                    <button onclick="updateTransportLoanStatus('${
-                      loan.id
-                    }', 'Disetujui')" 
-                      class="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 mr-2">
-                      <i class="fas fa-check"></i> Setujui
-                    </button>
-                    <button onclick="updateTransportLoanStatus('${
-                      loan.id
-                    }', 'Ditolak')" 
-                      class="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600">
-                      <i class="fas fa-times"></i> Tolak
-                    </button>
-                  </td>
-                </tr>
-              `
-                    )
-                    .join("")
-            }
-          </tbody>
-        </table>
-      </div>
-    `;
-  } catch (error) {
-    content.innerHTML = `<p class="text-red-500">Gagal memuat data: ${error.message}</p>`;
-  } finally {
-    hideLoader();
-  }
-}
-
-async function updateTransportLoanStatus(loanId, newStatus) {
-  if (
-    !confirm(
-      `Yakin ingin ${
-        newStatus === "Disetujui" ? "menyetujui" : "menolak"
-      } peminjaman ini?`
-    )
-  ) {
-    return;
-  }
-
-  try {
-    const result = await api.post("/api/management", {
-      action: "updateTransportLoanStatus",
-      payload: { loanId, newStatus },
-    });
-    notifySuccess(result.message);
-    await renderTransportPendingView();
-  } catch (error) {
-    alert("Gagal: " + error.message);
-  }
-}
 
 function openTransportModal(mode, data = {}) {
   let modal = document.getElementById("transport-modal");

@@ -70,6 +70,9 @@ async function renderBarangManagementView() {
             <button id="product-add-btn" class="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-600 shadow-lg shadow-amber-500/30 flex items-center gap-2 transition-all">
               <i class="fas fa-plus"></i> Tambah Produk
             </button>
+            <button onclick="openHistoryModal('asset')" class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 flex items-center gap-2 shadow-sm">
+              <i class="fas fa-history"></i> Lihat Riwayat
+            </button>
             <button id="product-refresh-btn" class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 flex items-center gap-2 shadow-sm">
               <i class="fas fa-sync"></i>
             </button>
