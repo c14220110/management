@@ -1168,7 +1168,69 @@ export default async function handler(req, res) {
           checker: profilesMap[item.checked_by] || { full_name: "Unknown" }
         }));
 
-        return res.status(200).json({ opname, items: itemsWithChecker });
+        // Calculate comprehensive statistics
+        const totalChecked = itemsWithChecker.length;
+        const matched = itemsWithChecker.filter(i => i.system_qty === i.actual_qty).length;
+        const mismatched = itemsWithChecker.filter(i => i.system_qty !== i.actual_qty).length;
+        const missing = itemsWithChecker.filter(i => i.actual_qty < i.system_qty).length;
+        const excess = itemsWithChecker.filter(i => i.actual_qty > i.system_qty).length;
+        
+        // Calculate total quantities
+        const totalSystemQty = itemsWithChecker.reduce((sum, i) => sum + (i.system_qty || 0), 0);
+        const totalActualQty = itemsWithChecker.reduce((sum, i) => sum + (i.actual_qty || 0), 0);
+        const totalDiscrepancy = totalActualQty - totalSystemQty;
+        
+        // Calculate accuracy percentage
+        const accuracyRate = totalChecked > 0 ? Math.round((matched / totalChecked) * 100) : 0;
+        
+        // Category breakdown
+        const categoryBreakdown = {};
+        itemsWithChecker.forEach(item => {
+          const catName = item.template?.category?.name || "Lainnya";
+          if (!categoryBreakdown[catName]) {
+            categoryBreakdown[catName] = { checked: 0, matched: 0, mismatched: 0 };
+          }
+          categoryBreakdown[catName].checked++;
+          if (item.system_qty === item.actual_qty) {
+            categoryBreakdown[catName].matched++;
+          } else {
+            categoryBreakdown[catName].mismatched++;
+          }
+        });
+
+        // Get total product units in inventory for context
+        const { count: totalUnitsInInventory } = await supabase
+          .from("product_units")
+          .select("*", { count: "exact", head: true })
+          .not("status", "eq", "scrapped");
+
+        // Get checker who did the most checks
+        const checkerCounts = {};
+        itemsWithChecker.forEach(item => {
+          const checkerName = item.checker?.full_name || "Unknown";
+          checkerCounts[checkerName] = (checkerCounts[checkerName] || 0) + 1;
+        });
+        const topCheckers = Object.entries(checkerCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([name, count]) => ({ name, count }));
+
+        const summary = {
+          totalChecked,
+          totalUnitsInInventory: totalUnitsInInventory || 0,
+          matched,
+          mismatched,
+          missing,
+          excess,
+          totalSystemQty,
+          totalActualQty,
+          totalDiscrepancy,
+          accuracyRate,
+          categoryBreakdown,
+          topCheckers
+        };
+
+        return res.status(200).json({ opname, items: itemsWithChecker, summary });
       }
 
       case "getPendingTransportLoans": {

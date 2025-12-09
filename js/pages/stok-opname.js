@@ -630,34 +630,108 @@ async function openOpnameDetail(opnameId) {
   });
   
   if (!res.ok) { notifyError("Gagal mengambil detail"); return; }
-  const { opname, items } = await res.json();
+  const { opname, items, summary } = await res.json();
 
+  // Build stats cards HTML
+  const statsHTML = `
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div class="bg-blue-50 rounded-lg p-3 text-center">
+        <p class="text-2xl font-bold text-blue-600">${summary.totalChecked}</p>
+        <p class="text-xs text-gray-500">dari ${summary.totalUnitsInInventory} unit</p>
+        <p class="text-sm font-medium text-gray-700">Item Dicek</p>
+      </div>
+      <div class="bg-green-50 rounded-lg p-3 text-center">
+        <p class="text-2xl font-bold text-green-600">${summary.accuracyRate}%</p>
+        <p class="text-xs text-gray-500">${summary.matched} sesuai</p>
+        <p class="text-sm font-medium text-gray-700">Akurasi</p>
+      </div>
+      <div class="bg-red-50 rounded-lg p-3 text-center">
+        <p class="text-2xl font-bold text-red-600">${summary.mismatched}</p>
+        <p class="text-xs text-gray-500">${summary.missing} kurang, ${summary.excess} lebih</p>
+        <p class="text-sm font-medium text-gray-700">Tidak Sesuai</p>
+      </div>
+      <div class="bg-amber-50 rounded-lg p-3 text-center">
+        <p class="text-2xl font-bold ${summary.totalDiscrepancy >= 0 ? 'text-green-600' : 'text-red-600'}">${summary.totalDiscrepancy >= 0 ? '+' : ''}${summary.totalDiscrepancy}</p>
+        <p class="text-xs text-gray-500">Sistem: ${summary.totalSystemQty}, Aktual: ${summary.totalActualQty}</p>
+        <p class="text-sm font-medium text-gray-700">Selisih Qty</p>
+      </div>
+    </div>
+  `;
+
+  // Category breakdown
+  const categoryHTML = Object.keys(summary.categoryBreakdown).length > 0 ? `
+    <div class="mb-4 bg-gray-50 rounded-lg p-3">
+      <h4 class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-layer-group mr-1"></i>Per Kategori</h4>
+      <div class="flex flex-wrap gap-2">
+        ${Object.entries(summary.categoryBreakdown).map(([cat, data]) => `
+          <div class="bg-white px-3 py-1 rounded-full text-xs border">
+            <span class="font-medium">${cat}:</span>
+            <span class="text-green-600">${data.matched}✓</span>
+            ${data.mismatched > 0 ? `<span class="text-red-600">${data.mismatched}✗</span>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  // Top checkers
+  const checkersHTML = summary.topCheckers.length > 0 ? `
+    <div class="mb-4 flex items-center gap-3 text-xs text-gray-500">
+      <span><i class="fas fa-user-check mr-1"></i>Petugas:</span>
+      ${summary.topCheckers.map(c => `<span class="bg-gray-100 px-2 py-1 rounded">${c.name} (${c.count})</span>`).join('')}
+    </div>
+  ` : '';
+
+  // Table rows
   const rows = items.map(item => `
-    <tr class="border-b">
-      <td class="p-3">${item.template?.name}</td>
+    <tr class="border-b hover:bg-gray-50">
+      <td class="p-3">${item.template?.name || '-'}</td>
       <td class="p-3 font-mono text-xs">${item.unit?.asset_code || item.unit?.serial_number || "-"}</td>
       <td class="p-3 text-center">${item.system_qty}</td>
       <td class="p-3 text-center font-bold ${item.actual_qty !== item.system_qty ? 'text-red-600' : 'text-green-600'}">${item.actual_qty}</td>
+      <td class="p-3 text-center ${item.actual_qty !== item.system_qty ? 'text-red-600 font-bold' : 'text-gray-400'}">${item.actual_qty - item.system_qty !== 0 ? (item.actual_qty - item.system_qty > 0 ? '+' : '') + (item.actual_qty - item.system_qty) : '-'}</td>
       <td class="p-3 text-sm text-gray-500">${item.notes || "-"}</td>
-      <td class="p-3 text-xs text-gray-400">${item.checker?.full_name}</td>
+      <td class="p-3 text-xs text-gray-400">${item.checker?.full_name || '-'}</td>
+      <td class="p-3 text-xs text-gray-400">${item.checked_at ? new Date(item.checked_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
     </tr>
   `).join("");
 
+  // Export functions stored globally for this modal
+  window._opnameExportData = { opname, items, summary };
+
   const content = `
-    <div class="mb-4">
-      <p class="text-sm text-gray-500">Tanggal: ${new Date(opname.start_date).toLocaleDateString()} - ${new Date(opname.end_date).toLocaleDateString()}</p>
-      <p class="text-sm text-gray-500">Total Item Dicek: ${items.length}</p>
+    <div class="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <div>
+        <p class="text-sm text-gray-500"><i class="fas fa-calendar-alt mr-1"></i>Periode: ${new Date(opname.start_date).toLocaleDateString('id-ID')} - ${opname.end_date ? new Date(opname.end_date).toLocaleDateString('id-ID') : 'Berlangsung'}</p>
+        <p class="text-sm text-gray-500"><i class="fas fa-clipboard-check mr-1"></i>Status: <span class="${opname.status === 'completed' ? 'text-green-600' : 'text-amber-600'} font-medium">${opname.status === 'completed' ? 'Selesai' : 'Berlangsung'}</span></p>
+        ${opname.notes ? `<p class="text-sm text-gray-500 mt-1"><i class="fas fa-sticky-note mr-1"></i>${opname.notes}</p>` : ''}
+      </div>
+      <div class="flex gap-2">
+        <button onclick="exportOpnameToCSV()" class="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm rounded-lg flex items-center gap-1">
+          <i class="fas fa-file-csv"></i> CSV
+        </button>
+        <button onclick="exportOpnameToExcel()" class="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg flex items-center gap-1">
+          <i class="fas fa-file-excel"></i> Excel
+        </button>
+      </div>
     </div>
-    <div class="overflow-x-auto max-h-[60vh]">
+    
+    ${statsHTML}
+    ${categoryHTML}
+    ${checkersHTML}
+    
+    <div class="overflow-x-auto max-h-[45vh] border rounded-lg">
       <table class="min-w-full text-sm">
-        <thead class="bg-gray-50 sticky top-0">
+        <thead class="bg-gray-100 sticky top-0">
           <tr>
             <th class="p-3 text-left">Produk</th>
-            <th class="p-3 text-left">Unit Code</th>
-            <th class="p-3 text-center">Sys Qty</th>
-            <th class="p-3 text-center">Act Qty</th>
+            <th class="p-3 text-left">Kode Unit</th>
+            <th class="p-3 text-center">Sistem</th>
+            <th class="p-3 text-center">Aktual</th>
+            <th class="p-3 text-center">Selisih</th>
             <th class="p-3 text-left">Catatan</th>
-            <th class="p-3 text-left">Checker</th>
+            <th class="p-3 text-left">Petugas</th>
+            <th class="p-3 text-left">Waktu Cek</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
@@ -666,9 +740,116 @@ async function openOpnameDetail(opnameId) {
   `;
 
   openGlobalModal({
-    title: `Detail: ${opname.title}`,
+    title: `<i class="fas fa-clipboard-list mr-2"></i>Detail: ${opname.title}`,
     contentHTML: content,
     confirmText: "Tutup",
     onConfirm: () => closeGlobalModal()
   });
+}
+
+// Export functions for Stock Opname
+function exportOpnameToCSV() {
+  const { opname, items, summary } = window._opnameExportData;
+  if (!items || items.length === 0) { notifyError("Tidak ada data untuk diekspor"); return; }
+
+  const headers = ['Produk', 'Kode Unit', 'Serial Number', 'Kategori', 'Qty Sistem', 'Qty Aktual', 'Selisih', 'Status', 'Catatan', 'Petugas', 'Waktu Cek'];
+  const rows = items.map(item => [
+    item.template?.name || '',
+    item.unit?.asset_code || '',
+    item.unit?.serial_number || '',
+    item.template?.category?.name || '',
+    item.system_qty,
+    item.actual_qty,
+    item.actual_qty - item.system_qty,
+    item.system_qty === item.actual_qty ? 'Sesuai' : (item.actual_qty < item.system_qty ? 'Kurang' : 'Lebih'),
+    (item.notes || '').replace(/"/g, '""'),
+    item.checker?.full_name || '',
+    item.checked_at ? new Date(item.checked_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''
+  ]);
+
+  // Add summary section
+  const summaryRows = [
+    [],
+    ['RINGKASAN OPNAME'],
+    ['Judul', opname.title],
+    ['Periode', `${new Date(opname.start_date).toLocaleDateString('id-ID')} - ${opname.end_date ? new Date(opname.end_date).toLocaleDateString('id-ID') : 'Berlangsung'}`],
+    ['Total Item Dicek', `${summary.totalChecked} dari ${summary.totalUnitsInInventory} unit`],
+    ['Akurasi', `${summary.accuracyRate}%`],
+    ['Sesuai', summary.matched],
+    ['Tidak Sesuai', summary.mismatched],
+    ['Kurang', summary.missing],
+    ['Lebih', summary.excess],
+    ['Total Qty Sistem', summary.totalSystemQty],
+    ['Total Qty Aktual', summary.totalActualQty],
+    ['Total Selisih', summary.totalDiscrepancy],
+    []
+  ];
+
+  const allRows = [...summaryRows, headers, ...rows];
+  const csv = allRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `opname_${opname.title.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.csv`;
+  link.click();
+  notifySuccess("File CSV berhasil diunduh!");
+}
+
+function exportOpnameToExcel() {
+  const { opname, items, summary } = window._opnameExportData;
+  if (!items || items.length === 0) { notifyError("Tidak ada data untuk diekspor"); return; }
+
+  const headers = ['Produk', 'Kode Unit', 'Serial Number', 'Kategori', 'Qty Sistem', 'Qty Aktual', 'Selisih', 'Status', 'Catatan', 'Petugas', 'Waktu Cek'];
+  const rows = items.map(item => [
+    item.template?.name || '',
+    item.unit?.asset_code || '',
+    item.unit?.serial_number || '',
+    item.template?.category?.name || '',
+    item.system_qty,
+    item.actual_qty,
+    item.actual_qty - item.system_qty,
+    item.system_qty === item.actual_qty ? 'Sesuai' : (item.actual_qty < item.system_qty ? 'Kurang' : 'Lebih'),
+    item.notes || '',
+    item.checker?.full_name || '',
+    item.checked_at ? new Date(item.checked_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''
+  ]);
+
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+  <Styles>
+    <Style ss:ID="header"><Font ss:Bold="1"/><Interior ss:Color="#E0E0E0" ss:Pattern="Solid"/></Style>
+    <Style ss:ID="match"><Font ss:Color="#16A34A"/></Style>
+    <Style ss:ID="mismatch"><Font ss:Color="#DC2626" ss:Bold="1"/></Style>
+  </Styles>
+  <Worksheet ss:Name="Ringkasan">
+    <Table>
+      <Row><Cell ss:StyleID="header"><Data ss:Type="String">RINGKASAN OPNAME: ${opname.title}</Data></Cell></Row>
+      <Row><Cell><Data ss:Type="String">Periode</Data></Cell><Cell><Data ss:Type="String">${new Date(opname.start_date).toLocaleDateString('id-ID')} - ${opname.end_date ? new Date(opname.end_date).toLocaleDateString('id-ID') : 'Berlangsung'}</Data></Cell></Row>
+      <Row><Cell><Data ss:Type="String">Total Item Dicek</Data></Cell><Cell><Data ss:Type="String">${summary.totalChecked} dari ${summary.totalUnitsInInventory} unit</Data></Cell></Row>
+      <Row><Cell><Data ss:Type="String">Akurasi</Data></Cell><Cell><Data ss:Type="String">${summary.accuracyRate}%</Data></Cell></Row>
+      <Row><Cell><Data ss:Type="String">Sesuai</Data></Cell><Cell><Data ss:Type="Number">${summary.matched}</Data></Cell></Row>
+      <Row><Cell><Data ss:Type="String">Tidak Sesuai</Data></Cell><Cell><Data ss:Type="Number">${summary.mismatched}</Data></Cell></Row>
+      <Row><Cell><Data ss:Type="String">Kurang</Data></Cell><Cell><Data ss:Type="Number">${summary.missing}</Data></Cell></Row>
+      <Row><Cell><Data ss:Type="String">Lebih</Data></Cell><Cell><Data ss:Type="Number">${summary.excess}</Data></Cell></Row>
+      <Row><Cell><Data ss:Type="String">Total Selisih Qty</Data></Cell><Cell><Data ss:Type="Number">${summary.totalDiscrepancy}</Data></Cell></Row>
+    </Table>
+  </Worksheet>
+  <Worksheet ss:Name="Detail Item">
+    <Table>
+      <Row>${headers.map(h => `<Cell ss:StyleID="header"><Data ss:Type="String">${h}</Data></Cell>`).join('')}</Row>
+      ${rows.map(row => `<Row>${row.map((cell, idx) => {
+        const styleId = idx === 7 ? (cell === 'Sesuai' ? 'match' : 'mismatch') : '';
+        return `<Cell${styleId ? ` ss:StyleID="${styleId}"` : ''}><Data ss:Type="${typeof cell === 'number' ? 'Number' : 'String'}">${cell}</Data></Cell>`;
+      }).join('')}</Row>`).join('\n      ')}
+    </Table>
+  </Worksheet>
+</Workbook>`;
+
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = `opname_${opname.title.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.xls`;
+  link.click();
+  notifySuccess("File Excel berhasil diunduh!");
 }
