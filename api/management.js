@@ -1223,7 +1223,6 @@ export default async function handler(req, res) {
           .from("asset_loans")
           .select(`
             *,
-            profiles:user_id (full_name),
             product_units:asset_unit_id (
               asset_code, 
               serial_number,
@@ -1240,7 +1239,25 @@ export default async function handler(req, res) {
         
         const { data: aData, error: aHistError } = await aQuery;
         if (aHistError) throw aHistError;
-        return res.status(200).json(aData);
+
+        // Manually fetch profiles for user_ids since they reference auth.users not profiles directly
+        const userIds = [...new Set((aData || []).map(l => l.user_id).filter(Boolean))];
+        let profileMap = new Map();
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", userIds);
+          (profiles || []).forEach(p => profileMap.set(p.id, p.full_name));
+        }
+
+        // Attach profiles to the data
+        const result = (aData || []).map(loan => ({
+          ...loan,
+          profiles: { full_name: profileMap.get(loan.user_id) || null }
+        }));
+
+        return res.status(200).json(result);
       }
 
       default:
