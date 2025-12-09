@@ -3,29 +3,19 @@
  * Handles user CRUD operations for management role
  */
 
-// State for search and filtering
+// State for user management
 const userManagementState = {
-  search: "",
-  allUsers: []
+  allUsers: [],
+  searchQuery: ""
 };
 
-// Debounce utility
-function debounce(fn, delay) {
+// Debounce helper
+function userDebounce(fn, delay) {
   let timer;
   return function(...args) {
     clearTimeout(timer);
     timer = setTimeout(() => fn.apply(this, args), delay);
   };
-}
-
-// Filter users by search query
-function filterUsers(users, query) {
-  if (!query) return users;
-  const q = query.toLowerCase();
-  return users.filter(u => 
-    (u.full_name || '').toLowerCase().includes(q) ||
-    (u.email || '').toLowerCase().includes(q)
-  );
 }
 
 async function loadUserManagementPage() {
@@ -37,71 +27,9 @@ async function loadUserManagementPage() {
       .getElementById("user-management-template")
       .content.cloneNode(true);
     contentArea.appendChild(template);
-    const container = document.getElementById("user-management-content-area");
-    container.innerHTML = `
-      <!-- Search Bar -->
-      <div class="bg-white rounded-2xl shadow-md p-4 lg:p-6 mb-6">
-        <div class="relative">
-          <span class="absolute inset-y-0 left-4 flex items-center text-gray-400"><i class="fas fa-search text-lg"></i></span>
-          <input id="user-search-input" type="text" value="${userManagementState.search || ""}" 
-            placeholder="Cari nama pengguna atau email..."
-            class="w-full pl-12 pr-4 py-3.5 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-gray-50 transition-all"/>
-        </div>
-      </div>
-
-      <!-- Management Users Section -->
-      <div class="mb-8">
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-lg font-bold text-gray-800">Management Users</h3>
-          <button id="add-management-btn" class="bg-amber-600 text-white font-bold py-2 px-4 rounded-md hover:bg-amber-700 shadow-sm transition-all">
-            <i class="fas fa-user-shield mr-2"></i>Tambah User Management
-          </button>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <table class="min-w-full text-sm text-left table-fixed">
-            <thead class="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
-              <tr>
-                <th class="p-4 w-[40%]">Nama Lengkap</th>
-                <th class="p-4 w-[40%]">Email</th>
-                <th class="p-4 text-center w-[20%]">Aksi</th>
-              </tr>
-            </thead>
-            <tbody id="management-table-body" class="divide-y divide-gray-100"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Member Users Section -->
-      <div>
-        <div class="flex justify-between items-center mb-4">
-          <h3 class="text-lg font-bold text-gray-800">Member Users</h3>
-          <button id="add-member-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 shadow-sm transition-all">
-            <i class="fas fa-user mr-2"></i>Tambah User Member
-          </button>
-        </div>
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <table class="min-w-full text-sm text-left table-fixed">
-            <thead class="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
-              <tr>
-                <th class="p-4 w-[40%]">Nama Lengkap</th>
-                <th class="p-4 w-[40%]">Email</th>
-                <th class="p-4 text-center w-[20%]">Aksi</th>
-              </tr>
-            </thead>
-            <tbody id="member-table-body" class="divide-y divide-gray-100"></tbody>
-          </table>
-        </div>
-      </div>
-    `;
-
-    document.getElementById("add-management-btn").addEventListener("click", () => openUserModal("create", {}, "management"));
-    document.getElementById("add-member-btn").addEventListener("click", () => openUserModal("create", {}, "member"));
     
-    // Search handler
-    document.getElementById("user-search-input")?.addEventListener("input", debounce((e) => {
-      userManagementState.search = e.target.value;
-      renderUserTables(userManagementState.allUsers);
-    }, 300));
+    // Reset search on page load
+    userManagementState.searchQuery = "";
     
     await refreshUserTable();
   } catch (error) {
@@ -112,37 +40,123 @@ async function loadUserManagementPage() {
 }
 
 async function refreshUserTable() {
-  const mgmtBody = document.getElementById("management-table-body");
-  const memberBody = document.getElementById("member-table-body");
+  const container = document.getElementById("user-management-content-area");
+  if (!container) return;
   
-  if (mgmtBody) mgmtBody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-gray-400">Memuat data...</td></tr>`;
-  if (memberBody) memberBody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-gray-400">Memuat data...</td></tr>`;
+  container.innerHTML = `<div class="flex items-center justify-center py-12"><i class="fas fa-spinner fa-spin text-3xl text-amber-500"></i></div>`;
 
   try {
     const users = await api.post("/api/management", {
       action: "getUsers",
     });
-    userManagementState.allUsers = users; // Store in state
-    renderUserTables(users);
+    userManagementState.allUsers = users || [];
+    renderUserManagementUI();
   } catch (error) {
-    const errHtml = `<tr><td colspan="3" class="p-4 text-center text-red-500">Gagal memuat data: ${error.message}</td></tr>`;
-    if (mgmtBody) mgmtBody.innerHTML = errHtml;
-    if (memberBody) memberBody.innerHTML = errHtml;
+    container.innerHTML = `<div class="bg-red-50 text-red-700 p-6 rounded-xl border border-red-200"><i class="fas fa-exclamation-circle mr-2"></i>Gagal memuat data: ${error.message}</div>`;
   }
 }
 
-function renderUserTables(users) {
-  // Apply search filter
-  const filtered = filterUsers(users, userManagementState.search);
-  
-  const mgmtUsers = filtered.filter(u => u.role === "management");
-  const memberUsers = filtered.filter(u => u.role === "member" || !u.role);
+function filterUsers(users) {
+  if (!userManagementState.searchQuery) return users;
+  const q = userManagementState.searchQuery.toLowerCase();
+  return users.filter(u => 
+    (u.full_name || "").toLowerCase().includes(q) || 
+    (u.email || "").toLowerCase().includes(q)
+  );
+}
 
+function renderUserManagementUI() {
+  const container = document.getElementById("user-management-content-area");
+  if (!container) return;
+  
+  const allUsers = userManagementState.allUsers;
+  const filteredUsers = filterUsers(allUsers);
+  const mgmtUsers = filteredUsers.filter(u => u.role === "management");
+  const memberUsers = filteredUsers.filter(u => u.role === "member" || !u.role);
+  
+  container.innerHTML = `
+    <!-- Search Bar -->
+    <div class="bg-white rounded-2xl shadow-md p-4 lg:p-6 mb-6">
+      <div class="relative">
+        <span class="absolute inset-y-0 left-4 flex items-center text-gray-400"><i class="fas fa-search text-lg"></i></span>
+        <input id="user-search-input" type="text" value="${userManagementState.searchQuery || ""}" 
+          placeholder="Cari nama atau email pengguna..."
+          class="w-full pl-12 pr-4 py-3.5 text-lg border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-gray-50 transition-all"/>
+      </div>
+      ${userManagementState.searchQuery ? `
+        <div class="flex items-center justify-between text-sm text-gray-500 mt-3 pt-3 border-t border-gray-100">
+          <span><strong class="text-gray-800">${filteredUsers.length}</strong> dari ${allUsers.length} pengguna</span>
+          <button id="user-search-reset" class="text-amber-600 hover:text-amber-700"><i class="fas fa-times mr-1"></i>Reset</button>
+        </div>
+      ` : ""}
+    </div>
+
+    <!-- Management Users Section -->
+    <div class="mb-8">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-gray-800">Management Users <span class="text-sm font-normal text-gray-500">(${mgmtUsers.length})</span></h3>
+        <button id="add-management-btn" class="bg-amber-600 text-white font-bold py-2 px-4 rounded-md hover:bg-amber-700 shadow-sm transition-all">
+          <i class="fas fa-user-shield mr-2"></i>Tambah User Management
+        </button>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table class="min-w-full text-sm text-left table-fixed">
+          <thead class="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
+            <tr>
+              <th class="p-4 w-[40%]">Nama Lengkap</th>
+              <th class="p-4 w-[40%]">Email</th>
+              <th class="p-4 text-center w-[20%]">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="management-table-body" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Member Users Section -->
+    <div>
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold text-gray-800">Member Users <span class="text-sm font-normal text-gray-500">(${memberUsers.length})</span></h3>
+        <button id="add-member-btn" class="bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 shadow-sm transition-all">
+          <i class="fas fa-user mr-2"></i>Tambah User Member
+        </button>
+      </div>
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <table class="min-w-full text-sm text-left table-fixed">
+          <thead class="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
+            <tr>
+              <th class="p-4 w-[40%]">Nama Lengkap</th>
+              <th class="p-4 w-[40%]">Email</th>
+              <th class="p-4 text-center w-[20%]">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="member-table-body" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  // Render table bodies
   renderSingleTable("management-table-body", mgmtUsers);
   renderSingleTable("member-table-body", memberUsers);
   
+  // Event listeners
+  document.getElementById("add-management-btn")?.addEventListener("click", () => openUserModal("create", {}, "management"));
+  document.getElementById("add-member-btn")?.addEventListener("click", () => openUserModal("create", {}, "member"));
+  
+  document.getElementById("user-search-input")?.addEventListener("input", userDebounce((e) => {
+    userManagementState.searchQuery = e.target.value;
+    renderUserManagementUI();
+  }, 300));
+  
+  document.getElementById("user-search-reset")?.addEventListener("click", () => {
+    userManagementState.searchQuery = "";
+    renderUserManagementUI();
+  });
+  
   initializeUserActionMenus();
 }
+
 
 function renderSingleTable(elementId, users) {
   const tbody = document.getElementById(elementId);
@@ -154,15 +168,16 @@ function renderSingleTable(elementId, users) {
   }
 
   tbody.innerHTML = users.map(user => {
-    const isDeactivated = user.is_deleted === true;
-    const rowClass = isDeactivated ? 'bg-gray-100 opacity-60' : 'hover:bg-gray-50';
-    const nameDisplay = user.full_name || user.email;
-    const statusBadge = isDeactivated ? '<span class="ml-2 px-2 py-0.5 text-xs bg-red-100 text-red-600 rounded-full">Nonaktif</span>' : '';
+    const isDeleted = user.is_deleted || false;
+    const rowClass = isDeleted ? "bg-gray-100 opacity-60" : "hover:bg-gray-50";
+    const statusBadge = isDeleted ? `<span class="ml-2 px-2 py-0.5 bg-red-100 text-red-600 text-xs rounded-full font-medium">Nonaktif</span>` : "";
     
     return `
     <tr class="${rowClass} transition-colors">
-      <td class="p-4 font-medium text-gray-800">${nameDisplay}${statusBadge}</td>
-      <td class="p-4 text-gray-600">${user.email}</td>
+      <td class="p-4 font-medium ${isDeleted ? 'text-gray-500' : 'text-gray-800'}">
+        ${user.full_name || user.email}${statusBadge}
+      </td>
+      <td class="p-4 ${isDeleted ? 'text-gray-400' : 'text-gray-600'}">${user.email}</td>
       <td class="p-4 text-center">
         <button
           type="button"
@@ -172,14 +187,13 @@ function renderSingleTable(elementId, users) {
           data-user-email="${user.email}"
           data-user-role="${user.role || 'member'}"
           data-user-privileges='${JSON.stringify(user.privileges || [])}'
-          data-user-deleted="${isDeactivated}"
+          data-user-is-deleted="${isDeleted}"
         >
           <i class="fas fa-ellipsis-v"></i>
         </button>
       </td>
     </tr>
-  `;
-  }).join("");
+  `}).join("");
 }
 
 function initializeUserActionMenus() {
@@ -199,14 +213,14 @@ function initializeUserActionMenus() {
       event.preventDefault();
       event.stopPropagation();
 
-      const isDeactivated = button.dataset.userDeleted === 'true';
+      const isDeleted = button.dataset.userIsDeleted === 'true';
       const userData = {
         id: button.dataset.userId,
         name: button.dataset.userName,
         email: button.dataset.userEmail,
         role: button.dataset.userRole,
         privileges: JSON.parse(button.dataset.userPrivileges || '[]'),
-        is_deleted: isDeactivated
+        is_deleted: isDeleted
       };
       
       openGlobalActionMenu({
@@ -219,10 +233,10 @@ function initializeUserActionMenus() {
             onClick: () => openUserModal("edit", userData, userData.role),
           },
           {
-            label: isDeactivated ? "Aktifkan" : "Nonaktifkan",
-            icon: isDeactivated ? "fas fa-user-check" : "fas fa-user-slash",
-            className: isDeactivated ? "text-green-600" : "text-gray-600",
-            onClick: () => toggleUserStatus(userData.id, !isDeactivated),
+            label: isDeleted ? "Aktifkan" : "Nonaktifkan",
+            icon: isDeleted ? "fas fa-user-check" : "fas fa-user-slash",
+            className: isDeleted ? "text-green-600" : "text-orange-600",
+            onClick: () => toggleUserStatus(userData.id, !isDeleted),
           },
           {
             label: "Hapus",
@@ -252,20 +266,20 @@ async function deleteUserAccount(userId) {
   }
 }
 
-async function toggleUserStatus(userId, isDeleted) {
-  const action = isDeleted ? "menonaktifkan" : "mengaktifkan";
-  if (!confirm(`Apakah Anda yakin ingin ${action} user ini?`)) {
+async function toggleUserStatus(userId, newStatus) {
+  const actionText = newStatus ? "menonaktifkan" : "mengaktifkan kembali";
+  if (!confirm(`Apakah Anda yakin ingin ${actionText} user ini?`)) {
     return;
   }
   try {
     const res = await api.post("/api/management", {
       action: "toggleUserStatus",
-      payload: { userId, isDeleted },
+      payload: { userId, is_deleted: newStatus },
     });
     notifySuccess(res.message);
     refreshUserTable();
   } catch (err) {
-    alert(`Gagal ${action}: ${err.message}`);
+    alert(`Gagal ${actionText}: ${err.message}`);
   }
 }
 

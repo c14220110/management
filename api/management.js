@@ -2,12 +2,6 @@
 
 import { createClient } from "@supabase/supabase-js";
 
-// Helper: Get current date in WIB (Asia/Jakarta) timezone
-function getWIBISOString() {
-  const date = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
-  return date.toISOString();
-}
-
 // Helper untuk verifikasi role management
 // Helper untuk verifikasi role management
 async function verifyManagement(req) {
@@ -586,7 +580,7 @@ export default async function handler(req, res) {
         // Update loan status
         const updateData = { status: newStatus };
         if (newStatus === "Dikembalikan") {
-          updateData.return_date = getWIBISOString();
+          updateData.return_date = new Date().toISOString();
         }
 
         const { error: updateError } = await supabase
@@ -625,87 +619,6 @@ export default async function handler(req, res) {
       }
 
       // ============================================================
-      // HISTORY REPORTS
-      // ============================================================
-      case "getAssetLoanHistory": {
-        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
-        const { startDate, endDate, status } = payload;
-        
-        let query = supabase
-          .from("asset_loans")
-          .select(`
-            *,
-            product_templates:product_template_id(name),
-            product_units:asset_unit_id(asset_code, serial_number, template:product_templates!template_id(name))
-          `)
-          .order("loan_date", { ascending: false });
-        
-        if (startDate) query = query.gte("loan_date", startDate);
-        if (endDate) query = query.lte("loan_date", endDate);
-        if (status) query = query.eq("status", status);
-        
-        const { data, error } = await query;
-        if (error) throw error;
-        
-        // Fetch profiles separately for user_id (since user_id references auth.users, not profiles directly)
-        const userIds = [...new Set((data || []).map(d => d.user_id).filter(Boolean))];
-        let profilesMap = {};
-        if (userIds.length > 0) {
-          const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", userIds);
-          (profiles || []).forEach(p => profilesMap[p.id] = p);
-        }
-        
-        // Add item_name and profiles for easier access
-        const result = (data || []).map(loan => ({
-          ...loan,
-          profiles: profilesMap[loan.user_id] || null,
-          item_name: loan.product_templates?.name || loan.product_units?.template?.name || 'Barang'
-        }));
-        
-        return res.status(200).json(result);
-      }
-
-      case "getTransportLoanHistory": {
-        if (!checkPrivilege(profile, "transport")) throw new Error("Akses ditolak: Butuh privilege 'transport'");
-        const { startDate, endDate, status } = payload;
-        
-        let query = supabase
-          .from("transport_loans")
-          .select(`
-            *,
-            profiles:borrower_id(full_name),
-            transportations:transport_id(vehicle_name, plate_number)
-          `)
-          .order("borrow_start", { ascending: false });
-        
-        if (startDate) query = query.gte("borrow_start", startDate);
-        if (endDate) query = query.lte("borrow_start", endDate);
-        if (status) query = query.eq("status", status);
-        
-        const { data, error } = await query;
-        if (error) throw error;
-        return res.status(200).json(data || []);
-      }
-
-      case "getRoomReservationHistory": {
-        if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
-        const { startDate, endDate, status } = payload;
-        
-        let query = supabase
-          .from("room_reservations")
-          .select("*")
-          .order("start_time", { ascending: false });
-        
-        if (startDate) query = query.gte("start_time", startDate);
-        if (endDate) query = query.lte("start_time", endDate);
-        if (status) query = query.eq("status", status);
-        
-        const { data, error } = await query;
-        if (error) throw error;
-        return res.status(200).json(data || []);
-      }
-
-      // ============================================================
       // USER MANAGEMENT
       // ============================================================
       case "getUsers": {
@@ -719,13 +632,13 @@ export default async function handler(req, res) {
         const { data: profiles } = await supabase.from("profiles").select("*");
 
         const usersWithProfiles = users.map((user) => {
-          const userProfile = profiles.find((p) => p.id === user.id);
+          const profile = profiles.find((p) => p.id === user.id);
           return {
             ...user,
-            full_name: userProfile?.full_name,
-            role: userProfile?.role || "member",
-            privileges: userProfile?.privileges || [],
-            is_deleted: userProfile?.is_deleted || false,
+            full_name: profile?.full_name,
+            role: profile?.role || "member",
+            privileges: profile?.privileges || [],
+            is_deleted: profile?.is_deleted || false,
           };
         });
 
@@ -802,18 +715,14 @@ export default async function handler(req, res) {
 
       case "toggleUserStatus": {
         if (!checkPrivilege(profile, "users")) throw new Error("Akses ditolak: Butuh privilege 'users'");
-        const { userId, isDeleted } = payload;
-        if (!userId) throw new Error("User ID wajib diisi.");
-
-        const { error: updateError } = await supabase
+        const { userId: toggleId, is_deleted } = payload;
+        const { error: toggleError } = await supabase
           .from("profiles")
-          .update({ is_deleted: isDeleted })
-          .eq("id", userId);
-
-        if (updateError) throw updateError;
-        
-        const message = isDeleted ? "User berhasil dinonaktifkan." : "User berhasil diaktifkan kembali.";
-        return res.status(200).json({ message });
+          .update({ is_deleted: is_deleted })
+          .eq("id", toggleId);
+        if (toggleError) throw toggleError;
+        const statusText = is_deleted ? "dinonaktifkan" : "diaktifkan kembali";
+        return res.status(200).json({ message: `User berhasil ${statusText}.` });
       }
 
       // ============================================================
@@ -829,19 +738,59 @@ export default async function handler(req, res) {
             lokasi,
             kapasitas,
             image_url,
-            penanggung_jawab: profiles (id, full_name)
+            penanggung_jawab_id,
+            penanggung_jawab: profiles!penanggung_jawab_id (id, full_name),
+            room_pic (
+              user_id,
+              profiles:user_id (id, full_name)
+            )
           `);
         if (getRoomsError) throw getRoomsError;
-        return res.status(200).json(rooms);
+        
+        // Transform room_pic data to flat array of PICs
+        const transformedRooms = (rooms || []).map(room => {
+          const picsFromJunction = (room.room_pic || []).map(rp => rp.profiles).filter(Boolean);
+          // Fallback to old penanggung_jawab if no junction entries
+          const pics = picsFromJunction.length > 0 
+            ? picsFromJunction 
+            : (room.penanggung_jawab ? [room.penanggung_jawab] : []);
+          return {
+            ...room,
+            pics,
+            // Keep penanggung_jawab for backwards compatibility
+            penanggung_jawab: room.penanggung_jawab
+          };
+        });
+        
+        return res.status(200).json(transformedRooms);
       }
 
       case "createRoom": {
         if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
-        const { name, lokasi, kapasitas, penanggung_jawab_id, image_url } = payload;
-        const { error: createRoomError } = await supabase
+        const { name, lokasi, kapasitas, pic_ids, penanggung_jawab_id, image_url } = payload;
+        
+        // Insert room first
+        const { data: newRoom, error: createRoomError } = await supabase
           .from("rooms")
-          .insert({ name, lokasi, kapasitas, penanggung_jawab_id, image_url });
+          .insert({ 
+            name, 
+            lokasi, 
+            kapasitas, 
+            image_url,
+            // Keep penanggung_jawab_id for backwards compatibility
+            penanggung_jawab_id: pic_ids?.length > 0 ? pic_ids[0] : penanggung_jawab_id
+          })
+          .select()
+          .single();
         if (createRoomError) throw createRoomError;
+        
+        // Insert PICs into junction table
+        if (pic_ids && pic_ids.length > 0) {
+          const picRecords = pic_ids.map(uid => ({ room_id: newRoom.id, user_id: uid }));
+          const { error: picError } = await supabase.from("room_pic").insert(picRecords);
+          if (picError) console.warn("Failed to insert room_pic:", picError.message);
+        }
+        
         return res
           .status(201)
           .json({ message: "Ruangan baru berhasil dibuat." });
@@ -849,12 +798,32 @@ export default async function handler(req, res) {
 
       case "updateRoom": {
         if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
-        const { id, ...updateRoomData } = payload;
+        const { id, pic_ids, ...updateRoomData } = payload;
+        
+        // Update room data
         const { error: updateRoomError } = await supabase
           .from("rooms")
-          .update(updateRoomData)
+          .update({
+            ...updateRoomData,
+            // Update penanggung_jawab_id for backwards compatibility
+            penanggung_jawab_id: pic_ids?.length > 0 ? pic_ids[0] : updateRoomData.penanggung_jawab_id
+          })
           .eq("id", id);
         if (updateRoomError) throw updateRoomError;
+        
+        // Update PICs in junction table
+        if (pic_ids !== undefined) {
+          // Delete existing entries
+          await supabase.from("room_pic").delete().eq("room_id", id);
+          
+          // Insert new entries
+          if (pic_ids && pic_ids.length > 0) {
+            const picRecords = pic_ids.map(uid => ({ room_id: id, user_id: uid }));
+            const { error: picError } = await supabase.from("room_pic").insert(picRecords);
+            if (picError) console.warn("Failed to insert room_pic:", picError.message);
+          }
+        }
+        
         return res
           .status(200)
           .json({ message: "Data ruangan berhasil diperbarui." });
@@ -863,6 +832,7 @@ export default async function handler(req, res) {
       case "deleteRoom": {
         if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
         const { roomId: deleteRoomId } = payload;
+        // room_pic entries will be deleted via CASCADE
         const { error: deleteRoomError } = await supabase
           .from("rooms")
           .delete()
@@ -1168,69 +1138,7 @@ export default async function handler(req, res) {
           checker: profilesMap[item.checked_by] || { full_name: "Unknown" }
         }));
 
-        // Calculate comprehensive statistics
-        const totalChecked = itemsWithChecker.length;
-        const matched = itemsWithChecker.filter(i => i.system_qty === i.actual_qty).length;
-        const mismatched = itemsWithChecker.filter(i => i.system_qty !== i.actual_qty).length;
-        const missing = itemsWithChecker.filter(i => i.actual_qty < i.system_qty).length;
-        const excess = itemsWithChecker.filter(i => i.actual_qty > i.system_qty).length;
-        
-        // Calculate total quantities
-        const totalSystemQty = itemsWithChecker.reduce((sum, i) => sum + (i.system_qty || 0), 0);
-        const totalActualQty = itemsWithChecker.reduce((sum, i) => sum + (i.actual_qty || 0), 0);
-        const totalDiscrepancy = totalActualQty - totalSystemQty;
-        
-        // Calculate accuracy percentage
-        const accuracyRate = totalChecked > 0 ? Math.round((matched / totalChecked) * 100) : 0;
-        
-        // Category breakdown
-        const categoryBreakdown = {};
-        itemsWithChecker.forEach(item => {
-          const catName = item.template?.category?.name || "Lainnya";
-          if (!categoryBreakdown[catName]) {
-            categoryBreakdown[catName] = { checked: 0, matched: 0, mismatched: 0 };
-          }
-          categoryBreakdown[catName].checked++;
-          if (item.system_qty === item.actual_qty) {
-            categoryBreakdown[catName].matched++;
-          } else {
-            categoryBreakdown[catName].mismatched++;
-          }
-        });
-
-        // Get total product units in inventory for context
-        const { count: totalUnitsInInventory } = await supabase
-          .from("product_units")
-          .select("*", { count: "exact", head: true })
-          .not("status", "eq", "scrapped");
-
-        // Get checker who did the most checks
-        const checkerCounts = {};
-        itemsWithChecker.forEach(item => {
-          const checkerName = item.checker?.full_name || "Unknown";
-          checkerCounts[checkerName] = (checkerCounts[checkerName] || 0) + 1;
-        });
-        const topCheckers = Object.entries(checkerCounts)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 3)
-          .map(([name, count]) => ({ name, count }));
-
-        const summary = {
-          totalChecked,
-          totalUnitsInInventory: totalUnitsInInventory || 0,
-          matched,
-          mismatched,
-          missing,
-          excess,
-          totalSystemQty,
-          totalActualQty,
-          totalDiscrepancy,
-          accuracyRate,
-          categoryBreakdown,
-          topCheckers
-        };
-
-        return res.status(200).json({ opname, items: itemsWithChecker, summary });
+        return res.status(200).json({ opname, items: itemsWithChecker });
       }
 
       case "getPendingTransportLoans": {

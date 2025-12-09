@@ -141,7 +141,7 @@ function renderActiveOpname(container) {
         <div>
           <div class="flex items-center gap-2 mb-1">
             <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full uppercase tracking-wide">Sedang Berlangsung</span>
-            <span class="text-gray-400 text-sm"><i class="far fa-clock mr-1"></i> Dimulai: ${new Date(active.start_date).toLocaleString('id-ID')}</span>
+            <span class="text-gray-400 text-sm"><i class="far fa-clock mr-1"></i> Dimulai: ${new Date(active.start_date).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</span>
           </div>
           <h2 class="text-2xl font-bold text-gray-800">${active.title}</h2>
           <p class="text-gray-500 text-sm mt-1">${active.notes || "Tidak ada catatan"}</p>
@@ -630,325 +630,45 @@ async function openOpnameDetail(opnameId) {
   });
   
   if (!res.ok) { notifyError("Gagal mengambil detail"); return; }
-  const { opname, items, summary } = await res.json();
+  const { opname, items } = await res.json();
 
-  // Store data globally for export and filtering
-  window._opnameExportData = { opname, items, summary };
-  window._opnameAllItems = items; // Full list for filtering
-
-  // Create or get modal
-  let modal = document.getElementById('opname-detail-modal');
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'opname-detail-modal';
-    modal.className = 'modal fixed inset-0 bg-gray-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4';
-    document.body.appendChild(modal);
-  }
-
-  modal.innerHTML = `
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
-      <!-- Header -->
-      <div class="bg-gradient-to-r from-amber-500 to-orange-500 text-white p-6 flex justify-between items-center">
-        <div>
-          <h2 class="text-xl font-bold"><i class="fas fa-clipboard-list mr-2"></i>Detail: ${opname.title}</h2>
-          <p class="text-white/80 text-sm mt-1">
-            <i class="fas fa-calendar-alt mr-1"></i>Periode: ${new Date(opname.start_date).toLocaleDateString('id-ID')} - ${opname.end_date ? new Date(opname.end_date).toLocaleDateString('id-ID') : 'Berlangsung'}
-            <span class="ml-3 px-2 py-0.5 ${opname.status === 'completed' ? 'bg-green-600/80' : 'bg-yellow-600/80'} rounded-full text-xs">${opname.status === 'completed' ? 'Selesai' : 'Berlangsung'}</span>
-          </p>
-        </div>
-        <button onclick="closeOpnameDetailModal()" class="text-white/80 hover:text-white text-2xl">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      
-      <!-- Stats Cards -->
-      <div class="p-6 border-b bg-gray-50">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-          <div class="bg-white rounded-xl p-4 text-center shadow-sm border">
-            <p class="text-3xl font-bold text-blue-600">${summary.totalChecked}</p>
-            <p class="text-xs text-gray-500">dari ${summary.totalUnitsInInventory} unit</p>
-            <p class="text-sm font-medium text-gray-700 mt-1">Item Dicek</p>
-          </div>
-          <div class="bg-white rounded-xl p-4 text-center shadow-sm border">
-            <p class="text-3xl font-bold text-green-600">${summary.accuracyRate}%</p>
-            <p class="text-xs text-gray-500">${summary.matched} sesuai</p>
-            <p class="text-sm font-medium text-gray-700 mt-1">Akurasi</p>
-          </div>
-          <div class="bg-white rounded-xl p-4 text-center shadow-sm border">
-            <p class="text-3xl font-bold text-red-600">${summary.mismatched}</p>
-            <p class="text-xs text-gray-500">${summary.missing} kurang, ${summary.excess} lebih</p>
-            <p class="text-sm font-medium text-gray-700 mt-1">Tidak Sesuai</p>
-          </div>
-          <div class="bg-white rounded-xl p-4 text-center shadow-sm border">
-            <p class="text-3xl font-bold ${summary.totalDiscrepancy >= 0 ? 'text-green-600' : 'text-red-600'}">${summary.totalDiscrepancy >= 0 ? '+' : ''}${summary.totalDiscrepancy}</p>
-            <p class="text-xs text-gray-500">Sistem: ${summary.totalSystemQty}, Aktual: ${summary.totalActualQty}</p>
-            <p class="text-sm font-medium text-gray-700 mt-1">Selisih Qty</p>
-          </div>
-        </div>
-        
-        <!-- Category Breakdown & Checkers -->
-        <div class="flex flex-wrap items-center gap-4 mb-4">
-          ${Object.keys(summary.categoryBreakdown).length > 0 ? `
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="text-sm font-medium text-gray-600"><i class="fas fa-layer-group mr-1"></i>Kategori:</span>
-              ${Object.entries(summary.categoryBreakdown).map(([cat, data]) => `
-                <span class="bg-white px-3 py-1 rounded-full text-xs border shadow-sm">
-                  <span class="font-medium">${cat}:</span>
-                  <span class="text-green-600 ml-1">${data.matched}✓</span>
-                  ${data.mismatched > 0 ? `<span class="text-red-600 ml-1">${data.mismatched}✗</span>` : ''}
-                </span>
-              `).join('')}
-            </div>
-          ` : ''}
-        </div>
-        ${summary.topCheckers.length > 0 ? `
-          <div class="flex items-center gap-2 text-xs text-gray-500">
-            <span><i class="fas fa-user-check mr-1"></i>Petugas:</span>
-            ${summary.topCheckers.map(c => `<span class="bg-white px-2 py-1 rounded shadow-sm">${c.name} (${c.count})</span>`).join('')}
-          </div>
-        ` : ''}
-        ${opname.notes ? `<p class="text-sm text-gray-500 mt-3"><i class="fas fa-sticky-note mr-1"></i>${opname.notes}</p>` : ''}
-      </div>
-      
-      <!-- Search & Export Bar -->
-      <div class="px-6 py-4 border-b bg-white flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div class="flex-1 max-w-md">
-          <div class="relative">
-            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
-            <input type="text" id="opname-search-input" placeholder="Cari nama produk, kode unit, kategori..." 
-              class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
-          </div>
-        </div>
-        <div class="flex gap-2">
-          <button onclick="exportOpnameToCSV()" class="px-4 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 flex items-center gap-2 shadow-md">
-            <i class="fas fa-file-csv"></i> CSV
-          </button>
-          <button onclick="exportOpnameToExcel()" class="px-4 py-2.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 flex items-center gap-2 shadow-md">
-            <i class="fas fa-file-excel"></i> Excel
-          </button>
-        </div>
-      </div>
-      
-      <!-- Table Content -->
-      <div id="opname-detail-content" class="flex-1 overflow-y-auto p-6">
-        <!-- Table will be rendered here -->
-      </div>
-      
-      <!-- Footer -->
-      <div class="bg-gray-50 px-6 py-4 border-t flex justify-between items-center">
-        <span id="opname-detail-count" class="text-sm text-gray-600">Total: ${items.length} item</span>
-        <button onclick="closeOpnameDetailModal()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300">
-          Tutup
-        </button>
-      </div>
-    </div>
-  `;
-
-  // Show modal
-  modal.classList.remove('hidden');
-  modal.classList.add('flex');
-
-  // Render initial table
-  renderOpnameDetailTable(items);
-
-  // Setup search
-  const searchInput = document.getElementById('opname-search-input');
-  searchInput?.addEventListener('input', debounceOpnameSearch);
-}
-
-// Close modal function
-function closeOpnameDetailModal() {
-  const modal = document.getElementById('opname-detail-modal');
-  if (modal) {
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-  }
-}
-
-// Debounce for search
-let _opnameSearchTimeout;
-function debounceOpnameSearch(e) {
-  clearTimeout(_opnameSearchTimeout);
-  _opnameSearchTimeout = setTimeout(() => {
-    filterOpnameItems(e.target.value);
-  }, 300);
-}
-
-// Filter items
-function filterOpnameItems(query) {
-  const allItems = window._opnameAllItems || [];
-  const q = query.toLowerCase().trim();
-  
-  const filtered = q ? allItems.filter(item => {
-    const name = (item.template?.name || '').toLowerCase();
-    const code = (item.unit?.asset_code || item.unit?.serial_number || '').toLowerCase();
-    const category = (item.template?.category?.name || '').toLowerCase();
-    const checker = (item.checker?.full_name || '').toLowerCase();
-    const notes = (item.notes || '').toLowerCase();
-    
-    return name.includes(q) || code.includes(q) || category.includes(q) || checker.includes(q) || notes.includes(q);
-  }) : allItems;
-  
-  renderOpnameDetailTable(filtered);
-  document.getElementById('opname-detail-count').textContent = `Menampilkan: ${filtered.length} dari ${allItems.length} item`;
-}
-
-// Render table
-function renderOpnameDetailTable(items) {
-  const content = document.getElementById('opname-detail-content');
-  
-  if (!items || items.length === 0) {
-    content.innerHTML = `
-      <div class="text-center py-12 text-gray-400">
-        <i class="fas fa-search text-5xl mb-4"></i>
-        <p class="text-lg">Tidak ada item yang cocok</p>
-      </div>
-    `;
-    return;
-  }
-  
   const rows = items.map(item => `
-    <tr class="border-b hover:bg-gray-50">
-      <td class="p-3 font-medium">${item.template?.name || '-'}</td>
+    <tr class="border-b">
+      <td class="p-3">${item.template?.name}</td>
       <td class="p-3 font-mono text-xs">${item.unit?.asset_code || item.unit?.serial_number || "-"}</td>
-      <td class="p-3 text-xs text-gray-500">${item.template?.category?.name || '-'}</td>
       <td class="p-3 text-center">${item.system_qty}</td>
       <td class="p-3 text-center font-bold ${item.actual_qty !== item.system_qty ? 'text-red-600' : 'text-green-600'}">${item.actual_qty}</td>
-      <td class="p-3 text-center font-bold ${item.actual_qty !== item.system_qty ? 'text-red-600' : 'text-gray-400'}">${item.actual_qty - item.system_qty !== 0 ? (item.actual_qty - item.system_qty > 0 ? '+' : '') + (item.actual_qty - item.system_qty) : '-'}</td>
-      <td class="p-3 text-sm text-gray-500 max-w-[150px] truncate" title="${item.notes || ''}">${item.notes || "-"}</td>
-      <td class="p-3 text-xs text-gray-500">${item.checker?.full_name || '-'}</td>
-      <td class="p-3 text-xs text-gray-400">${item.checked_at ? new Date(item.checked_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+      <td class="p-3 text-sm text-gray-500">${item.notes || "-"}</td>
+      <td class="p-3 text-xs text-gray-400">${item.checker?.full_name}</td>
     </tr>
   `).join("");
-  
-  content.innerHTML = `
-    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+
+  const content = `
+    <div class="mb-4">
+      <p class="text-sm text-gray-500">Tanggal: ${new Date(opname.start_date).toLocaleDateString()} - ${new Date(opname.end_date).toLocaleDateString()}</p>
+      <p class="text-sm text-gray-500">Total Item Dicek: ${items.length}</p>
+    </div>
+    <div class="overflow-x-auto max-h-[60vh]">
       <table class="min-w-full text-sm">
-        <thead class="bg-gray-100 text-gray-600 sticky top-0">
+        <thead class="bg-gray-50 sticky top-0">
           <tr>
             <th class="p-3 text-left">Produk</th>
-            <th class="p-3 text-left">Kode Unit</th>
-            <th class="p-3 text-left">Kategori</th>
-            <th class="p-3 text-center">Sistem</th>
-            <th class="p-3 text-center">Aktual</th>
-            <th class="p-3 text-center">Selisih</th>
+            <th class="p-3 text-left">Unit Code</th>
+            <th class="p-3 text-center">Sys Qty</th>
+            <th class="p-3 text-center">Act Qty</th>
             <th class="p-3 text-left">Catatan</th>
-            <th class="p-3 text-left">Petugas</th>
-            <th class="p-3 text-left">Waktu Cek</th>
+            <th class="p-3 text-left">Checker</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-gray-100">${rows}</tbody>
+        <tbody>${rows}</tbody>
       </table>
     </div>
   `;
-}
 
-// Make functions global
-window.closeOpnameDetailModal = closeOpnameDetailModal;
-
-// Export functions for Stock Opname
-function exportOpnameToCSV() {
-  const { opname, items, summary } = window._opnameExportData;
-  if (!items || items.length === 0) { notifyError("Tidak ada data untuk diekspor"); return; }
-
-  const headers = ['Produk', 'Kode Unit', 'Serial Number', 'Kategori', 'Qty Sistem', 'Qty Aktual', 'Selisih', 'Status', 'Catatan', 'Petugas', 'Waktu Cek'];
-  const rows = items.map(item => [
-    item.template?.name || '',
-    item.unit?.asset_code || '',
-    item.unit?.serial_number || '',
-    item.template?.category?.name || '',
-    item.system_qty,
-    item.actual_qty,
-    item.actual_qty - item.system_qty,
-    item.system_qty === item.actual_qty ? 'Sesuai' : (item.actual_qty < item.system_qty ? 'Kurang' : 'Lebih'),
-    (item.notes || '').replace(/"/g, '""'),
-    item.checker?.full_name || '',
-    item.checked_at ? new Date(item.checked_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''
-  ]);
-
-  // Add summary section
-  const summaryRows = [
-    [],
-    ['RINGKASAN OPNAME'],
-    ['Judul', opname.title],
-    ['Periode', `${new Date(opname.start_date).toLocaleDateString('id-ID')} - ${opname.end_date ? new Date(opname.end_date).toLocaleDateString('id-ID') : 'Berlangsung'}`],
-    ['Total Item Dicek', `${summary.totalChecked} dari ${summary.totalUnitsInInventory} unit`],
-    ['Akurasi', `${summary.accuracyRate}%`],
-    ['Sesuai', summary.matched],
-    ['Tidak Sesuai', summary.mismatched],
-    ['Kurang', summary.missing],
-    ['Lebih', summary.excess],
-    ['Total Qty Sistem', summary.totalSystemQty],
-    ['Total Qty Aktual', summary.totalActualQty],
-    ['Total Selisih', summary.totalDiscrepancy],
-    []
-  ];
-
-  const allRows = [...summaryRows, headers, ...rows];
-  const csv = allRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `opname_${opname.title.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.csv`;
-  link.click();
-  notifySuccess("File CSV berhasil diunduh!");
-}
-
-function exportOpnameToExcel() {
-  const { opname, items, summary } = window._opnameExportData;
-  if (!items || items.length === 0) { notifyError("Tidak ada data untuk diekspor"); return; }
-
-  const headers = ['Produk', 'Kode Unit', 'Serial Number', 'Kategori', 'Qty Sistem', 'Qty Aktual', 'Selisih', 'Status', 'Catatan', 'Petugas', 'Waktu Cek'];
-  const rows = items.map(item => [
-    item.template?.name || '',
-    item.unit?.asset_code || '',
-    item.unit?.serial_number || '',
-    item.template?.category?.name || '',
-    item.system_qty,
-    item.actual_qty,
-    item.actual_qty - item.system_qty,
-    item.system_qty === item.actual_qty ? 'Sesuai' : (item.actual_qty < item.system_qty ? 'Kurang' : 'Lebih'),
-    item.notes || '',
-    item.checker?.full_name || '',
-    item.checked_at ? new Date(item.checked_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''
-  ]);
-
-  let xml = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
-  <Styles>
-    <Style ss:ID="header"><Font ss:Bold="1"/><Interior ss:Color="#E0E0E0" ss:Pattern="Solid"/></Style>
-    <Style ss:ID="match"><Font ss:Color="#16A34A"/></Style>
-    <Style ss:ID="mismatch"><Font ss:Color="#DC2626" ss:Bold="1"/></Style>
-  </Styles>
-  <Worksheet ss:Name="Ringkasan">
-    <Table>
-      <Row><Cell ss:StyleID="header"><Data ss:Type="String">RINGKASAN OPNAME: ${opname.title}</Data></Cell></Row>
-      <Row><Cell><Data ss:Type="String">Periode</Data></Cell><Cell><Data ss:Type="String">${new Date(opname.start_date).toLocaleDateString('id-ID')} - ${opname.end_date ? new Date(opname.end_date).toLocaleDateString('id-ID') : 'Berlangsung'}</Data></Cell></Row>
-      <Row><Cell><Data ss:Type="String">Total Item Dicek</Data></Cell><Cell><Data ss:Type="String">${summary.totalChecked} dari ${summary.totalUnitsInInventory} unit</Data></Cell></Row>
-      <Row><Cell><Data ss:Type="String">Akurasi</Data></Cell><Cell><Data ss:Type="String">${summary.accuracyRate}%</Data></Cell></Row>
-      <Row><Cell><Data ss:Type="String">Sesuai</Data></Cell><Cell><Data ss:Type="Number">${summary.matched}</Data></Cell></Row>
-      <Row><Cell><Data ss:Type="String">Tidak Sesuai</Data></Cell><Cell><Data ss:Type="Number">${summary.mismatched}</Data></Cell></Row>
-      <Row><Cell><Data ss:Type="String">Kurang</Data></Cell><Cell><Data ss:Type="Number">${summary.missing}</Data></Cell></Row>
-      <Row><Cell><Data ss:Type="String">Lebih</Data></Cell><Cell><Data ss:Type="Number">${summary.excess}</Data></Cell></Row>
-      <Row><Cell><Data ss:Type="String">Total Selisih Qty</Data></Cell><Cell><Data ss:Type="Number">${summary.totalDiscrepancy}</Data></Cell></Row>
-    </Table>
-  </Worksheet>
-  <Worksheet ss:Name="Detail Item">
-    <Table>
-      <Row>${headers.map(h => `<Cell ss:StyleID="header"><Data ss:Type="String">${h}</Data></Cell>`).join('')}</Row>
-      ${rows.map(row => `<Row>${row.map((cell, idx) => {
-        const styleId = idx === 7 ? (cell === 'Sesuai' ? 'match' : 'mismatch') : '';
-        return `<Cell${styleId ? ` ss:StyleID="${styleId}"` : ''}><Data ss:Type="${typeof cell === 'number' ? 'Number' : 'String'}">${cell}</Data></Cell>`;
-      }).join('')}</Row>`).join('\n      ')}
-    </Table>
-  </Worksheet>
-</Workbook>`;
-
-  const blob = new Blob([xml], { type: 'application/vnd.ms-excel' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
-  link.download = `opname_${opname.title.replace(/\s+/g, '_')}_${new Date().toISOString().slice(0,10)}.xls`;
-  link.click();
-  notifySuccess("File Excel berhasil diunduh!");
+  openGlobalModal({
+    title: `Detail: ${opname.title}`,
+    contentHTML: content,
+    confirmText: "Tutup",
+    onConfirm: () => closeGlobalModal()
+  });
 }

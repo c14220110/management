@@ -23,10 +23,10 @@ export default async function handler(req, res) {
       throw new Error(loginError.message || "Email atau password salah.");
     }
 
-    // PERUBAHAN DI SINI: Ambil role, full_name, dan privileges
+    // PERUBAHAN DI SINI: Ambil role, full_name, privileges, dan is_deleted
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
-      .select("role, full_name, privileges, is_deleted") // <-- Tambah is_deleted
+      .select("role, full_name, privileges, is_deleted") // <- Minta is_deleted juga
       .eq("id", sessionData.user.id)
       .single();
 
@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     }
 
     // Check if user is deactivated
-    if (profileData?.is_deleted === true) {
+    if (profileData?.is_deleted) {
       throw new Error("Akun Anda telah dinonaktifkan. Hubungi administrator.");
     }
 

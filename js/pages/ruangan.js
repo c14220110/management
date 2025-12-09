@@ -53,9 +53,6 @@ async function renderRuanganManagementView() {
             <button id="room-add-btn" class="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-600 shadow-lg shadow-amber-500/30 flex items-center gap-2 transition-all">
               <i class="fas fa-plus"></i> Tambah Ruangan
             </button>
-            <button onclick="openHistoryModal('room')" class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 flex items-center gap-2 shadow-sm">
-              <i class="fas fa-history"></i> Lihat Riwayat
-            </button>
             <button id="room-refresh-btn" class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 flex items-center gap-2 shadow-sm">
               <i class="fas fa-sync"></i>
             </button>
@@ -194,7 +191,11 @@ function getRoomCardsHTML(rooms, isManagement) {
             </div>
             <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
               <i class="fas fa-user-tie text-emerald-500"></i>
-              <span class="truncate">${room.penanggung_jawab?.full_name || "-"}</span>
+              <span class="truncate" title="${(room.pics || []).map(p => p.full_name).join(', ') || room.penanggung_jawab?.full_name || '-'}">
+                ${(room.pics || []).length > 0 
+                  ? (room.pics.length === 1 ? room.pics[0].full_name : `${room.pics[0].full_name} +${room.pics.length - 1}`) 
+                  : (room.penanggung_jawab?.full_name || '-')}
+              </span>
             </div>
           </div>
           
@@ -252,7 +253,19 @@ async function openRoomModal(existing = null) {
     if (res.ok) users = await res.json();
   } catch (e) { console.error("Failed to fetch users", e); }
   
-  const userOpts = users.map(u => `<option value="${u.id}" ${existing?.penanggung_jawab_id === u.id ? "selected" : ""}>${u.full_name} (${u.email})</option>`).join("");
+  // Get existing PIC ids for checkboxes
+  const existingPicIds = (existing?.pics || []).map(p => p.id);
+  // Fallback to single penanggung_jawab_id
+  if (existingPicIds.length === 0 && existing?.penanggung_jawab_id) {
+    existingPicIds.push(existing.penanggung_jawab_id);
+  }
+  
+  const userCheckboxes = users.map(u => `
+    <label class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
+      <input type="checkbox" name="pic_ids" value="${u.id}" ${existingPicIds.includes(u.id) ? "checked" : ""} class="w-4 h-4 text-amber-600 rounded border-gray-300 focus:ring-amber-500"/>
+      <span class="text-sm">${u.full_name || u.email}</span>
+    </label>
+  `).join("");
 
   const content = `
     <form id="room-form" class="space-y-4">
@@ -269,11 +282,11 @@ async function openRoomModal(existing = null) {
         <input type="number" name="kapasitas" value="${existing?.kapasitas || 0}" class="w-full px-3 py-2 border border-gray-300 rounded-lg"/>
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Penanggung Jawab</label>
-        <select name="penanggung_jawab_id" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-          <option value="">-- Pilih PIC --</option>
-          ${userOpts}
-        </select>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Penanggung Jawab (PIC)</label>
+        <p class="text-xs text-gray-500 mb-2">Pilih satu atau lebih penanggung jawab. PIC akan menerima notifikasi reservasi.</p>
+        <div class="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white">
+          ${users.length > 0 ? userCheckboxes : '<p class="text-gray-400 text-sm p-2">Tidak ada user tersedia</p>'}
+        </div>
       </div>
       
       <!-- Image Upload -->
@@ -342,11 +355,15 @@ async function handleRoomSubmit(existingId) {
     }
   }
 
+  // Collect selected PICs
+  const picCheckboxes = form.querySelectorAll('input[name="pic_ids"]:checked');
+  const pic_ids = Array.from(picCheckboxes).map(cb => cb.value);
+
   const payload = {
     name,
     lokasi: fd.get("lokasi"),
     kapasitas: parseInt(fd.get("kapasitas") || "0"),
-    penanggung_jawab_id: fd.get("penanggung_jawab_id") || null,
+    pic_ids: pic_ids,
     image_url: imageUrl,
   };
   if (existingId) payload.id = existingId;
@@ -395,16 +412,11 @@ function openReservationModal(roomName) {
     onConfirm: async () => {
       const form = document.getElementById("reservation-form");
       const fd = new FormData(form);
-      
-      // Append WIB timezone offset to datetime-local values
-      const startRaw = fd.get("start_time");
-      const endRaw = fd.get("end_time");
-      
       const payload = {
         event_name: fd.get("event_name"),
         room_name: fd.get("room_name"),
-        start_time: startRaw ? startRaw + ":00+07:00" : null,
-        end_time: endRaw ? endRaw + ":00+07:00" : null,
+        start_time: fd.get("start_time"),
+        end_time: fd.get("end_time"),
       };
       
       try {

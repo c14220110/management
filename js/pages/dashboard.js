@@ -49,7 +49,6 @@ async function renderManagerDashboard() {
     const data = await api.get("/api/dashboard?action=management-dashboard");
 
     const {
-      userPrivileges,
       stats,
       alerts,
       todayActivities,
@@ -57,12 +56,7 @@ async function renderManagerDashboard() {
       pendingRequests,
     } = data;
 
-    // Extract privilege flags
-    const hasInventory = userPrivileges?.inventory ?? true;
-    const hasRoom = userPrivileges?.room ?? true;
-    const hasTransport = userPrivileges?.transport ?? true;
-
-    // Count total alerts (only for relevant privileges)
+    // Count total alerts
     const totalAlerts =
       (alerts.vehicleServiceAlerts?.length || 0) +
       (alerts.overdueItems?.length || 0);
@@ -84,7 +78,7 @@ async function renderManagerDashboard() {
           </div>
           <div class="flex items-center gap-2 text-sm text-gray-500">
             <i class="fas fa-clock"></i>
-            <span>Update: ${new Date().toLocaleString("id-ID", { timeZone: 'Asia/Jakarta' })}</span>
+            <span>Update: ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}</span>
           </div>
         </div>
 
@@ -124,52 +118,57 @@ async function renderManagerDashboard() {
 
         <!-- Quick Stats Grid -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          ${hasInventory ? `
           <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
             <div class="flex items-center justify-between">
                       <div>
                 <p class="text-sm text-gray-500">Total Aset</p>
-                <p class="text-2xl font-bold text-gray-800">${stats.totalAssets}</p>
+                <p class="text-2xl font-bold text-gray-800">${
+                  stats.totalAssets
+                }</p>
                       </div>
               <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                 <i class="fas fa-boxes text-blue-500 text-xl"></i>
                       </div>
             </div>
-            <p class="text-xs text-gray-400 mt-2">${stats.borrowedAssets} dipinjam • ${stats.maintenanceAssets} perbaikan</p>
+            <p class="text-xs text-gray-400 mt-2">${
+              stats.borrowedAssets
+            } dipinjam • ${stats.maintenanceAssets} perbaikan</p>
           </div>
-          ` : ''}
 
-          ${hasRoom ? `
           <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-green-500">
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm text-gray-500">Total Ruangan</p>
-                <p class="text-2xl font-bold text-gray-800">${stats.totalRooms}</p>
+                <p class="text-2xl font-bold text-gray-800">${
+                  stats.totalRooms
+                }</p>
               </div>
               <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
                 <i class="fas fa-building text-green-500 text-xl"></i>
               </div>
             </div>
-            <p class="text-xs text-gray-400 mt-2">${stats.approvedReservations} reservasi aktif</p>
+            <p class="text-xs text-gray-400 mt-2">${
+              stats.approvedReservations
+            } reservasi aktif</p>
           </div>
-          ` : ''}
 
-          ${hasTransport ? `
           <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-amber-500">
             <div class="flex items-center justify-between">
               <div>
                 <p class="text-sm text-gray-500">Kendaraan</p>
-                <p class="text-2xl font-bold text-gray-800">${stats.totalTransports}</p>
+                <p class="text-2xl font-bold text-gray-800">${
+                  stats.totalTransports
+                }</p>
               </div>
               <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
                 <i class="fas fa-shuttle-van text-amber-500 text-xl"></i>
               </div>
             </div>
-            <p class="text-xs text-gray-400 mt-2">${stats.activeTransportsToday} dipakai hari ini</p>
+            <p class="text-xs text-gray-400 mt-2">${
+              stats.activeTransportsToday
+            } dipakai hari ini</p>
           </div>
-          ` : ''}
 
-          ${totalPending > 0 ? `
           <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-purple-500">
             <div class="flex items-center justify-between">
               <div>
@@ -182,17 +181,14 @@ async function renderManagerDashboard() {
             </div>
             <p class="text-xs text-gray-400 mt-2">Perlu persetujuan Anda</p>
           </div>
-          ` : ''}
         </div>
 
         <!-- Main Content Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          <!-- Left Column: Alerts & Condition (only if has transport or inventory) -->
-          ${(hasTransport || hasInventory) ? `
+          <!-- Left Column: Alerts & Condition -->
           <div class="space-y-6">
             
-            ${hasTransport ? `
             <!-- Vehicle Service Alerts -->
             <div class="bg-white rounded-lg shadow-md overflow-hidden">
               <div class="bg-red-500 text-white px-4 py-3 flex items-center gap-2">
@@ -241,9 +237,7 @@ async function renderManagerDashboard() {
                 }
               </div>
             </div>
-            ` : ''}
 
-            ${hasInventory ? `
             <!-- Overdue Items -->
             <div class="bg-white rounded-lg shadow-md overflow-hidden">
               <div class="bg-amber-500 text-white px-4 py-3 flex items-center gap-2">
@@ -263,10 +257,10 @@ async function renderManagerDashboard() {
                         <i class="fas fa-clock text-amber-500 mt-1"></i>
                         <div class="flex-1">
                           <p class="font-semibold text-gray-800">${
-                            item.item_name || item.assets?.asset_name || "Barang"
+                            item.assets?.asset_name || "Barang"
                           }</p>
                           <p class="text-sm text-gray-600">Peminjam: ${
-                            item.borrower_name || item.profiles?.full_name || "-"
+                            item.profiles?.full_name || "-"
                           }</p>
                           <p class="text-xs text-amber-600 mt-1">
                             <span class="font-bold">${
@@ -309,11 +303,8 @@ async function renderManagerDashboard() {
                 ${renderConditionChart(conditionSummary)}
               </div>
             </div>
-            ` : ''}
           </div>
-          ` : ''}
 
-          ${(hasRoom || hasTransport) ? `
           <!-- Middle Column: Today's Activities -->
           <div class="bg-white rounded-lg shadow-md overflow-hidden">
             <div class="bg-blue-600 text-white px-4 py-3 flex items-center justify-between">
@@ -368,12 +359,10 @@ async function renderManagerDashboard() {
                               ${startTime.toLocaleTimeString("id-ID", {
                                 hour: "2-digit",
                                 minute: "2-digit",
-                                timeZone: 'Asia/Jakarta'
                               })} - 
                               ${endTime.toLocaleTimeString("id-ID", {
                                 hour: "2-digit",
                                 minute: "2-digit",
-                                timeZone: 'Asia/Jakarta'
                               })}
                             </p>
                           </div>
@@ -450,12 +439,10 @@ async function renderManagerDashboard() {
                               ${startTime.toLocaleTimeString("id-ID", {
                                 hour: "2-digit",
                                 minute: "2-digit",
-                                timeZone: 'Asia/Jakarta'
                               })} - 
                               ${endTime.toLocaleTimeString("id-ID", {
                                 hour: "2-digit",
                                 minute: "2-digit",
-                                timeZone: 'Asia/Jakarta'
                               })}
                             </p>
                           </div>
@@ -477,9 +464,7 @@ async function renderManagerDashboard() {
               }
             </div>
           </div>
-          ` : ''}
 
-          ${totalPending > 0 ? `
           <!-- Right Column: Pending Approvals -->
           <div class="bg-white rounded-lg shadow-md overflow-hidden">
             <div class="bg-purple-600 text-white px-4 py-3 flex items-center justify-between">
@@ -490,12 +475,22 @@ async function renderManagerDashboard() {
               <span class="bg-white/20 px-2 py-1 rounded text-sm">${totalPending} permintaan</span>
             </div>
             <div class="p-4 max-h-[600px] overflow-y-auto">
-              <div class="space-y-3">
-                ${renderPendingItems(pendingRequests)}
-              </div>
+              ${
+                totalPending > 0
+                  ? `
+                <div class="space-y-3">
+                  ${renderPendingItems(pendingRequests)}
+                </div>
+              `
+                  : `
+                <div class="text-center py-12 text-gray-400">
+                  <i class="fas fa-inbox text-4xl mb-3"></i>
+                  <p>Tidak ada permintaan menunggu</p>
+                </div>
+              `
+              }
             </div>
           </div>
-          ` : ''}
         </div>
 
         <!-- Unified Calendar Section -->
@@ -675,7 +670,7 @@ function renderPendingItems(pendingRequests) {
       iconBg: "bg-green-100 text-green-600",
       title: `${item.event_name}`,
       subtitle: `Ruangan: ${item.room_name} • ${item.requester_name}`,
-      time: new Date(item.start_time).toLocaleString("id-ID"),
+      time: new Date(item.start_time).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }),
       dueInfo: "",
     });
   });
@@ -691,7 +686,7 @@ function renderPendingItems(pendingRequests) {
       subtitle: `${item.transportations?.plate_number || ""} • ${
         item.profiles?.full_name || "-"
       }`,
-      time: new Date(item.borrow_start).toLocaleString("id-ID"),
+      time: new Date(item.borrow_start).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }),
       dueInfo: item.purpose || "",
     });
   });

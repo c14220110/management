@@ -2,17 +2,6 @@
 // Consolidated API for dashboard operations: stats, my-requests, management-dashboard, member-dashboard, calendar
 import { createClient } from "@supabase/supabase-js";
 
-// Helper: Get current date in WIB (Asia/Jakarta) timezone
-function getWIBDate() {
-  return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' }));
-}
-
-// Helper: Get WIB ISO string for current time
-function getWIBISOString() {
-  const date = getWIBDate();
-  return date.toISOString();
-}
-
 export default async function handler(req, res) {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Token dibutuhkan." });
@@ -197,27 +186,6 @@ async function handleManagementDashboard(req, res, user) {
   );
 
   try {
-    // Get user privileges first
-    const { data: profileData } = await supabaseAdmin
-      .from("profiles")
-      .select("privileges")
-      .eq("id", user.id)
-      .single();
-    
-    const userPrivileges = profileData?.privileges || null;
-    
-    // Helper to check if user has a specific privilege
-    // null privileges = super admin (has all access)
-    const hasPrivilege = (priv) => {
-      if (!userPrivileges) return true; // Super admin
-      if (Array.isArray(userPrivileges)) return userPrivileges.includes(priv);
-      return false;
-    };
-
-    const hasInventory = hasPrivilege("inventory");
-    const hasRoom = hasPrivilege("room");
-    const hasTransport = hasPrivilege("transport");
-
     const now = new Date();
     const todayStart = new Date(
       now.getFullYear(),
@@ -483,40 +451,30 @@ async function handleManagementDashboard(req, res, user) {
       .lte("borrow_start", todayEnd);
 
     res.status(200).json({
-      // Send privilege flags so frontend can adjust UI
-      userPrivileges: {
-        inventory: hasInventory,
-        room: hasRoom,
-        transport: hasTransport,
-        isSuperAdmin: !userPrivileges, // null = super admin
-      },
       stats: {
-        // Only include stats for relevant privileges
-        totalAssets: hasInventory ? (totalTemplates ?? 0) : null,
-        totalUnits: hasInventory ? (totalUnits ?? 0) : null,
-        borrowedAssets: hasInventory ? ((borrowedUnits ?? 0) + nonSerialBorrowed) : null,
-        maintenanceAssets: hasInventory ? (maintenanceUnits ?? 0) : null,
-        totalRooms: hasRoom ? (totalRooms ?? 0) : null,
-        approvedReservations: hasRoom ? (approvedReservations ?? 0) : null,
-        pendingReservations: hasRoom ? (pendingReservations ?? 0) : null,
-        totalTransports: hasTransport ? (totalTransports ?? 0) : null,
-        activeTransportsToday: hasTransport ? (transportStats?.length ?? 0) : null,
+        totalAssets: totalTemplates ?? 0,
+        totalUnits: totalUnits ?? 0,
+        borrowedAssets: (borrowedUnits ?? 0) + nonSerialBorrowed,
+        maintenanceAssets: maintenanceUnits ?? 0,
+        totalRooms: totalRooms ?? 0,
+        approvedReservations: approvedReservations ?? 0,
+        pendingReservations: pendingReservations ?? 0,
+        totalTransports: totalTransports ?? 0,
+        activeTransportsToday: transportStats?.length ?? 0,
       },
       alerts: {
-        // Only show transport alerts if has transport privilege
-        vehicleServiceAlerts: hasTransport ? (vehicleServiceAlerts || []) : [],
-        // Only show overdue items if has inventory privilege
-        overdueItems: hasInventory ? (overdueItems || []) : [],
+        vehicleServiceAlerts: vehicleServiceAlerts || [],
+        overdueItems: overdueItems || [],
       },
       todayActivities: {
-        rooms: hasRoom ? (todayRoomReservations || []) : [],
-        transports: hasTransport ? (todayTransportLoans || []) : [],
+        rooms: todayRoomReservations || [],
+        transports: todayTransportLoans || [],
       },
-      conditionSummary: hasInventory ? conditionSummary : null,
+      conditionSummary,
       pendingRequests: {
-        assetLoans: hasInventory ? (pendingAssetLoans || []) : [],
-        roomReservations: hasRoom ? (pendingRoomReservations || []) : [],
-        transportLoans: hasTransport ? (pendingTransportLoans || []) : [],
+        assetLoans: pendingAssetLoans || [],
+        roomReservations: pendingRoomReservations || [],
+        transportLoans: pendingTransportLoans || [],
       },
     });
   } catch (error) {
