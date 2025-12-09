@@ -233,6 +233,7 @@ async function renderManagerDashboard() {
           <!-- Left Column: Alerts & Condition -->
           <div class="space-y-6">
             
+            ${hasTransport ? `
             <!-- Vehicle Service Alerts -->
             <div class="bg-white rounded-lg shadow-md overflow-hidden">
               <div class="bg-red-500 text-white px-4 py-3 flex items-center gap-2">
@@ -281,7 +282,9 @@ async function renderManagerDashboard() {
                 }
               </div>
             </div>
+            ` : ''}
 
+            ${hasInventory ? `
             <!-- Overdue Items -->
             <div class="bg-white rounded-lg shadow-md overflow-hidden">
               <div class="bg-amber-500 text-white px-4 py-3 flex items-center gap-2">
@@ -347,6 +350,20 @@ async function renderManagerDashboard() {
                 ${renderConditionChart(conditionSummary)}
               </div>
             </div>
+            ` : ''}
+
+            ${!hasTransport && !hasInventory ? `
+            <div class="bg-white rounded-lg shadow-md overflow-hidden">
+              <div class="bg-gray-500 text-white px-4 py-3 flex items-center gap-2">
+                <i class="fas fa-info-circle"></i>
+                <h3 class="font-semibold">Informasi</h3>
+              </div>
+              <div class="p-4 text-center py-8 text-gray-400">
+                <i class="fas fa-eye-slash text-3xl mb-3"></i>
+                <p>Tidak ada notifikasi untuk privilege Anda</p>
+              </div>
+            </div>
+            ` : ''}
           </div>
 
           <!-- Middle Column: Today's Activities -->
