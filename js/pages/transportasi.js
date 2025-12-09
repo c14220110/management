@@ -326,23 +326,9 @@ async function renderTransportManagementView() {
     managementUserListForTransport = [];
   }
 
-  container.innerHTML = `
-    <div class="mb-6">
-      <div class="flex flex-wrap gap-2">
-        <button onclick="showTransportManagementTab('list')" id="tab-transport-list" 
-          class="px-4 py-2 rounded-md bg-[#d97706] text-white font-semibold">
-          Daftar Kendaraan
-        </button>
-        <button onclick="showTransportManagementTab('pending')" id="tab-transport-pending" 
-          class="px-4 py-2 rounded-md bg-gray-200 text-gray-700 font-semibold">
-          Pending Requests
-        </button>
-      </div>
-    </div>
-    <div id="transport-management-content"></div>
-  `;
+  container.innerHTML = `<div id="transport-management-content"></div>`;
 
-  await showTransportManagementTab("list");
+  await renderTransportCrudView();
 }
 
 async function showTransportManagementTab(tab) {
@@ -372,7 +358,10 @@ async function renderTransportCrudView() {
     });
 
     content.innerHTML = `
-      <div class="flex justify-end mb-4">
+      <div class="flex justify-end mb-4 gap-3">
+        <button onclick="openTransportHistoryModal()" class="bg-white border border-gray-200 text-gray-600 font-bold py-2 px-4 rounded-md hover:bg-gray-50 flex items-center gap-2">
+          <i class="fas fa-history"></i> Lihat Riwayat
+        </button>
         <button onclick="openTransportModal('create')" class="bg-[#d97706] text-white font-bold py-2 px-4 rounded-md hover:bg-[#b45309]">
           <i class="fas fa-plus mr-2"></i>Tambah Kendaraan
         </button>
@@ -976,4 +965,167 @@ async function deleteTransportation(transportId) {
   } catch (error) {
     alert("Gagal menghapus: " + error.message);
   }
+}
+
+// ============================================================
+// TRANSPORT HISTORY MODAL
+// ============================================================
+async function openTransportHistoryModal() {
+  let currentData = [];
+  let currentPeriod = 6;
+  let currentStatus = "all";
+
+  const content = `
+    <div class="space-y-4">
+      <div class="flex flex-wrap gap-4 items-center">
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Periode</label>
+          <select id="history-period" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            <option value="6">6 Bulan Terakhir</option>
+            <option value="12">12 Bulan Terakhir</option>
+            <option value="24">2 Tahun Terakhir</option>
+          </select>
+        </div>
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+          <select id="history-status" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            <option value="all">Semua Status</option>
+            <option value="Disetujui">Disetujui</option>
+            <option value="Ditolak">Ditolak</option>
+            <option value="Menunggu Persetujuan">Menunggu Persetujuan</option>
+            <option value="Selesai">Selesai</option>
+          </select>
+        </div>
+        <div class="flex items-end gap-2">
+          <button id="history-export-csv" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
+            <i class="fas fa-file-csv"></i> CSV
+          </button>
+          <button id="history-export-excel" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
+            <i class="fas fa-file-excel"></i> Excel
+          </button>
+        </div>
+      </div>
+
+      <div id="history-data-container" class="max-h-[60vh] overflow-y-auto">
+        <div class="flex items-center justify-center py-8 text-gray-400">
+          <i class="fas fa-spinner fa-spin mr-2"></i> Memuat data...
+        </div>
+      </div>
+
+      <div id="history-total" class="text-sm text-gray-600 font-medium"></div>
+    </div>
+  `;
+
+  openGlobalModal({
+    title: "Riwayat Peminjaman Transportasi",
+    contentHTML: content,
+    confirmText: "Tutup",
+    onConfirm: () => closeGlobalModal()
+  });
+
+  async function loadHistoryData() {
+    const container = document.getElementById("history-data-container");
+    const totalEl = document.getElementById("history-total");
+    
+    container.innerHTML = `<div class="flex items-center justify-center py-8 text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i> Memuat data...</div>`;
+    
+    try {
+      currentData = await api.post("/api/management", {
+        action: "getTransportLoanHistory",
+        payload: { months: currentPeriod, status: currentStatus }
+      });
+
+      if (!currentData || currentData.length === 0) {
+        container.innerHTML = `<div class="text-center py-8 text-gray-400"><i class="fas fa-inbox text-4xl mb-2"></i><p>Tidak ada data untuk periode ini</p></div>`;
+        totalEl.textContent = "";
+        return;
+      }
+
+      // Group by month
+      const grouped = groupDataByMonth(currentData, "borrow_start");
+
+      let html = "";
+      grouped.forEach(group => {
+        html += `<div class="mb-6">
+          <div class="bg-gray-100 px-4 py-2 rounded-lg font-semibold text-gray-700 sticky top-0">
+            ${group.label} (${group.items.length})
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead class="text-gray-500 text-left">
+                <tr>
+                  <th class="p-3">Tanggal</th>
+                  <th class="p-3">Kendaraan</th>
+                  <th class="p-3">Keperluan</th>
+                  <th class="p-3">Pemohon</th>
+                  <th class="p-3">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                ${group.items.map(item => `
+                  <tr class="hover:bg-gray-50">
+                    <td class="p-3">${new Date(item.borrow_start).toLocaleDateString("id-ID")}</td>
+                    <td class="p-3 font-medium">${item.transportations?.vehicle_name || "-"} <span class="text-gray-400 text-xs">${item.transportations?.plate_number || ""}</span></td>
+                    <td class="p-3">${item.purpose || "-"}</td>
+                    <td class="p-3">${item.profiles?.full_name || "-"}</td>
+                    <td class="p-3">${getStatusBadgeHTML(item.status)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+      });
+
+      container.innerHTML = html;
+      totalEl.textContent = `Total: ${currentData.length} data`;
+
+    } catch (error) {
+      container.innerHTML = `<div class="text-red-600 p-4"><i class="fas fa-exclamation-circle mr-2"></i>${error.message}</div>`;
+    }
+  }
+
+  // Initial load
+  setTimeout(loadHistoryData, 100);
+
+  // Event listeners
+  setTimeout(() => {
+    document.getElementById("history-period")?.addEventListener("change", (e) => {
+      currentPeriod = parseInt(e.target.value);
+      loadHistoryData();
+    });
+
+    document.getElementById("history-status")?.addEventListener("change", (e) => {
+      currentStatus = e.target.value;
+      loadHistoryData();
+    });
+
+    document.getElementById("history-export-csv")?.addEventListener("click", () => {
+      const columns = [
+        { label: "Tanggal", getValue: item => new Date(item.borrow_start).toLocaleDateString("id-ID") },
+        { label: "Waktu Mulai", getValue: item => new Date(item.borrow_start).toLocaleTimeString("id-ID") },
+        { label: "Waktu Selesai", getValue: item => new Date(item.borrow_end).toLocaleTimeString("id-ID") },
+        { label: "Kendaraan", getValue: item => item.transportations?.vehicle_name || "-" },
+        { label: "Plat", getValue: item => item.transportations?.plate_number || "-" },
+        { label: "Keperluan", key: "purpose" },
+        { label: "Pemohon", getValue: item => item.profiles?.full_name || "-" },
+        { label: "Status", key: "status" }
+      ];
+      exportToCSV(currentData, "riwayat_transportasi", columns);
+    });
+
+    document.getElementById("history-export-excel")?.addEventListener("click", () => {
+      const columns = [
+        { label: "Tanggal", getValue: item => new Date(item.borrow_start).toLocaleDateString("id-ID") },
+        { label: "Waktu Mulai", getValue: item => new Date(item.borrow_start).toLocaleTimeString("id-ID") },
+        { label: "Waktu Selesai", getValue: item => new Date(item.borrow_end).toLocaleTimeString("id-ID") },
+        { label: "Kendaraan", getValue: item => item.transportations?.vehicle_name || "-" },
+        { label: "Plat", getValue: item => item.transportations?.plate_number || "-" },
+        { label: "Keperluan", key: "purpose" },
+        { label: "Pemohon", getValue: item => item.profiles?.full_name || "-" },
+        { label: "Status", key: "status" }
+      ];
+      exportToExcel(currentData, "riwayat_transportasi", columns);
+    });
+  }, 150);
 }

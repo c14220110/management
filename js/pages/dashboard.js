@@ -56,17 +56,118 @@ async function renderManagerDashboard() {
       pendingRequests,
     } = data;
 
-    // Count total alerts
+    // Get user privileges for filtering
+    const userPrivileges = JSON.parse(localStorage.getItem("userPrivileges") || "[]");
+    const hasInventory = userPrivileges.length === 0 || userPrivileges.includes("inventory");
+    const hasRoom = userPrivileges.length === 0 || userPrivileges.includes("room");
+    const hasTransport = userPrivileges.length === 0 || userPrivileges.includes("transport");
+
+    // Filter alerts based on privileges
+    const filteredAlerts = {
+      vehicleServiceAlerts: hasTransport ? (alerts.vehicleServiceAlerts || []) : [],
+      overdueItems: hasInventory ? (alerts.overdueItems || []) : []
+    };
+
+    // Filter pending requests based on privileges
+    const filteredPending = {
+      assetLoans: hasInventory ? (pendingRequests.assetLoans || []) : [],
+      roomReservations: hasRoom ? (pendingRequests.roomReservations || []) : [],
+      transportLoans: hasTransport ? (pendingRequests.transportLoans || []) : []
+    };
+
+    // Filter today activities based on privileges
+    const filteredActivities = {
+      rooms: hasRoom ? (todayActivities.rooms || []) : [],
+      transports: hasTransport ? (todayActivities.transports || []) : []
+    };
+
+    // Count filtered totals
     const totalAlerts =
-      (alerts.vehicleServiceAlerts?.length || 0) +
-      (alerts.overdueItems?.length || 0);
+      (filteredAlerts.vehicleServiceAlerts.length) +
+      (filteredAlerts.overdueItems.length);
     const totalPending =
-      (pendingRequests.assetLoans?.length || 0) +
-      (pendingRequests.roomReservations?.length || 0) +
-      (pendingRequests.transportLoans?.length || 0);
+      (filteredPending.assetLoans.length) +
+      (filteredPending.roomReservations.length) +
+      (filteredPending.transportLoans.length);
     const totalTodayActivities =
-      (todayActivities.rooms?.length || 0) +
-      (todayActivities.transports?.length || 0);
+      (filteredActivities.rooms.length) +
+      (filteredActivities.transports.length);
+
+    // Build stat cards based on privileges
+    let statCardsHTML = '';
+    
+    if (hasInventory) {
+      statCardsHTML += `
+        <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-500">Total Aset</p>
+              <p class="text-2xl font-bold text-gray-800">${stats.totalAssets}</p>
+            </div>
+            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+              <i class="fas fa-boxes text-blue-500 text-xl"></i>
+            </div>
+          </div>
+          <p class="text-xs text-gray-400 mt-2">${stats.borrowedAssets} dipinjam • ${stats.maintenanceAssets} perbaikan</p>
+        </div>
+      `;
+    }
+
+    if (hasRoom) {
+      statCardsHTML += `
+        <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-green-500">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-500">Total Ruangan</p>
+              <p class="text-2xl font-bold text-gray-800">${stats.totalRooms}</p>
+            </div>
+            <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+              <i class="fas fa-building text-green-500 text-xl"></i>
+            </div>
+          </div>
+          <p class="text-xs text-gray-400 mt-2">${stats.approvedReservations} reservasi aktif</p>
+        </div>
+      `;
+    }
+
+    if (hasTransport) {
+      statCardsHTML += `
+        <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-amber-500">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-500">Kendaraan</p>
+              <p class="text-2xl font-bold text-gray-800">${stats.totalTransports}</p>
+            </div>
+            <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+              <i class="fas fa-shuttle-van text-amber-500 text-xl"></i>
+            </div>
+          </div>
+          <p class="text-xs text-gray-400 mt-2">${stats.activeTransportsToday} dipakai hari ini</p>
+        </div>
+      `;
+    }
+
+    // Always show pending approval card if there are any
+    if (totalPending > 0) {
+      statCardsHTML += `
+        <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-purple-500">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-500">Menunggu Approval</p>
+              <p class="text-2xl font-bold text-gray-800">${totalPending}</p>
+            </div>
+            <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+              <i class="fas fa-clock text-purple-500 text-xl"></i>
+            </div>
+          </div>
+          <p class="text-xs text-gray-400 mt-2">Perlu persetujuan Anda</p>
+        </div>
+      `;
+    }
+
+    // Determine grid columns based on number of visible cards
+    const visibleCardCount = (hasInventory ? 1 : 0) + (hasRoom ? 1 : 0) + (hasTransport ? 1 : 0) + (totalPending > 0 ? 1 : 0);
+    const gridCols = visibleCardCount <= 2 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-2 md:grid-cols-4';
 
     container.innerHTML = `
       <div class="space-y-6">
@@ -93,19 +194,19 @@ async function renderManagerDashboard() {
                 <p class="font-semibold text-red-800">Perhatian! Ada ${totalAlerts} peringatan yang perlu ditindaklanjuti</p>
                 <p class="text-sm text-red-600">
                   ${
-                    alerts.vehicleServiceAlerts?.length
-                      ? `${alerts.vehicleServiceAlerts.length} kendaraan perlu servis`
+                    filteredAlerts.vehicleServiceAlerts.length
+                      ? `${filteredAlerts.vehicleServiceAlerts.length} kendaraan perlu servis`
                       : ""
                   }
                   ${
-                    alerts.vehicleServiceAlerts?.length &&
-                    alerts.overdueItems?.length
+                    filteredAlerts.vehicleServiceAlerts.length &&
+                    filteredAlerts.overdueItems.length
                       ? " • "
                       : ""
                   }
                   ${
-                    alerts.overdueItems?.length
-                      ? `${alerts.overdueItems.length} barang terlambat dikembalikan`
+                    filteredAlerts.overdueItems.length
+                      ? `${filteredAlerts.overdueItems.length} barang terlambat dikembalikan`
                       : ""
                   }
                 </p>
@@ -117,71 +218,8 @@ async function renderManagerDashboard() {
         }
 
         <!-- Quick Stats Grid -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-blue-500">
-            <div class="flex items-center justify-between">
-                      <div>
-                <p class="text-sm text-gray-500">Total Aset</p>
-                <p class="text-2xl font-bold text-gray-800">${
-                  stats.totalAssets
-                }</p>
-                      </div>
-              <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <i class="fas fa-boxes text-blue-500 text-xl"></i>
-                      </div>
-            </div>
-            <p class="text-xs text-gray-400 mt-2">${
-              stats.borrowedAssets
-            } dipinjam • ${stats.maintenanceAssets} perbaikan</p>
-          </div>
-
-          <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-green-500">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-sm text-gray-500">Total Ruangan</p>
-                <p class="text-2xl font-bold text-gray-800">${
-                  stats.totalRooms
-                }</p>
-              </div>
-              <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <i class="fas fa-building text-green-500 text-xl"></i>
-              </div>
-            </div>
-            <p class="text-xs text-gray-400 mt-2">${
-              stats.approvedReservations
-            } reservasi aktif</p>
-          </div>
-
-          <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-amber-500">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-sm text-gray-500">Kendaraan</p>
-                <p class="text-2xl font-bold text-gray-800">${
-                  stats.totalTransports
-                }</p>
-              </div>
-              <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
-                <i class="fas fa-shuttle-van text-amber-500 text-xl"></i>
-              </div>
-            </div>
-            <p class="text-xs text-gray-400 mt-2">${
-              stats.activeTransportsToday
-            } dipakai hari ini</p>
-          </div>
-
-          <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-purple-500">
-            <div class="flex items-center justify-between">
-              <div>
-                <p class="text-sm text-gray-500">Menunggu Approval</p>
-                <p class="text-2xl font-bold text-gray-800">${totalPending}</p>
-              </div>
-              <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <i class="fas fa-clock text-purple-500 text-xl"></i>
-              </div>
-            </div>
-            <p class="text-xs text-gray-400 mt-2">Perlu persetujuan Anda</p>
-          </div>
-        </div>
+        <div class="grid ${gridCols} gap-4">
+          ${statCardsHTML}
 
         <!-- Main Content Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -197,10 +235,10 @@ async function renderManagerDashboard() {
               </div>
               <div class="p-4">
                 ${
-                  alerts.vehicleServiceAlerts?.length
+                  filteredAlerts.vehicleServiceAlerts.length
                     ? `
                   <div class="space-y-3">
-                    ${alerts.vehicleServiceAlerts
+                    ${filteredAlerts.vehicleServiceAlerts
                       .map(
                         (v) => `
                       <div class="flex items-start gap-3 p-3 bg-red-50 rounded-lg">
@@ -246,10 +284,10 @@ async function renderManagerDashboard() {
               </div>
               <div class="p-4">
                 ${
-                  alerts.overdueItems?.length
+                  filteredAlerts.overdueItems.length
                     ? `
                   <div class="space-y-3">
-                    ${alerts.overdueItems
+                    ${filteredAlerts.overdueItems
                       .slice(0, 5)
                       .map(
                         (item) => `
@@ -273,10 +311,10 @@ async function renderManagerDashboard() {
                       )
                       .join("")}
                     ${
-                      alerts.overdueItems.length > 5
+                      filteredAlerts.overdueItems.length > 5
                         ? `
                       <p class="text-center text-sm text-gray-500">... dan ${
-                        alerts.overdueItems.length - 5
+                        filteredAlerts.overdueItems.length - 5
                       } lainnya</p>
                     `
                         : ""
@@ -320,14 +358,14 @@ async function renderManagerDashboard() {
                   ? `
                 <!-- Room Activities -->
                 ${
-                  todayActivities.rooms?.length
+                  filteredActivities.rooms.length
                     ? `
                   <div class="mb-4">
                     <h4 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
                       <i class="fas fa-door-open mr-2"></i>Ruangan Dipakai
                     </h4>
                     <div class="space-y-2">
-                      ${todayActivities.rooms
+                      ${filteredActivities.rooms
                         .map((room) => {
                           const startTime = new Date(room.start_time);
                           const endTime = new Date(room.end_time);
@@ -377,14 +415,14 @@ async function renderManagerDashboard() {
 
                 <!-- Transport Activities -->
                 ${
-                  todayActivities.transports?.length
+                  filteredActivities.transports.length
                     ? `
                   <div>
                     <h4 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
                       <i class="fas fa-car mr-2"></i>Kendaraan Keluar
                     </h4>
                     <div class="space-y-2">
-                      ${todayActivities.transports
+                      ${filteredActivities.transports
                         .map((trip) => {
                           const startTime = new Date(trip.borrow_start);
                           const endTime = new Date(trip.borrow_end);
@@ -479,7 +517,7 @@ async function renderManagerDashboard() {
                 totalPending > 0
                   ? `
                 <div class="space-y-3">
-                  ${renderPendingItems(pendingRequests)}
+                  ${renderPendingItems(filteredPending)}
                 </div>
               `
                   : `

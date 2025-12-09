@@ -49,7 +49,10 @@ async function renderRuanganManagementView() {
         <!-- Header & Actions -->
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h2 class="text-xl font-semibold text-gray-800">Daftar Ruangan</h2>
-          <div class="flex gap-3 self-start sm:self-auto">
+          <div class="flex gap-3 self-start sm:self-auto flex-wrap">
+            <button id="room-history-btn" class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 flex items-center gap-2 shadow-sm">
+              <i class="fas fa-history"></i> Lihat Riwayat
+            </button>
             <button id="room-add-btn" class="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-600 shadow-lg shadow-amber-500/30 flex items-center gap-2 transition-all">
               <i class="fas fa-plus"></i> Tambah Ruangan
             </button>
@@ -97,6 +100,7 @@ async function renderRuanganManagementView() {
 
     document.getElementById("room-add-btn")?.addEventListener("click", () => openRoomModal());
     document.getElementById("room-refresh-btn")?.addEventListener("click", () => renderRuanganManagementView());
+    document.getElementById("room-history-btn")?.addEventListener("click", () => openRoomHistoryModal());
 
     bindRoomCardActions(container);
 
@@ -480,3 +484,163 @@ function debounce(fn, delay) {
 }
 
 window.loadRuanganPage = loadRuanganPage;
+
+// ============================================================
+// ROOM HISTORY MODAL
+// ============================================================
+async function openRoomHistoryModal() {
+  let currentData = [];
+  let currentPeriod = 6;
+  let currentStatus = "all";
+
+  const content = `
+    <div class="space-y-4">
+      <div class="flex flex-wrap gap-4 items-center">
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Periode</label>
+          <select id="history-period" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            <option value="6">6 Bulan Terakhir</option>
+            <option value="12">12 Bulan Terakhir</option>
+            <option value="24">2 Tahun Terakhir</option>
+          </select>
+        </div>
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+          <select id="history-status" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            <option value="all">Semua Status</option>
+            <option value="Disetujui">Disetujui</option>
+            <option value="Ditolak">Ditolak</option>
+            <option value="Menunggu Persetujuan">Menunggu Persetujuan</option>
+          </select>
+        </div>
+        <div class="flex items-end gap-2">
+          <button id="history-export-csv" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
+            <i class="fas fa-file-csv"></i> CSV
+          </button>
+          <button id="history-export-excel" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
+            <i class="fas fa-file-excel"></i> Excel
+          </button>
+        </div>
+      </div>
+
+      <div id="history-data-container" class="max-h-[60vh] overflow-y-auto">
+        <div class="flex items-center justify-center py-8 text-gray-400">
+          <i class="fas fa-spinner fa-spin mr-2"></i> Memuat data...
+        </div>
+      </div>
+
+      <div id="history-total" class="text-sm text-gray-600 font-medium"></div>
+    </div>
+  `;
+
+  openGlobalModal({
+    title: "Riwayat Reservasi Ruangan",
+    contentHTML: content,
+    confirmText: "Tutup",
+    onConfirm: () => closeGlobalModal()
+  });
+
+  async function loadHistoryData() {
+    const container = document.getElementById("history-data-container");
+    const totalEl = document.getElementById("history-total");
+    
+    container.innerHTML = `<div class="flex items-center justify-center py-8 text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i> Memuat data...</div>`;
+    
+    try {
+      currentData = await api.post("/api/management", {
+        action: "getRoomReservationHistory",
+        payload: { months: currentPeriod, status: currentStatus }
+      });
+
+      if (!currentData || currentData.length === 0) {
+        container.innerHTML = `<div class="text-center py-8 text-gray-400"><i class="fas fa-inbox text-4xl mb-2"></i><p>Tidak ada data untuk periode ini</p></div>`;
+        totalEl.textContent = "";
+        return;
+      }
+
+      // Group by month
+      const grouped = groupDataByMonth(currentData, "start_time");
+
+      let html = "";
+      grouped.forEach(group => {
+        html += `<div class="mb-6">
+          <div class="bg-gray-100 px-4 py-2 rounded-lg font-semibold text-gray-700 sticky top-0">
+            ${group.label} (${group.items.length})
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead class="text-gray-500 text-left">
+                <tr>
+                  <th class="p-3">Tanggal</th>
+                  <th class="p-3">Ruangan</th>
+                  <th class="p-3">Acara</th>
+                  <th class="p-3">Pemohon</th>
+                  <th class="p-3">Status</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                ${group.items.map(item => `
+                  <tr class="hover:bg-gray-50">
+                    <td class="p-3">${new Date(item.start_time).toLocaleDateString("id-ID")}</td>
+                    <td class="p-3 font-medium">${item.room_name || "-"}</td>
+                    <td class="p-3">${item.event_name || "-"}</td>
+                    <td class="p-3">${item.requester_name || "-"}</td>
+                    <td class="p-3">${getStatusBadgeHTML(item.status)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>`;
+      });
+
+      container.innerHTML = html;
+      totalEl.textContent = `Total: ${currentData.length} data`;
+
+    } catch (error) {
+      container.innerHTML = `<div class="text-red-600 p-4"><i class="fas fa-exclamation-circle mr-2"></i>${error.message}</div>`;
+    }
+  }
+
+  // Initial load
+  setTimeout(loadHistoryData, 100);
+
+  // Event listeners
+  setTimeout(() => {
+    document.getElementById("history-period")?.addEventListener("change", (e) => {
+      currentPeriod = parseInt(e.target.value);
+      loadHistoryData();
+    });
+
+    document.getElementById("history-status")?.addEventListener("change", (e) => {
+      currentStatus = e.target.value;
+      loadHistoryData();
+    });
+
+    document.getElementById("history-export-csv")?.addEventListener("click", () => {
+      const columns = [
+        { label: "Tanggal", getValue: item => new Date(item.start_time).toLocaleDateString("id-ID") },
+        { label: "Waktu Mulai", getValue: item => new Date(item.start_time).toLocaleTimeString("id-ID") },
+        { label: "Waktu Selesai", getValue: item => new Date(item.end_time).toLocaleTimeString("id-ID") },
+        { label: "Ruangan", key: "room_name" },
+        { label: "Acara", key: "event_name" },
+        { label: "Pemohon", key: "requester_name" },
+        { label: "Status", key: "status" }
+      ];
+      exportToCSV(currentData, "riwayat_reservasi_ruangan", columns);
+    });
+
+    document.getElementById("history-export-excel")?.addEventListener("click", () => {
+      const columns = [
+        { label: "Tanggal", getValue: item => new Date(item.start_time).toLocaleDateString("id-ID") },
+        { label: "Waktu Mulai", getValue: item => new Date(item.start_time).toLocaleTimeString("id-ID") },
+        { label: "Waktu Selesai", getValue: item => new Date(item.end_time).toLocaleTimeString("id-ID") },
+        { label: "Ruangan", key: "room_name" },
+        { label: "Acara", key: "event_name" },
+        { label: "Pemohon", key: "requester_name" },
+        { label: "Status", key: "status" }
+      ];
+      exportToExcel(currentData, "riwayat_reservasi_ruangan", columns);
+    });
+  }, 150);
+}

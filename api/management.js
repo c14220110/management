@@ -1160,6 +1160,89 @@ export default async function handler(req, res) {
         });
       }
 
+      // ============================================================
+      // HISTORY APIs (for export and detailed view)
+      // ============================================================
+      case "getRoomReservationHistory": {
+        if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
+        const { months = 6, status = null } = payload || {};
+        
+        // Calculate date range
+        const startDate = new Date();
+        startDate.setMonth(startDate.getMonth() - months);
+        
+        let query = supabase
+          .from("room_reservations")
+          .select("*")
+          .gte("start_time", startDate.toISOString())
+          .order("start_time", { ascending: false });
+        
+        if (status && status !== "all") {
+          query = query.eq("status", status);
+        }
+        
+        const { data, error: histError } = await query;
+        if (histError) throw histError;
+        return res.status(200).json(data);
+      }
+
+      case "getTransportLoanHistory": {
+        if (!checkPrivilege(profile, "transport")) throw new Error("Akses ditolak: Butuh privilege 'transport'");
+        const { months: tMonths = 6, status: tStatus = null } = payload || {};
+        
+        const tStartDate = new Date();
+        tStartDate.setMonth(tStartDate.getMonth() - tMonths);
+        
+        let tQuery = supabase
+          .from("transport_loans")
+          .select(`
+            *,
+            transportations (vehicle_name, plate_number),
+            profiles (full_name)
+          `)
+          .gte("borrow_start", tStartDate.toISOString())
+          .order("borrow_start", { ascending: false });
+        
+        if (tStatus && tStatus !== "all") {
+          tQuery = tQuery.eq("status", tStatus);
+        }
+        
+        const { data: tData, error: tHistError } = await tQuery;
+        if (tHistError) throw tHistError;
+        return res.status(200).json(tData);
+      }
+
+      case "getAssetLoanHistory": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
+        const { months: aMonths = 6, status: aStatus = null } = payload || {};
+        
+        const aStartDate = new Date();
+        aStartDate.setMonth(aStartDate.getMonth() - aMonths);
+        
+        let aQuery = supabase
+          .from("asset_loans")
+          .select(`
+            *,
+            assets (asset_name, asset_code),
+            profiles (full_name),
+            product_units (
+              asset_code, 
+              serial_number,
+              template:product_templates (name)
+            )
+          `)
+          .gte("loan_date", aStartDate.toISOString())
+          .order("loan_date", { ascending: false });
+        
+        if (aStatus && aStatus !== "all") {
+          aQuery = aQuery.eq("status", aStatus);
+        }
+        
+        const { data: aData, error: aHistError } = await aQuery;
+        if (aHistError) throw aHistError;
+        return res.status(200).json(aData);
+      }
+
       default:
         return res.status(400).json({ error: "Aksi tidak dikenal" });
     }

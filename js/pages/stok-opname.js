@@ -632,43 +632,224 @@ async function openOpnameDetail(opnameId) {
   if (!res.ok) { notifyError("Gagal mengambil detail"); return; }
   const { opname, items } = await res.json();
 
-  const rows = items.map(item => `
-    <tr class="border-b">
-      <td class="p-3">${item.template?.name}</td>
-      <td class="p-3 font-mono text-xs">${item.unit?.asset_code || item.unit?.serial_number || "-"}</td>
-      <td class="p-3 text-center">${item.system_qty}</td>
-      <td class="p-3 text-center font-bold ${item.actual_qty !== item.system_qty ? 'text-red-600' : 'text-green-600'}">${item.actual_qty}</td>
-      <td class="p-3 text-sm text-gray-500">${item.notes || "-"}</td>
-      <td class="p-3 text-xs text-gray-400">${item.checker?.full_name}</td>
-    </tr>
-  `).join("");
+  // State for filtering
+  let filterCategory = "all";
+  let filterChecker = "all";
+  let searchQuery = "";
+  
+  // Get unique categories and checkers
+  const categories = [...new Set(items.map(i => i.template?.category?.name || "Lainnya"))].sort();
+  const checkers = [...new Set(items.map(i => i.checker?.full_name).filter(Boolean))].sort();
+  
+  // Calculate summary statistics
+  function calcStats(data) {
+    const total = data.length;
+    const matched = data.filter(i => i.actual_qty === i.system_qty).length;
+    const discrepancy = total - matched;
+    const totalDiff = data.reduce((sum, i) => sum + Math.abs((i.actual_qty || 0) - (i.system_qty || 0)), 0);
+    const accuracy = total > 0 ? Math.round((matched / total) * 100) : 100;
+    return { total, matched, discrepancy, totalDiff, accuracy };
+  }
 
-  const content = `
-    <div class="mb-4">
-      <p class="text-sm text-gray-500">Tanggal: ${new Date(opname.start_date).toLocaleDateString()} - ${new Date(opname.end_date).toLocaleDateString()}</p>
-      <p class="text-sm text-gray-500">Total Item Dicek: ${items.length}</p>
-    </div>
-    <div class="overflow-x-auto max-h-[60vh]">
-      <table class="min-w-full text-sm">
-        <thead class="bg-gray-50 sticky top-0">
-          <tr>
-            <th class="p-3 text-left">Produk</th>
-            <th class="p-3 text-left">Unit Code</th>
-            <th class="p-3 text-center">Sys Qty</th>
-            <th class="p-3 text-center">Act Qty</th>
-            <th class="p-3 text-left">Catatan</th>
-            <th class="p-3 text-left">Checker</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-  `;
+  // Filter function
+  function filterItems() {
+    return items.filter(item => {
+      const cat = item.template?.category?.name || "Lainnya";
+      const checker = item.checker?.full_name || "";
+      const name = item.template?.name?.toLowerCase() || "";
+      const code = item.unit?.asset_code?.toLowerCase() || item.unit?.serial_number?.toLowerCase() || "";
+      
+      if (filterCategory !== "all" && cat !== filterCategory) return false;
+      if (filterChecker !== "all" && checker !== filterChecker) return false;
+      if (searchQuery && !name.includes(searchQuery.toLowerCase()) && !code.includes(searchQuery.toLowerCase())) return false;
+      return true;
+    });
+  }
 
+  // Render function
+  function renderContent() {
+    const filtered = filterItems();
+    const stats = calcStats(filtered);
+
+    const categoryPills = categories.map(c => {
+      const count = items.filter(i => (i.template?.category?.name || "Lainnya") === c).length;
+      const isActive = filterCategory === c;
+      return `<button class="opname-cat-pill px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${isActive ? 'bg-amber-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}" data-cat="${c}">${c} <span class="ml-1 text-xs ${isActive ? 'text-amber-200' : 'text-gray-400'}">(${count})</span></button>`;
+    }).join("");
+
+    const checkerOpts = checkers.map(c => `<option value="${c}" ${filterChecker === c ? "selected" : ""}>${c}</option>`).join("");
+
+    return `
+      <div class="space-y-4">
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="bg-blue-50 rounded-xl p-3 text-center">
+            <p class="text-2xl font-bold text-blue-600">${stats.total}</p>
+            <p class="text-xs text-blue-500">Item Dicek</p>
+          </div>
+          <div class="bg-green-50 rounded-xl p-3 text-center">
+            <p class="text-2xl font-bold text-green-600">${stats.accuracy}%</p>
+            <p class="text-xs text-green-500">Akurasi</p>
+          </div>
+          <div class="bg-red-50 rounded-xl p-3 text-center">
+            <p class="text-2xl font-bold text-red-600">${stats.discrepancy}</p>
+            <p class="text-xs text-red-500">Tidak Sesuai</p>
+          </div>
+          <div class="bg-amber-50 rounded-xl p-3 text-center">
+            <p class="text-2xl font-bold text-amber-600">${stats.totalDiff}</p>
+            <p class="text-xs text-amber-500">Selisih Qty</p>
+          </div>
+        </div>
+
+        <!-- Filters Row -->
+        <div class="flex flex-wrap gap-3 items-center">
+          <button class="opname-cat-pill px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filterCategory === 'all' ? 'bg-amber-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}" data-cat="all">Semua <span class="ml-1 text-xs ${filterCategory === 'all' ? 'text-amber-200' : 'text-gray-400'}">(${items.length})</span></button>
+          ${categoryPills}
+        </div>
+
+        <!-- Search and Checker Filter -->
+        <div class="flex flex-wrap gap-3">
+          <div class="flex-1 min-w-[200px]">
+            <input type="text" id="opname-detail-search" value="${searchQuery}" placeholder="Cari produk atau kode..." class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 text-sm"/>
+          </div>
+          <div class="w-48">
+            <select id="opname-detail-checker" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+              <option value="all" ${filterChecker === "all" ? "selected" : ""}>Semua Checker</option>
+              ${checkerOpts}
+            </select>
+          </div>
+          <div class="flex gap-2">
+            <button id="opname-export-csv" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm flex items-center gap-1">
+              <i class="fas fa-file-csv"></i> CSV
+            </button>
+            <button id="opname-export-excel" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm flex items-center gap-1">
+              <i class="fas fa-file-excel"></i> Excel
+            </button>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto max-h-[45vh] border rounded-lg">
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-50 sticky top-0">
+              <tr>
+                <th class="p-3 text-left font-medium text-gray-600">Produk</th>
+                <th class="p-3 text-left font-medium text-gray-600">Kode Unit</th>
+                <th class="p-3 text-left font-medium text-gray-600">Kategori</th>
+                <th class="p-3 text-center font-medium text-gray-600">Sistem</th>
+                <th class="p-3 text-center font-medium text-gray-600">Aktual</th>
+                <th class="p-3 text-center font-medium text-gray-600">Selisih</th>
+                <th class="p-3 text-left font-medium text-gray-600">Catatan</th>
+                <th class="p-3 text-left font-medium text-gray-600">Checker</th>
+                <th class="p-3 text-left font-medium text-gray-600">Waktu</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              ${filtered.map(item => {
+                const diff = (item.actual_qty || 0) - (item.system_qty || 0);
+                const diffClass = diff === 0 ? 'text-green-600' : diff > 0 ? 'text-blue-600' : 'text-red-600';
+                const checkTime = item.checked_at ? new Date(item.checked_at).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) : '-';
+                return `
+                <tr class="hover:bg-gray-50">
+                  <td class="p-3 font-medium">${item.template?.name || '-'}</td>
+                  <td class="p-3 font-mono text-xs">${item.unit?.asset_code || item.unit?.serial_number || '-'}</td>
+                  <td class="p-3 text-gray-500">${item.template?.category?.name || '-'}</td>
+                  <td class="p-3 text-center">${item.system_qty}</td>
+                  <td class="p-3 text-center font-bold ${item.actual_qty !== item.system_qty ? 'text-red-600' : 'text-green-600'}">${item.actual_qty}</td>
+                  <td class="p-3 text-center font-bold ${diffClass}">${diff > 0 ? '+' : ''}${diff}</td>
+                  <td class="p-3 text-gray-500 max-w-[150px] truncate" title="${item.notes || ''}">${item.notes || '-'}</td>
+                  <td class="p-3 text-gray-600">${item.checker?.full_name || '-'}</td>
+                  <td class="p-3 text-xs text-gray-400">${checkTime}</td>
+                </tr>`}).join("")}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-between items-center text-sm text-gray-500">
+          <span>Menampilkan <strong>${filtered.length}</strong> dari ${items.length} item</span>
+          <span>Periode: ${new Date(opname.start_date).toLocaleDateString('id-ID')} - ${opname.end_date ? new Date(opname.end_date).toLocaleDateString('id-ID') : 'Sekarang'}</span>
+        </div>
+      </div>
+    `;
+  }
+
+  // Open modal
   openGlobalModal({
     title: `Detail: ${opname.title}`,
-    contentHTML: content,
+    contentHTML: renderContent(),
     confirmText: "Tutup",
     onConfirm: () => closeGlobalModal()
   });
+
+  // Bind event listeners after render
+  function bindEvents() {
+    // Category pills
+    document.querySelectorAll(".opname-cat-pill").forEach(btn => {
+      btn.addEventListener("click", () => {
+        filterCategory = btn.dataset.cat;
+        document.querySelector("#global-modal .bg-white > div")?.replaceChildren();
+        const newContent = document.createElement('div');
+        newContent.innerHTML = renderContent();
+        document.querySelector("#global-modal .bg-white > div")?.appendChild(newContent.firstElementChild);
+        bindEvents();
+      });
+    });
+
+    // Search
+    document.getElementById("opname-detail-search")?.addEventListener("input", (e) => {
+      searchQuery = e.target.value;
+      document.querySelector("#global-modal .bg-white > div")?.replaceChildren();
+      const newContent = document.createElement('div');
+      newContent.innerHTML = renderContent();
+      document.querySelector("#global-modal .bg-white > div")?.appendChild(newContent.firstElementChild);
+      bindEvents();
+    });
+
+    // Checker filter
+    document.getElementById("opname-detail-checker")?.addEventListener("change", (e) => {
+      filterChecker = e.target.value;
+      document.querySelector("#global-modal .bg-white > div")?.replaceChildren();
+      const newContent = document.createElement('div');
+      newContent.innerHTML = renderContent();
+      document.querySelector("#global-modal .bg-white > div")?.appendChild(newContent.firstElementChild);
+      bindEvents();
+    });
+
+    // Export CSV
+    document.getElementById("opname-export-csv")?.addEventListener("click", () => {
+      const filtered = filterItems();
+      const columns = [
+        { label: "Produk", getValue: i => i.template?.name || "-" },
+        { label: "Kode Unit", getValue: i => i.unit?.asset_code || i.unit?.serial_number || "-" },
+        { label: "Kategori", getValue: i => i.template?.category?.name || "-" },
+        { label: "Qty Sistem", key: "system_qty" },
+        { label: "Qty Aktual", key: "actual_qty" },
+        { label: "Selisih", getValue: i => (i.actual_qty || 0) - (i.system_qty || 0) },
+        { label: "Catatan", key: "notes" },
+        { label: "Checker", getValue: i => i.checker?.full_name || "-" },
+        { label: "Waktu Cek", getValue: i => i.checked_at ? new Date(i.checked_at).toLocaleString('id-ID') : "-" }
+      ];
+      exportToCSV(filtered, `stok_opname_${opname.title.replace(/\s+/g, '_')}`, columns);
+    });
+
+    // Export Excel
+    document.getElementById("opname-export-excel")?.addEventListener("click", () => {
+      const filtered = filterItems();
+      const columns = [
+        { label: "Produk", getValue: i => i.template?.name || "-" },
+        { label: "Kode Unit", getValue: i => i.unit?.asset_code || i.unit?.serial_number || "-" },
+        { label: "Kategori", getValue: i => i.template?.category?.name || "-" },
+        { label: "Qty Sistem", key: "system_qty" },
+        { label: "Qty Aktual", key: "actual_qty" },
+        { label: "Selisih", getValue: i => (i.actual_qty || 0) - (i.system_qty || 0) },
+        { label: "Catatan", key: "notes" },
+        { label: "Checker", getValue: i => i.checker?.full_name || "-" },
+        { label: "Waktu Cek", getValue: i => i.checked_at ? new Date(i.checked_at).toLocaleString('id-ID') : "-" }
+      ];
+      exportToExcel(filtered, `stok_opname_${opname.title.replace(/\s+/g, '_')}`, columns);
+    });
+  }
+
+  setTimeout(bindEvents, 100);
 }
