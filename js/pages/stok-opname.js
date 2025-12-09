@@ -632,100 +632,203 @@ async function openOpnameDetail(opnameId) {
   if (!res.ok) { notifyError("Gagal mengambil detail"); return; }
   const { opname, items, summary } = await res.json();
 
-  // Build stats cards HTML
-  const statsHTML = `
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-      <div class="bg-blue-50 rounded-lg p-3 text-center">
-        <p class="text-2xl font-bold text-blue-600">${summary.totalChecked}</p>
-        <p class="text-xs text-gray-500">dari ${summary.totalUnitsInInventory} unit</p>
-        <p class="text-sm font-medium text-gray-700">Item Dicek</p>
+  // Store data globally for export and filtering
+  window._opnameExportData = { opname, items, summary };
+  window._opnameAllItems = items; // Full list for filtering
+
+  // Create or get modal
+  let modal = document.getElementById('opname-detail-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'opname-detail-modal';
+    modal.className = 'modal fixed inset-0 bg-gray-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4';
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+      <!-- Header -->
+      <div class="bg-gradient-to-r from-amber-500 to-orange-500 text-white p-6 flex justify-between items-center">
+        <div>
+          <h2 class="text-xl font-bold"><i class="fas fa-clipboard-list mr-2"></i>Detail: ${opname.title}</h2>
+          <p class="text-white/80 text-sm mt-1">
+            <i class="fas fa-calendar-alt mr-1"></i>Periode: ${new Date(opname.start_date).toLocaleDateString('id-ID')} - ${opname.end_date ? new Date(opname.end_date).toLocaleDateString('id-ID') : 'Berlangsung'}
+            <span class="ml-3 px-2 py-0.5 ${opname.status === 'completed' ? 'bg-green-600/80' : 'bg-yellow-600/80'} rounded-full text-xs">${opname.status === 'completed' ? 'Selesai' : 'Berlangsung'}</span>
+          </p>
+        </div>
+        <button onclick="closeOpnameDetailModal()" class="text-white/80 hover:text-white text-2xl">
+          <i class="fas fa-times"></i>
+        </button>
       </div>
-      <div class="bg-green-50 rounded-lg p-3 text-center">
-        <p class="text-2xl font-bold text-green-600">${summary.accuracyRate}%</p>
-        <p class="text-xs text-gray-500">${summary.matched} sesuai</p>
-        <p class="text-sm font-medium text-gray-700">Akurasi</p>
+      
+      <!-- Stats Cards -->
+      <div class="p-6 border-b bg-gray-50">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div class="bg-white rounded-xl p-4 text-center shadow-sm border">
+            <p class="text-3xl font-bold text-blue-600">${summary.totalChecked}</p>
+            <p class="text-xs text-gray-500">dari ${summary.totalUnitsInInventory} unit</p>
+            <p class="text-sm font-medium text-gray-700 mt-1">Item Dicek</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 text-center shadow-sm border">
+            <p class="text-3xl font-bold text-green-600">${summary.accuracyRate}%</p>
+            <p class="text-xs text-gray-500">${summary.matched} sesuai</p>
+            <p class="text-sm font-medium text-gray-700 mt-1">Akurasi</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 text-center shadow-sm border">
+            <p class="text-3xl font-bold text-red-600">${summary.mismatched}</p>
+            <p class="text-xs text-gray-500">${summary.missing} kurang, ${summary.excess} lebih</p>
+            <p class="text-sm font-medium text-gray-700 mt-1">Tidak Sesuai</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 text-center shadow-sm border">
+            <p class="text-3xl font-bold ${summary.totalDiscrepancy >= 0 ? 'text-green-600' : 'text-red-600'}">${summary.totalDiscrepancy >= 0 ? '+' : ''}${summary.totalDiscrepancy}</p>
+            <p class="text-xs text-gray-500">Sistem: ${summary.totalSystemQty}, Aktual: ${summary.totalActualQty}</p>
+            <p class="text-sm font-medium text-gray-700 mt-1">Selisih Qty</p>
+          </div>
+        </div>
+        
+        <!-- Category Breakdown & Checkers -->
+        <div class="flex flex-wrap items-center gap-4 mb-4">
+          ${Object.keys(summary.categoryBreakdown).length > 0 ? `
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-sm font-medium text-gray-600"><i class="fas fa-layer-group mr-1"></i>Kategori:</span>
+              ${Object.entries(summary.categoryBreakdown).map(([cat, data]) => `
+                <span class="bg-white px-3 py-1 rounded-full text-xs border shadow-sm">
+                  <span class="font-medium">${cat}:</span>
+                  <span class="text-green-600 ml-1">${data.matched}✓</span>
+                  ${data.mismatched > 0 ? `<span class="text-red-600 ml-1">${data.mismatched}✗</span>` : ''}
+                </span>
+              `).join('')}
+            </div>
+          ` : ''}
+        </div>
+        ${summary.topCheckers.length > 0 ? `
+          <div class="flex items-center gap-2 text-xs text-gray-500">
+            <span><i class="fas fa-user-check mr-1"></i>Petugas:</span>
+            ${summary.topCheckers.map(c => `<span class="bg-white px-2 py-1 rounded shadow-sm">${c.name} (${c.count})</span>`).join('')}
+          </div>
+        ` : ''}
+        ${opname.notes ? `<p class="text-sm text-gray-500 mt-3"><i class="fas fa-sticky-note mr-1"></i>${opname.notes}</p>` : ''}
       </div>
-      <div class="bg-red-50 rounded-lg p-3 text-center">
-        <p class="text-2xl font-bold text-red-600">${summary.mismatched}</p>
-        <p class="text-xs text-gray-500">${summary.missing} kurang, ${summary.excess} lebih</p>
-        <p class="text-sm font-medium text-gray-700">Tidak Sesuai</p>
+      
+      <!-- Search & Export Bar -->
+      <div class="px-6 py-4 border-b bg-white flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div class="flex-1 max-w-md">
+          <div class="relative">
+            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+            <input type="text" id="opname-search-input" placeholder="Cari nama produk, kode unit, kategori..." 
+              class="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500">
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="exportOpnameToCSV()" class="px-4 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-600 flex items-center gap-2 shadow-md">
+            <i class="fas fa-file-csv"></i> CSV
+          </button>
+          <button onclick="exportOpnameToExcel()" class="px-4 py-2.5 bg-blue-500 text-white rounded-xl hover:bg-blue-600 flex items-center gap-2 shadow-md">
+            <i class="fas fa-file-excel"></i> Excel
+          </button>
+        </div>
       </div>
-      <div class="bg-amber-50 rounded-lg p-3 text-center">
-        <p class="text-2xl font-bold ${summary.totalDiscrepancy >= 0 ? 'text-green-600' : 'text-red-600'}">${summary.totalDiscrepancy >= 0 ? '+' : ''}${summary.totalDiscrepancy}</p>
-        <p class="text-xs text-gray-500">Sistem: ${summary.totalSystemQty}, Aktual: ${summary.totalActualQty}</p>
-        <p class="text-sm font-medium text-gray-700">Selisih Qty</p>
+      
+      <!-- Table Content -->
+      <div id="opname-detail-content" class="flex-1 overflow-y-auto p-6">
+        <!-- Table will be rendered here -->
+      </div>
+      
+      <!-- Footer -->
+      <div class="bg-gray-50 px-6 py-4 border-t flex justify-between items-center">
+        <span id="opname-detail-count" class="text-sm text-gray-600">Total: ${items.length} item</span>
+        <button onclick="closeOpnameDetailModal()" class="px-6 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300">
+          Tutup
+        </button>
       </div>
     </div>
   `;
 
-  // Category breakdown
-  const categoryHTML = Object.keys(summary.categoryBreakdown).length > 0 ? `
-    <div class="mb-4 bg-gray-50 rounded-lg p-3">
-      <h4 class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-layer-group mr-1"></i>Per Kategori</h4>
-      <div class="flex flex-wrap gap-2">
-        ${Object.entries(summary.categoryBreakdown).map(([cat, data]) => `
-          <div class="bg-white px-3 py-1 rounded-full text-xs border">
-            <span class="font-medium">${cat}:</span>
-            <span class="text-green-600">${data.matched}✓</span>
-            ${data.mismatched > 0 ? `<span class="text-red-600">${data.mismatched}✗</span>` : ''}
-          </div>
-        `).join('')}
+  // Show modal
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+
+  // Render initial table
+  renderOpnameDetailTable(items);
+
+  // Setup search
+  const searchInput = document.getElementById('opname-search-input');
+  searchInput?.addEventListener('input', debounceOpnameSearch);
+}
+
+// Close modal function
+function closeOpnameDetailModal() {
+  const modal = document.getElementById('opname-detail-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+}
+
+// Debounce for search
+let _opnameSearchTimeout;
+function debounceOpnameSearch(e) {
+  clearTimeout(_opnameSearchTimeout);
+  _opnameSearchTimeout = setTimeout(() => {
+    filterOpnameItems(e.target.value);
+  }, 300);
+}
+
+// Filter items
+function filterOpnameItems(query) {
+  const allItems = window._opnameAllItems || [];
+  const q = query.toLowerCase().trim();
+  
+  const filtered = q ? allItems.filter(item => {
+    const name = (item.template?.name || '').toLowerCase();
+    const code = (item.unit?.asset_code || item.unit?.serial_number || '').toLowerCase();
+    const category = (item.template?.category?.name || '').toLowerCase();
+    const checker = (item.checker?.full_name || '').toLowerCase();
+    const notes = (item.notes || '').toLowerCase();
+    
+    return name.includes(q) || code.includes(q) || category.includes(q) || checker.includes(q) || notes.includes(q);
+  }) : allItems;
+  
+  renderOpnameDetailTable(filtered);
+  document.getElementById('opname-detail-count').textContent = `Menampilkan: ${filtered.length} dari ${allItems.length} item`;
+}
+
+// Render table
+function renderOpnameDetailTable(items) {
+  const content = document.getElementById('opname-detail-content');
+  
+  if (!items || items.length === 0) {
+    content.innerHTML = `
+      <div class="text-center py-12 text-gray-400">
+        <i class="fas fa-search text-5xl mb-4"></i>
+        <p class="text-lg">Tidak ada item yang cocok</p>
       </div>
-    </div>
-  ` : '';
-
-  // Top checkers
-  const checkersHTML = summary.topCheckers.length > 0 ? `
-    <div class="mb-4 flex items-center gap-3 text-xs text-gray-500">
-      <span><i class="fas fa-user-check mr-1"></i>Petugas:</span>
-      ${summary.topCheckers.map(c => `<span class="bg-gray-100 px-2 py-1 rounded">${c.name} (${c.count})</span>`).join('')}
-    </div>
-  ` : '';
-
-  // Table rows
+    `;
+    return;
+  }
+  
   const rows = items.map(item => `
     <tr class="border-b hover:bg-gray-50">
-      <td class="p-3">${item.template?.name || '-'}</td>
+      <td class="p-3 font-medium">${item.template?.name || '-'}</td>
       <td class="p-3 font-mono text-xs">${item.unit?.asset_code || item.unit?.serial_number || "-"}</td>
+      <td class="p-3 text-xs text-gray-500">${item.template?.category?.name || '-'}</td>
       <td class="p-3 text-center">${item.system_qty}</td>
       <td class="p-3 text-center font-bold ${item.actual_qty !== item.system_qty ? 'text-red-600' : 'text-green-600'}">${item.actual_qty}</td>
-      <td class="p-3 text-center ${item.actual_qty !== item.system_qty ? 'text-red-600 font-bold' : 'text-gray-400'}">${item.actual_qty - item.system_qty !== 0 ? (item.actual_qty - item.system_qty > 0 ? '+' : '') + (item.actual_qty - item.system_qty) : '-'}</td>
-      <td class="p-3 text-sm text-gray-500">${item.notes || "-"}</td>
-      <td class="p-3 text-xs text-gray-400">${item.checker?.full_name || '-'}</td>
+      <td class="p-3 text-center font-bold ${item.actual_qty !== item.system_qty ? 'text-red-600' : 'text-gray-400'}">${item.actual_qty - item.system_qty !== 0 ? (item.actual_qty - item.system_qty > 0 ? '+' : '') + (item.actual_qty - item.system_qty) : '-'}</td>
+      <td class="p-3 text-sm text-gray-500 max-w-[150px] truncate" title="${item.notes || ''}">${item.notes || "-"}</td>
+      <td class="p-3 text-xs text-gray-500">${item.checker?.full_name || '-'}</td>
       <td class="p-3 text-xs text-gray-400">${item.checked_at ? new Date(item.checked_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}</td>
     </tr>
   `).join("");
-
-  // Export functions stored globally for this modal
-  window._opnameExportData = { opname, items, summary };
-
-  const content = `
-    <div class="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-      <div>
-        <p class="text-sm text-gray-500"><i class="fas fa-calendar-alt mr-1"></i>Periode: ${new Date(opname.start_date).toLocaleDateString('id-ID')} - ${opname.end_date ? new Date(opname.end_date).toLocaleDateString('id-ID') : 'Berlangsung'}</p>
-        <p class="text-sm text-gray-500"><i class="fas fa-clipboard-check mr-1"></i>Status: <span class="${opname.status === 'completed' ? 'text-green-600' : 'text-amber-600'} font-medium">${opname.status === 'completed' ? 'Selesai' : 'Berlangsung'}</span></p>
-        ${opname.notes ? `<p class="text-sm text-gray-500 mt-1"><i class="fas fa-sticky-note mr-1"></i>${opname.notes}</p>` : ''}
-      </div>
-      <div class="flex gap-2">
-        <button onclick="exportOpnameToCSV()" class="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white text-sm rounded-lg flex items-center gap-1">
-          <i class="fas fa-file-csv"></i> CSV
-        </button>
-        <button onclick="exportOpnameToExcel()" class="px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-sm rounded-lg flex items-center gap-1">
-          <i class="fas fa-file-excel"></i> Excel
-        </button>
-      </div>
-    </div>
-    
-    ${statsHTML}
-    ${categoryHTML}
-    ${checkersHTML}
-    
-    <div class="overflow-x-auto max-h-[45vh] border rounded-lg">
+  
+  content.innerHTML = `
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <table class="min-w-full text-sm">
-        <thead class="bg-gray-100 sticky top-0">
+        <thead class="bg-gray-100 text-gray-600 sticky top-0">
           <tr>
             <th class="p-3 text-left">Produk</th>
             <th class="p-3 text-left">Kode Unit</th>
+            <th class="p-3 text-left">Kategori</th>
             <th class="p-3 text-center">Sistem</th>
             <th class="p-3 text-center">Aktual</th>
             <th class="p-3 text-center">Selisih</th>
@@ -734,18 +837,14 @@ async function openOpnameDetail(opnameId) {
             <th class="p-3 text-left">Waktu Cek</th>
           </tr>
         </thead>
-        <tbody>${rows}</tbody>
+        <tbody class="divide-y divide-gray-100">${rows}</tbody>
       </table>
     </div>
   `;
-
-  openGlobalModal({
-    title: `<i class="fas fa-clipboard-list mr-2"></i>Detail: ${opname.title}`,
-    contentHTML: content,
-    confirmText: "Tutup",
-    onConfirm: () => closeGlobalModal()
-  });
 }
+
+// Make functions global
+window.closeOpnameDetailModal = closeOpnameDetailModal;
 
 // Export functions for Stock Opname
 function exportOpnameToCSV() {
