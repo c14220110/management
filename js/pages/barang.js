@@ -1357,35 +1357,64 @@ function printQRCode(title, code) {
 async function openAssetHistoryModal() {
   let currentData = [];
   
-  // Default date range: last 6 months
-  const endDate = new Date();
-  const startDate = new Date();
-  startDate.setMonth(startDate.getMonth() - 6);
-  
-  let currentStartDate = startDate.toISOString().split("T")[0];
-  let currentEndDate = endDate.toISOString().split("T")[0];
+  // Default: 1 month
+  let currentPeriod = "1";
   let currentStatus = "all";
+  
+  function getDateRange(period) {
+    const end = new Date();
+    const start = new Date();
+    switch(period) {
+      case "1": start.setMonth(start.getMonth() - 1); break;
+      case "3": start.setMonth(start.getMonth() - 3); break;
+      case "6": start.setMonth(start.getMonth() - 6); break;
+      case "12": start.setMonth(start.getMonth() - 12); break;
+      default: return null;
+    }
+    return { start: start.toISOString().split("T")[0], end: end.toISOString().split("T")[0] };
+  }
+  
+  let dates = getDateRange("1");
+  let currentStartDate = dates.start;
+  let currentEndDate = dates.end;
 
   const content = `
     <div class="h-full flex flex-col">
       <!-- Filter Bar -->
       <div class="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
         <div class="flex flex-wrap gap-4 items-end">
-          <div class="flex-1 min-w-[180px]">
+          <div class="min-w-[160px]">
             <label class="block text-sm font-semibold text-gray-700 mb-2">
-              <i class="fas fa-calendar text-amber-500 mr-1"></i> Tanggal Mulai
+              <i class="fas fa-clock text-amber-500 mr-1"></i> Periode
             </label>
-            <input type="date" id="history-start-date" value="${currentStartDate}" 
-              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"/>
+            <select id="history-period" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white">
+              <option value="1" selected>1 Bulan Terakhir</option>
+              <option value="3">3 Bulan Terakhir</option>
+              <option value="6">6 Bulan Terakhir</option>
+              <option value="12">1 Tahun Terakhir</option>
+              <option value="custom">Pilih Tanggal...</option>
+            </select>
           </div>
-          <div class="flex-1 min-w-[180px]">
-            <label class="block text-sm font-semibold text-gray-700 mb-2">
-              <i class="fas fa-calendar-check text-amber-500 mr-1"></i> Tanggal Akhir
-            </label>
-            <input type="date" id="history-end-date" value="${currentEndDate}" 
-              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"/>
+          <div id="custom-date-container" class="hidden flex-1 flex gap-3 items-end">
+            <div class="flex-1 min-w-[140px]">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                <i class="fas fa-calendar text-amber-500 mr-1"></i> Dari
+              </label>
+              <input type="date" id="history-start-date" value="${currentStartDate}" 
+                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"/>
+            </div>
+            <div class="flex-1 min-w-[140px]">
+              <label class="block text-sm font-semibold text-gray-700 mb-2">
+                <i class="fas fa-calendar-check text-amber-500 mr-1"></i> Sampai
+              </label>
+              <input type="date" id="history-end-date" value="${currentEndDate}" 
+                class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"/>
+            </div>
+            <button id="history-apply-custom" class="px-4 py-2.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 font-medium">
+              <i class="fas fa-check"></i>
+            </button>
           </div>
-          <div class="flex-1 min-w-[180px]">
+          <div class="min-w-[160px]">
             <label class="block text-sm font-semibold text-gray-700 mb-2">
               <i class="fas fa-filter text-amber-500 mr-1"></i> Status
             </label>
@@ -1397,11 +1426,6 @@ async function openAssetHistoryModal() {
               <option value="Dikembalikan">Dikembalikan</option>
               <option value="Dipinjam">Dipinjam</option>
             </select>
-          </div>
-          <div class="flex items-center gap-2">
-            <button id="history-apply-filter" class="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 font-medium shadow-md flex items-center gap-2">
-              <i class="fas fa-search"></i> Terapkan
-            </button>
           </div>
           <div class="flex items-center gap-2 ml-auto">
             <button id="history-export-csv" class="px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 font-medium shadow-sm">
@@ -1528,10 +1552,36 @@ async function openAssetHistoryModal() {
 
   // Event listeners
   setTimeout(() => {
-    document.getElementById("history-apply-filter")?.addEventListener("click", () => {
+    const periodSelect = document.getElementById("history-period");
+    const customContainer = document.getElementById("custom-date-container");
+    const statusSelect = document.getElementById("history-status");
+    
+    // Period change
+    periodSelect?.addEventListener("change", (e) => {
+      currentPeriod = e.target.value;
+      if (currentPeriod === "custom") {
+        customContainer.classList.remove("hidden");
+      } else {
+        customContainer.classList.add("hidden");
+        const dates = getDateRange(currentPeriod);
+        if (dates) {
+          currentStartDate = dates.start;
+          currentEndDate = dates.end;
+          loadHistoryData();
+        }
+      }
+    });
+    
+    // Status change - auto apply
+    statusSelect?.addEventListener("change", () => {
+      currentStatus = statusSelect.value;
+      loadHistoryData();
+    });
+    
+    // Custom date apply
+    document.getElementById("history-apply-custom")?.addEventListener("click", () => {
       currentStartDate = document.getElementById("history-start-date").value;
       currentEndDate = document.getElementById("history-end-date").value;
-      currentStatus = document.getElementById("history-status").value;
       loadHistoryData();
     });
 

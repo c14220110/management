@@ -1165,16 +1165,25 @@ export default async function handler(req, res) {
       // ============================================================
       case "getRoomReservationHistory": {
         if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
-        const { months = 6, status = null } = payload || {};
+        const { months = 6, status = null, startDate: rStart = null, endDate: rEnd = null } = payload || {};
         
-        // Calculate date range
-        const startDate = new Date();
-        startDate.setMonth(startDate.getMonth() - months);
+        // Use date range if provided, otherwise fall back to months
+        let rStartDate, rEndDate;
+        if (rStart && rEnd) {
+          rStartDate = new Date(rStart);
+          rEndDate = new Date(rEnd);
+          rEndDate.setHours(23, 59, 59, 999);
+        } else {
+          rStartDate = new Date();
+          rStartDate.setMonth(rStartDate.getMonth() - months);
+          rEndDate = new Date();
+        }
         
         let query = supabase
           .from("room_reservations")
           .select("*")
-          .gte("start_time", startDate.toISOString())
+          .gte("start_time", rStartDate.toISOString())
+          .lte("start_time", rEndDate.toISOString())
           .order("start_time", { ascending: false });
         
         if (status && status !== "all") {
@@ -1188,10 +1197,19 @@ export default async function handler(req, res) {
 
       case "getTransportLoanHistory": {
         if (!checkPrivilege(profile, "transport")) throw new Error("Akses ditolak: Butuh privilege 'transport'");
-        const { months: tMonths = 6, status: tStatus = null } = payload || {};
+        const { months: tMonths = 6, status: tStatus = null, startDate: tStart = null, endDate: tEnd = null } = payload || {};
         
-        const tStartDate = new Date();
-        tStartDate.setMonth(tStartDate.getMonth() - tMonths);
+        // Use date range if provided, otherwise fall back to months
+        let tStartDate, tEndDate;
+        if (tStart && tEnd) {
+          tStartDate = new Date(tStart);
+          tEndDate = new Date(tEnd);
+          tEndDate.setHours(23, 59, 59, 999);
+        } else {
+          tStartDate = new Date();
+          tStartDate.setMonth(tStartDate.getMonth() - tMonths);
+          tEndDate = new Date();
+        }
         
         let tQuery = supabase
           .from("transport_loans")
@@ -1201,6 +1219,7 @@ export default async function handler(req, res) {
             profiles (full_name)
           `)
           .gte("borrow_start", tStartDate.toISOString())
+          .lte("borrow_start", tEndDate.toISOString())
           .order("borrow_start", { ascending: false });
         
         if (tStatus && tStatus !== "all") {
