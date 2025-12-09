@@ -730,26 +730,39 @@ export default async function handler(req, res) {
       // ============================================================
       case "getRooms": {
         if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
-        const { data: rooms, error: getRoomsError } = await supabase.from(
-          "rooms"
-        ).select(`
+        
+        // First, fetch rooms with old schema (backwards compatible)
+        const { data: rooms, error: getRoomsError } = await supabase.from("rooms").select(`
             id,
             name,
             lokasi,
             kapasitas,
             image_url,
             penanggung_jawab_id,
-            penanggung_jawab: profiles!penanggung_jawab_id (id, full_name),
-            room_pic (
-              user_id,
-              profiles:user_id (id, full_name)
-            )
+            penanggung_jawab: profiles!penanggung_jawab_id (id, full_name)
           `);
         if (getRoomsError) throw getRoomsError;
         
-        // Transform room_pic data to flat array of PICs
+        // Try to fetch room_pic data separately (may fail if table doesn't exist)
+        let roomPicData = [];
+        try {
+          const { data: picData } = await supabase.from("room_pic").select(`
+            room_id,
+            user_id,
+            profiles:user_id (id, full_name)
+          `);
+          roomPicData = picData || [];
+        } catch (e) {
+          // room_pic table doesn't exist yet, use fallback
+          console.log("room_pic table not found, using fallback");
+        }
+        
+        // Transform room data to include pics array
         const transformedRooms = (rooms || []).map(room => {
-          const picsFromJunction = (room.room_pic || []).map(rp => rp.profiles).filter(Boolean);
+          const picsFromJunction = roomPicData
+            .filter(rp => rp.room_id === room.id)
+            .map(rp => rp.profiles)
+            .filter(Boolean);
           // Fallback to old penanggung_jawab if no junction entries
           const pics = picsFromJunction.length > 0 
             ? picsFromJunction 
@@ -757,7 +770,6 @@ export default async function handler(req, res) {
           return {
             ...room,
             pics,
-            // Keep penanggung_jawab for backwards compatibility
             penanggung_jawab: room.penanggung_jawab
           };
         });

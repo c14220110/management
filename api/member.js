@@ -360,27 +360,38 @@ async function handleRooms(req, res, supabase, user) {
         return res.status(500).json({ error: insertError.message });
 
       // Send Notification to Room PICs (not all room privilege users)
-      // First, try to get room-specific PICs from room_pic junction table
-      const { data: room } = await supabase
-        .from('rooms')
-        .select(`
-          id,
-          room_pic (user_id)
-        `)
-        .eq('name', room_name)
-        .single();
-      
       let roomEmails = [];
-      const picUserIds = (room?.room_pic || []).map(rp => rp.user_id);
       
-      if (picUserIds.length > 0) {
-        // Get emails of assigned PICs via auth admin
-        const { data: authData } = await supabase.auth.admin.listUsers();
-        const allUsers = authData?.users || [];
-        roomEmails = allUsers
-          .filter(u => picUserIds.includes(u.id))
-          .map(u => u.email)
-          .filter(Boolean);
+      try {
+        // First get room ID by name
+        const { data: room } = await supabase
+          .from('rooms')
+          .select('id')
+          .eq('name', room_name)
+          .single();
+        
+        if (room?.id) {
+          // Try to get room-specific PICs from room_pic junction table
+          const { data: picData } = await supabase
+            .from('room_pic')
+            .select('user_id')
+            .eq('room_id', room.id);
+          
+          const picUserIds = (picData || []).map(rp => rp.user_id);
+          
+          if (picUserIds.length > 0) {
+            // Get emails of assigned PICs via auth admin
+            const { data: authData } = await supabase.auth.admin.listUsers();
+            const allUsers = authData?.users || [];
+            roomEmails = allUsers
+              .filter(u => picUserIds.includes(u.id))
+              .map(u => u.email)
+              .filter(Boolean);
+          }
+        }
+      } catch (e) {
+        // room_pic table doesn't exist, use fallback
+        console.log("room_pic query failed, using fallback:", e.message);
       }
       
       // Fallback to all room-privilege users if no PICs assigned
