@@ -1238,13 +1238,15 @@ export default async function handler(req, res) {
         // Use date range if provided, otherwise fall back to months
         let aStartDate, aEndDate;
         if (aStart && aEnd) {
-          aStartDate = new Date(aStart);
-          aEndDate = new Date(aEnd);
-          aEndDate.setHours(23, 59, 59, 999); // Include entire end day
+          // Parse as YYYY-MM-DD format, add time component for proper range
+          aStartDate = `${aStart}T00:00:00.000Z`;
+          aEndDate = `${aEnd}T23:59:59.999Z`;
         } else {
-          aStartDate = new Date();
-          aStartDate.setMonth(aStartDate.getMonth() - aMonths);
-          aEndDate = new Date();
+          const now = new Date();
+          const start = new Date();
+          start.setMonth(start.getMonth() - aMonths);
+          aStartDate = start.toISOString();
+          aEndDate = now.toISOString();
         }
         
         let aQuery = supabase
@@ -1258,8 +1260,8 @@ export default async function handler(req, res) {
             ),
             product_templates:product_template_id (name)
           `)
-          .gte("loan_date", aStartDate.toISOString())
-          .lte("loan_date", aEndDate.toISOString())
+          .gte("loan_date", aStartDate)
+          .lte("loan_date", aEndDate)
           .order("loan_date", { ascending: false });
         
         if (aStatus && aStatus !== "all") {
