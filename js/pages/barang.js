@@ -1352,76 +1352,112 @@ function printQRCode(title, code) {
 }
 
 // ============================================================
-// ASSET HISTORY MODAL
+// ASSET HISTORY MODAL - FULLSCREEN VERSION
 // ============================================================
 async function openAssetHistoryModal() {
   let currentData = [];
-  let currentPeriod = 6;
+  
+  // Default date range: last 6 months
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setMonth(startDate.getMonth() - 6);
+  
+  let currentStartDate = startDate.toISOString().split("T")[0];
+  let currentEndDate = endDate.toISOString().split("T")[0];
   let currentStatus = "all";
 
   const content = `
-    <div class="space-y-4">
-      <div class="flex flex-wrap gap-4 items-center">
-        <div class="flex-1 min-w-[200px]">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Periode</label>
-          <select id="history-period" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-            <option value="6">6 Bulan Terakhir</option>
-            <option value="12">12 Bulan Terakhir</option>
-            <option value="24">2 Tahun Terakhir</option>
-          </select>
-        </div>
-        <div class="flex-1 min-w-[200px]">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-          <select id="history-status" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-            <option value="all">Semua Status</option>
-            <option value="Disetujui">Disetujui</option>
-            <option value="Ditolak">Ditolak</option>
-            <option value="Menunggu Persetujuan">Menunggu Persetujuan</option>
-            <option value="Dikembalikan">Dikembalikan</option>
-            <option value="Dipinjam">Dipinjam</option>
-          </select>
-        </div>
-        <div class="flex items-end gap-2">
-          <button id="history-export-csv" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
-            <i class="fas fa-file-csv"></i> CSV
-          </button>
-          <button id="history-export-excel" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2">
-            <i class="fas fa-file-excel"></i> Excel
-          </button>
+    <div class="h-full flex flex-col">
+      <!-- Filter Bar -->
+      <div class="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
+        <div class="flex flex-wrap gap-4 items-end">
+          <div class="flex-1 min-w-[180px]">
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="fas fa-calendar text-amber-500 mr-1"></i> Tanggal Mulai
+            </label>
+            <input type="date" id="history-start-date" value="${currentStartDate}" 
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"/>
+          </div>
+          <div class="flex-1 min-w-[180px]">
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="fas fa-calendar-check text-amber-500 mr-1"></i> Tanggal Akhir
+            </label>
+            <input type="date" id="history-end-date" value="${currentEndDate}" 
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white"/>
+          </div>
+          <div class="flex-1 min-w-[180px]">
+            <label class="block text-sm font-semibold text-gray-700 mb-2">
+              <i class="fas fa-filter text-amber-500 mr-1"></i> Status
+            </label>
+            <select id="history-status" class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 bg-white">
+              <option value="all">Semua Status</option>
+              <option value="Disetujui">Disetujui</option>
+              <option value="Ditolak">Ditolak</option>
+              <option value="Menunggu Persetujuan">Menunggu Persetujuan</option>
+              <option value="Dikembalikan">Dikembalikan</option>
+              <option value="Dipinjam">Dipinjam</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="history-apply-filter" class="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 font-medium shadow-md flex items-center gap-2">
+              <i class="fas fa-search"></i> Terapkan
+            </button>
+          </div>
+          <div class="flex items-center gap-2 ml-auto">
+            <button id="history-export-csv" class="px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 font-medium shadow-sm">
+              <i class="fas fa-file-csv"></i> CSV
+            </button>
+            <button id="history-export-excel" class="px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center gap-2 font-medium shadow-sm">
+              <i class="fas fa-file-excel"></i> Excel
+            </button>
+          </div>
         </div>
       </div>
 
-      <div id="history-data-container" class="max-h-[60vh] overflow-y-auto">
-        <div class="flex items-center justify-center py-8 text-gray-400">
-          <i class="fas fa-spinner fa-spin mr-2"></i> Memuat data...
+      <!-- Data Container -->
+      <div id="history-data-container" class="flex-1 overflow-y-auto bg-white rounded-xl border border-gray-200">
+        <div class="flex items-center justify-center py-16 text-gray-400">
+          <i class="fas fa-spinner fa-spin text-2xl mr-3"></i> Memuat data...
         </div>
       </div>
 
-      <div id="history-total" class="text-sm text-gray-600 font-medium"></div>
+      <!-- Footer -->
+      <div class="flex justify-between items-center pt-4 border-t border-gray-200 mt-4">
+        <div id="history-total" class="text-sm text-gray-600 font-medium"></div>
+        <button onclick="closeFullscreenModal()" class="px-6 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium">
+          <i class="fas fa-times mr-2"></i> Tutup
+        </button>
+      </div>
     </div>
   `;
 
-  openGlobalModal({
+  openFullscreenModal({
     title: "Riwayat Peminjaman Barang",
-    contentHTML: content,
-    confirmText: "Tutup",
-    onConfirm: () => closeGlobalModal()
+    contentHTML: content
   });
 
   async function loadHistoryData() {
     const container = document.getElementById("history-data-container");
     const totalEl = document.getElementById("history-total");
     
-    container.innerHTML = `<div class="flex items-center justify-center py-8 text-gray-400"><i class="fas fa-spinner fa-spin mr-2"></i> Memuat data...</div>`;
+    container.innerHTML = `<div class="flex items-center justify-center py-16 text-gray-400"><i class="fas fa-spinner fa-spin text-2xl mr-3"></i> Memuat data...</div>`;
     
     try {
       currentData = await api.post("/api/management", {
         action: "getAssetLoanHistory",
-        payload: { months: currentPeriod, status: currentStatus }
+        payload: { 
+          startDate: currentStartDate, 
+          endDate: currentEndDate, 
+          status: currentStatus 
+        }
       });
 
       if (!currentData || currentData.length === 0) {
-        container.innerHTML = `<div class="text-center py-8 text-gray-400"><i class="fas fa-inbox text-4xl mb-2"></i><p>Tidak ada data untuk periode ini</p></div>`;
+        container.innerHTML = `
+          <div class="text-center py-16 text-gray-400">
+            <i class="fas fa-inbox text-5xl mb-4"></i>
+            <p class="text-lg">Tidak ada data untuk periode ini</p>
+          </div>`;
         totalEl.textContent = "";
         return;
       }
@@ -1431,45 +1467,59 @@ async function openAssetHistoryModal() {
 
       let html = "";
       grouped.forEach(group => {
-        html += `<div class="mb-6">
-          <div class="bg-gray-100 px-4 py-2 rounded-lg font-semibold text-gray-700 sticky top-0">
-            ${group.label} (${group.items.length})
-          </div>
-          <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
-              <thead class="text-gray-500 text-left">
-                <tr>
-                  <th class="p-3">Tanggal</th>
-                  <th class="p-3">Barang</th>
-                  <th class="p-3">Peminjam</th>
-                  <th class="p-3">Keperluan</th>
-                  <th class="p-3">Status</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100">
-                ${group.items.map(item => {
-                  const itemName = item.product_units?.template?.name || item.assets?.asset_name || "-";
-                  const itemCode = item.product_units?.asset_code || item.assets?.asset_code || "";
-                  return `
-                  <tr class="hover:bg-gray-50">
-                    <td class="p-3">${new Date(item.loan_date).toLocaleDateString("id-ID")}</td>
-                    <td class="p-3 font-medium">${itemName} <span class="text-gray-400 text-xs">${itemCode}</span></td>
-                    <td class="p-3">${item.profiles?.full_name || "-"}</td>
-                    <td class="p-3">${item.purpose || "-"}</td>
-                    <td class="p-3">${getStatusBadgeHTML(item.status)}</td>
+        html += `
+          <div class="mb-6">
+            <div class="bg-gradient-to-r from-gray-100 to-gray-50 px-5 py-3 font-bold text-gray-700 sticky top-0 border-b border-gray-200 flex items-center gap-2">
+              <i class="fas fa-calendar-alt text-amber-500"></i>
+              ${group.label} 
+              <span class="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full text-sm font-medium">${group.items.length}</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full">
+                <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-500 border-b border-gray-200">
+                  <tr>
+                    <th class="px-5 py-3 text-left font-semibold">Tanggal</th>
+                    <th class="px-5 py-3 text-left font-semibold">Barang</th>
+                    <th class="px-5 py-3 text-left font-semibold">Peminjam</th>
+                    <th class="px-5 py-3 text-left font-semibold">Keperluan</th>
+                    <th class="px-5 py-3 text-left font-semibold">Jatuh Tempo</th>
+                    <th class="px-5 py-3 text-left font-semibold">Status</th>
                   </tr>
-                `}).join("")}
-              </tbody>
-            </table>
-          </div>
-        </div>`;
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  ${group.items.map(item => {
+                    const itemName = item.product_units?.template?.name || item.product_templates?.name || "-";
+                    const itemCode = item.product_units?.asset_code || "";
+                    const dueDate = item.due_date ? new Date(item.due_date).toLocaleDateString("id-ID") : "-";
+                    return `
+                    <tr class="hover:bg-amber-50/50 transition-colors">
+                      <td class="px-5 py-3 text-sm">${new Date(item.loan_date).toLocaleDateString("id-ID")}</td>
+                      <td class="px-5 py-3">
+                        <div class="font-medium text-gray-800">${itemName}</div>
+                        ${itemCode ? `<div class="text-xs text-gray-400 font-mono">${itemCode}</div>` : ""}
+                      </td>
+                      <td class="px-5 py-3 text-sm">${item.profiles?.full_name || "-"}</td>
+                      <td class="px-5 py-3 text-sm text-gray-600">${item.purpose || "-"}</td>
+                      <td class="px-5 py-3 text-sm">${dueDate}</td>
+                      <td class="px-5 py-3">${getStatusBadgeHTML(item.status)}</td>
+                    </tr>
+                  `}).join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>`;
       });
 
       container.innerHTML = html;
-      totalEl.textContent = `Total: ${currentData.length} data`;
+      totalEl.innerHTML = `<span class="text-amber-600 font-bold">${currentData.length}</span> data ditemukan`;
 
     } catch (error) {
-      container.innerHTML = `<div class="text-red-600 p-4"><i class="fas fa-exclamation-circle mr-2"></i>${error.message}</div>`;
+      container.innerHTML = `
+        <div class="text-center py-16 text-red-500">
+          <i class="fas fa-exclamation-triangle text-5xl mb-4"></i>
+          <p class="text-lg font-medium">Gagal memuat data</p>
+          <p class="text-sm text-gray-500 mt-2">${error.message}</p>
+        </div>`;
     }
   }
 
@@ -1478,23 +1528,21 @@ async function openAssetHistoryModal() {
 
   // Event listeners
   setTimeout(() => {
-    document.getElementById("history-period")?.addEventListener("change", (e) => {
-      currentPeriod = parseInt(e.target.value);
-      loadHistoryData();
-    });
-
-    document.getElementById("history-status")?.addEventListener("change", (e) => {
-      currentStatus = e.target.value;
+    document.getElementById("history-apply-filter")?.addEventListener("click", () => {
+      currentStartDate = document.getElementById("history-start-date").value;
+      currentEndDate = document.getElementById("history-end-date").value;
+      currentStatus = document.getElementById("history-status").value;
       loadHistoryData();
     });
 
     document.getElementById("history-export-csv")?.addEventListener("click", () => {
       const columns = [
         { label: "Tanggal Pinjam", getValue: item => new Date(item.loan_date).toLocaleDateString("id-ID") },
-        { label: "Barang", getValue: item => item.product_units?.template?.name || item.assets?.asset_name || "-" },
-        { label: "Kode", getValue: item => item.product_units?.asset_code || item.assets?.asset_code || "-" },
+        { label: "Barang", getValue: item => item.product_units?.template?.name || item.product_templates?.name || "-" },
+        { label: "Kode", getValue: item => item.product_units?.asset_code || "-" },
         { label: "Peminjam", getValue: item => item.profiles?.full_name || "-" },
         { label: "Keperluan", key: "purpose" },
+        { label: "Jatuh Tempo", getValue: item => item.due_date ? new Date(item.due_date).toLocaleDateString("id-ID") : "-" },
         { label: "Tanggal Kembali", getValue: item => item.return_date ? new Date(item.return_date).toLocaleDateString("id-ID") : "-" },
         { label: "Status", key: "status" }
       ];
@@ -1504,10 +1552,11 @@ async function openAssetHistoryModal() {
     document.getElementById("history-export-excel")?.addEventListener("click", () => {
       const columns = [
         { label: "Tanggal Pinjam", getValue: item => new Date(item.loan_date).toLocaleDateString("id-ID") },
-        { label: "Barang", getValue: item => item.product_units?.template?.name || item.assets?.asset_name || "-" },
-        { label: "Kode", getValue: item => item.product_units?.asset_code || item.assets?.asset_code || "-" },
+        { label: "Barang", getValue: item => item.product_units?.template?.name || item.product_templates?.name || "-" },
+        { label: "Kode", getValue: item => item.product_units?.asset_code || "-" },
         { label: "Peminjam", getValue: item => item.profiles?.full_name || "-" },
         { label: "Keperluan", key: "purpose" },
+        { label: "Jatuh Tempo", getValue: item => item.due_date ? new Date(item.due_date).toLocaleDateString("id-ID") : "-" },
         { label: "Tanggal Kembali", getValue: item => item.return_date ? new Date(item.return_date).toLocaleDateString("id-ID") : "-" },
         { label: "Status", key: "status" }
       ];

@@ -281,6 +281,67 @@ function closeGlobalModal() {
   globalModalState.onConfirm = null;
 }
 
+// ============================================================
+// Fullscreen Modal - For large data views like history
+// ============================================================
+let fullscreenModalState = { onClose: null };
+
+function openFullscreenModal({ title, contentHTML, onClose }) {
+  closeFullscreenModal();
+  
+  const modalHTML = `
+    <div id="fullscreen-modal-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+      <div class="bg-white rounded-2xl shadow-2xl w-full max-w-[95vw] h-[90vh] overflow-hidden flex flex-col">
+        <!-- Header -->
+        <div class="flex justify-between items-center px-6 py-4 border-b bg-gradient-to-r from-amber-500 to-orange-500 flex-shrink-0">
+          <h3 class="font-bold text-xl text-white flex items-center gap-3">
+            <i class="fas fa-history"></i>
+            ${title}
+          </h3>
+          <button id="fullscreen-modal-close" class="text-white/80 hover:text-white text-2xl w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <!-- Content -->
+        <div class="flex-1 overflow-y-auto p-6" id="fullscreen-modal-content">
+          ${contentHTML}
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML("beforeend", modalHTML);
+  fullscreenModalState.onClose = onClose;
+  
+  document.getElementById("fullscreen-modal-close").onclick = closeFullscreenModal;
+  
+  // Close on overlay click
+  document.getElementById("fullscreen-modal-overlay").onclick = (e) => {
+    if (e.target.id === "fullscreen-modal-overlay") closeFullscreenModal();
+  };
+  
+  // ESC key to close
+  const escHandler = (e) => {
+    if (e.key === "Escape") {
+      closeFullscreenModal();
+      document.removeEventListener("keydown", escHandler);
+    }
+  };
+  document.addEventListener("keydown", escHandler);
+}
+
+function closeFullscreenModal() {
+  const overlay = document.getElementById("fullscreen-modal-overlay");
+  if (overlay) overlay.remove();
+  if (fullscreenModalState.onClose) {
+    fullscreenModalState.onClose();
+    fullscreenModalState.onClose = null;
+  }
+}
+
+window.openFullscreenModal = openFullscreenModal;
+window.closeFullscreenModal = closeFullscreenModal;
+
 window.openGlobalModal = openGlobalModal;
 window.closeGlobalModal = closeGlobalModal;
 

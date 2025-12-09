@@ -1214,10 +1214,19 @@ export default async function handler(req, res) {
 
       case "getAssetLoanHistory": {
         if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
-        const { months: aMonths = 6, status: aStatus = null } = payload || {};
+        const { months: aMonths = 6, status: aStatus = null, startDate: aStart = null, endDate: aEnd = null } = payload || {};
         
-        const aStartDate = new Date();
-        aStartDate.setMonth(aStartDate.getMonth() - aMonths);
+        // Use date range if provided, otherwise fall back to months
+        let aStartDate, aEndDate;
+        if (aStart && aEnd) {
+          aStartDate = new Date(aStart);
+          aEndDate = new Date(aEnd);
+          aEndDate.setHours(23, 59, 59, 999); // Include entire end day
+        } else {
+          aStartDate = new Date();
+          aStartDate.setMonth(aStartDate.getMonth() - aMonths);
+          aEndDate = new Date();
+        }
         
         let aQuery = supabase
           .from("asset_loans")
@@ -1231,6 +1240,7 @@ export default async function handler(req, res) {
             product_templates:product_template_id (name)
           `)
           .gte("loan_date", aStartDate.toISOString())
+          .lte("loan_date", aEndDate.toISOString())
           .order("loan_date", { ascending: false });
         
         if (aStatus && aStatus !== "all") {
