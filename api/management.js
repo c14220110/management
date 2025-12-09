@@ -1223,13 +1223,13 @@ export default async function handler(req, res) {
           .from("asset_loans")
           .select(`
             *,
-            assets (asset_name, asset_code),
-            profiles (full_name),
-            product_units (
+            profiles:user_id (full_name),
+            product_units:asset_unit_id (
               asset_code, 
               serial_number,
-              template:product_templates (name)
-            )
+              template:product_templates!template_id (name)
+            ),
+            product_templates:product_template_id (name)
           `)
           .gte("loan_date", aStartDate.toISOString())
           .order("loan_date", { ascending: false });
