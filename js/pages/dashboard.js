@@ -57,10 +57,15 @@ async function renderManagerDashboard() {
     } = data;
 
     // Get user privileges for filtering
-    const userPrivileges = JSON.parse(localStorage.getItem("userPrivileges") || "[]");
-    const hasInventory = userPrivileges.length === 0 || userPrivileges.includes("inventory");
-    const hasRoom = userPrivileges.length === 0 || userPrivileges.includes("room");
-    const hasTransport = userPrivileges.length === 0 || userPrivileges.includes("transport");
+    // null/undefined = super admin with full access
+    // empty array = no privileges
+    // array with items = specific privileges
+    const storedPrivileges = localStorage.getItem("userPrivileges");
+    const userPrivileges = storedPrivileges ? JSON.parse(storedPrivileges) : null;
+    const isFullAccess = userPrivileges === null; // Super admin has null privileges
+    const hasInventory = isFullAccess || (Array.isArray(userPrivileges) && userPrivileges.includes("inventory"));
+    const hasRoom = isFullAccess || (Array.isArray(userPrivileges) && userPrivileges.includes("room"));
+    const hasTransport = isFullAccess || (Array.isArray(userPrivileges) && userPrivileges.includes("transport"));
 
     // Filter alerts based on privileges
     const filteredAlerts = {
@@ -220,6 +225,7 @@ async function renderManagerDashboard() {
         <!-- Quick Stats Grid -->
         <div class="grid ${gridCols} gap-4">
           ${statCardsHTML}
+        </div>
 
         <!-- Main Content Grid -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
