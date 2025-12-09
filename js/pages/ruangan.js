@@ -250,7 +250,15 @@ async function openRoomModal(existing = null) {
   try {
     const token = localStorage.getItem("authToken");
     const res = await fetch("/api/management", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: "getUsers" }) });
-    if (res.ok) users = await res.json();
+    if (res.ok) {
+      const allUsers = await res.json();
+      // Filter: only management users with 'room' privilege can be PIC
+      users = allUsers.filter(u => 
+        u.role === "management" && 
+        Array.isArray(u.privileges) && 
+        u.privileges.includes("room")
+      );
+    }
   } catch (e) { console.error("Failed to fetch users", e); }
   
   // Get existing PIC ids for checkboxes
@@ -285,7 +293,7 @@ async function openRoomModal(existing = null) {
         <label class="block text-sm font-medium text-gray-700 mb-1">Penanggung Jawab (PIC)</label>
         <p class="text-xs text-gray-500 mb-2">Pilih satu atau lebih penanggung jawab. PIC akan menerima notifikasi reservasi.</p>
         <div class="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white">
-          ${users.length > 0 ? userCheckboxes : '<p class="text-gray-400 text-sm p-2">Tidak ada user tersedia</p>'}
+          ${users.length > 0 ? userCheckboxes : '<p class="text-amber-600 text-sm p-2"><i class="fas fa-exclamation-triangle mr-1"></i>Tidak ada user management dengan privilege "Ruangan". Tambahkan privilege terlebih dahulu di User Management.</p>'}
         </div>
       </div>
       
