@@ -141,7 +141,7 @@ function renderActiveOpname(container) {
         <div>
           <div class="flex items-center gap-2 mb-1">
             <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-bold rounded-full uppercase tracking-wide">Sedang Berlangsung</span>
-            <span class="text-gray-400 text-sm"><i class="far fa-clock mr-1"></i> Dimulai: ${new Date(active.start_date).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</span>
+            <span class="text-gray-400 text-sm"><i class="far fa-clock mr-1"></i> Dimulai: ${new Date(active.start_date).toLocaleString('id-ID')}</span>
           </div>
           <h2 class="text-2xl font-bold text-gray-800">${active.title}</h2>
           <p class="text-gray-500 text-sm mt-1">${active.notes || "Tidak ada catatan"}</p>

@@ -359,63 +359,57 @@ async function handleRooms(req, res, supabase, user) {
       if (insertError)
         return res.status(500).json({ error: insertError.message });
 
-      // Send Notification to Room PICs (not all room privilege users)
-      let roomEmails = [];
+      // Send Notification to room-specific PICs only
+      const serviceClient = getServiceClient();
       
-      try {
-        // First get room ID by name
-        const { data: room } = await supabase
-          .from('rooms')
-          .select('id')
-          .eq('name', room_name)
-          .single();
+      // Get room ID from room name
+      const { data: roomData } = await serviceClient
+        .from("rooms")
+        .select("id")
+        .eq("name", room_name)
+        .single();
+      
+      let roomEmails = [];
+      if (roomData) {
+        // Get PICs for this specific room
+        const { data: roomPics } = await serviceClient
+          .from("room_pic")
+          .select("user_id")
+          .eq("room_id", roomData.id);
         
-        if (room?.id) {
-          // Try to get room-specific PICs from room_pic junction table
-          const { data: picData } = await supabase
-            .from('room_pic')
-            .select('user_id')
-            .eq('room_id', room.id);
+        if (roomPics && roomPics.length > 0) {
+          const picUserIds = roomPics.map(p => p.user_id);
           
-          const picUserIds = (picData || []).map(rp => rp.user_id);
-          
-          if (picUserIds.length > 0) {
-            // Get emails of assigned PICs via auth admin
-            const { data: authData } = await supabase.auth.admin.listUsers();
-            const allUsers = authData?.users || [];
-            roomEmails = allUsers
+          // Get emails for these users
+          const { data: { users } } = await serviceClient.auth.admin.listUsers({ perPage: 1000 });
+          if (users) {
+            roomEmails = users
               .filter(u => picUserIds.includes(u.id))
               .map(u => u.email)
               .filter(Boolean);
           }
         }
-      } catch (e) {
-        // room_pic table doesn't exist, use fallback
-        console.log("room_pic query failed, using fallback:", e.message);
-      }
-      
-      // Fallback to all room-privilege users if no PICs assigned
-      if (roomEmails.length === 0) {
-        roomEmails = await getManagementEmails('room');
       }
       
       const durationMs = new Date(end_time) - new Date(start_time);
       const durationHours = Math.round(durationMs / (1000 * 60 * 60));
       
-      await sendEmail({
-        to: roomEmails,
-        subject: `Permintaan Reservasi Ruangan: ${room_name}`,
-        html: `
-          <h3>Permintaan Reservasi Ruangan Baru</h3>
-          <p><strong>Peminjam:</strong> ${profile.full_name || user.email}</p>
-          <p><strong>Ruangan:</strong> ${room_name}</p>
-          <p><strong>Acara:</strong> ${event_name}</p>
-          <p><strong>Waktu Mulai:</strong> ${new Date(start_time).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</p>
-          <p><strong>Waktu Selesai:</strong> ${new Date(end_time).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</p>
-          <p><strong>Durasi:</strong> ${durationHours} Jam</p>
-          <p>Mohon cek dashboard untuk persetujuan: <a href="https://gki-management.vercel.app/#dashboard">Dashboard</a></p>
-        `
-      });
+      if (roomEmails.length > 0) {
+        await sendEmail({
+          to: roomEmails,
+          subject: `Permintaan Reservasi Ruangan: ${room_name}`,
+          html: `
+            <h3>Permintaan Reservasi Ruangan Baru</h3>
+            <p><strong>Peminjam:</strong> ${profile.full_name || user.email}</p>
+            <p><strong>Ruangan:</strong> ${room_name}</p>
+            <p><strong>Acara:</strong> ${event_name}</p>
+            <p><strong>Waktu Mulai:</strong> ${new Date(start_time).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</p>
+            <p><strong>Waktu Selesai:</strong> ${new Date(end_time).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</p>
+            <p><strong>Durasi:</strong> ${durationHours} Jam</p>
+            <p>Mohon cek dashboard untuk persetujuan: <a href="https://gki-management.vercel.app/#dashboard">Dashboard</a></p>
+          `
+        });
+      }
 
       return res
         .status(201)
@@ -514,8 +508,8 @@ async function handleTransports(req, res, supabase, user) {
           <p><strong>Kendaraan:</strong> ${vehicleName}</p>
           <p><strong>Tujuan:</strong> ${destination || '-'}</p>
           <p><strong>Keperluan:</strong> ${purpose || '-'}</p>
-          <p><strong>Waktu Mulai:</strong> ${new Date(borrow_start).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</p>
-          <p><strong>Waktu Selesai:</strong> ${new Date(borrow_end).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</p>
+          <p><strong>Waktu Mulai:</strong> ${new Date(borrow_start).toLocaleString('id-ID')}</p>
+          <p><strong>Waktu Selesai:</strong> ${new Date(borrow_end).toLocaleString('id-ID')}</p>
           <p><strong>Durasi:</strong> ${durationStr}</p>
           <p>Mohon cek dashboard untuk persetujuan: <a href="https://gki-management.vercel.app/#dashboard">Dashboard</a></p>
         `

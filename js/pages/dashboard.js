@@ -78,7 +78,7 @@ async function renderManagerDashboard() {
           </div>
           <div class="flex items-center gap-2 text-sm text-gray-500">
             <i class="fas fa-clock"></i>
-            <span>Update: ${new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}</span>
+            <span>Update: ${new Date().toLocaleString("id-ID")}</span>
           </div>
         </div>
 
@@ -670,7 +670,7 @@ function renderPendingItems(pendingRequests) {
       iconBg: "bg-green-100 text-green-600",
       title: `${item.event_name}`,
       subtitle: `Ruangan: ${item.room_name} • ${item.requester_name}`,
-      time: new Date(item.start_time).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }),
+      time: new Date(item.start_time).toLocaleString("id-ID"),
       dueInfo: "",
     });
   });
@@ -686,7 +686,7 @@ function renderPendingItems(pendingRequests) {
       subtitle: `${item.transportations?.plate_number || ""} • ${
         item.profiles?.full_name || "-"
       }`,
-      time: new Date(item.borrow_start).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }),
+      time: new Date(item.borrow_start).toLocaleString("id-ID"),
       dueInfo: item.purpose || "",
     });
   });

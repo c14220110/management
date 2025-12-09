@@ -191,11 +191,7 @@ function getRoomCardsHTML(rooms, isManagement) {
             </div>
             <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
               <i class="fas fa-user-tie text-emerald-500"></i>
-              <span class="truncate" title="${(room.pics || []).map(p => p.full_name).join(', ') || room.penanggung_jawab?.full_name || '-'}">
-                ${(room.pics || []).length > 0 
-                  ? (room.pics.length === 1 ? room.pics[0].full_name : `${room.pics[0].full_name} +${room.pics.length - 1}`) 
-                  : (room.penanggung_jawab?.full_name || '-')}
-              </span>
+              <span class="truncate" title="${(room.pics || []).map(p => p.full_name || p.email).join(', ') || '-'}">${(room.pics || []).length > 0 ? (room.pics.length > 2 ? room.pics.slice(0, 2).map(p => p.full_name || p.email).join(', ') + ' +' + (room.pics.length - 2) : room.pics.map(p => p.full_name || p.email).join(', ')) : '-'}</span>
             </div>
           </div>
           
@@ -245,33 +241,34 @@ function bindMemberRoomActions(container) {
 async function openRoomModal(existing = null) {
   const isEdit = !!existing;
   
-  // Fetch users for PIC dropdown
+  // Fetch users for PIC checkboxes (only management users with room privilege)
   let users = [];
   try {
     const token = localStorage.getItem("authToken");
     const res = await fetch("/api/management", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ action: "getUsers" }) });
     if (res.ok) {
       const allUsers = await res.json();
-      // Filter: only management users with 'room' privilege can be PIC
-      users = allUsers.filter(u => 
-        u.role === "management" && 
-        Array.isArray(u.privileges) && 
-        u.privileges.includes("room")
-      );
+      // Filter to only show management users with room privilege
+      users = allUsers.filter(u => {
+        if (u.role !== "management") return false;
+        // If no privileges defined, assume full access
+        if (!u.privileges) return true;
+        return Array.isArray(u.privileges) && u.privileges.includes("room");
+      });
     }
   } catch (e) { console.error("Failed to fetch users", e); }
   
-  // Get existing PIC ids for checkboxes
+  // Get existing PIC IDs
   const existingPicIds = (existing?.pics || []).map(p => p.id);
-  // Fallback to single penanggung_jawab_id
-  if (existingPicIds.length === 0 && existing?.penanggung_jawab_id) {
-    existingPicIds.push(existing.penanggung_jawab_id);
-  }
   
-  const userCheckboxes = users.map(u => `
-    <label class="flex items-center gap-2 p-2 hover:bg-gray-50 rounded cursor-pointer">
-      <input type="checkbox" name="pic_ids" value="${u.id}" ${existingPicIds.includes(u.id) ? "checked" : ""} class="w-4 h-4 text-amber-600 rounded border-gray-300 focus:ring-amber-500"/>
+  // Generate checkboxes for PICs
+  const picCheckboxes = users.map(u => `
+    <label class="flex items-center gap-2 p-2 rounded hover:bg-gray-50 cursor-pointer">
+      <input type="checkbox" name="pic_ids" value="${u.id}" 
+        ${existingPicIds.includes(u.id) ? "checked" : ""}
+        class="rounded text-amber-600 focus:ring-amber-500"/>
       <span class="text-sm">${u.full_name || u.email}</span>
+      <span class="text-xs text-gray-400">(${u.email})</span>
     </label>
   `).join("");
 
@@ -290,10 +287,10 @@ async function openRoomModal(existing = null) {
         <input type="number" name="kapasitas" value="${existing?.kapasitas || 0}" class="w-full px-3 py-2 border border-gray-300 rounded-lg"/>
       </div>
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Penanggung Jawab (PIC)</label>
-        <p class="text-xs text-gray-500 mb-2">Pilih satu atau lebih penanggung jawab. PIC akan menerima notifikasi reservasi.</p>
-        <div class="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white">
-          ${users.length > 0 ? userCheckboxes : '<p class="text-amber-600 text-sm p-2"><i class="fas fa-exclamation-triangle mr-1"></i>Tidak ada user management dengan privilege "Ruangan". Tambahkan privilege terlebih dahulu di User Management.</p>'}
+        <label class="block text-sm font-medium text-gray-700 mb-1">Penanggung Jawab (PIC) *</label>
+        <p class="text-xs text-gray-500 mb-2">Pilih satu atau lebih PIC yang akan menerima notifikasi reservasi</p>
+        <div class="max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2 space-y-1 bg-gray-50">
+          ${picCheckboxes.length > 0 ? picCheckboxes : '<p class="text-gray-400 text-sm p-2">Tidak ada user management dengan privilege ruangan</p>'}
         </div>
       </div>
       
@@ -347,6 +344,10 @@ async function handleRoomSubmit(existingId) {
   
   if (!name) { notifyError("Nama ruangan wajib diisi!"); return; }
 
+  // Collect all checked PIC IDs
+  const picCheckboxes = form.querySelectorAll("input[name='pic_ids']:checked");
+  const picIds = Array.from(picCheckboxes).map(cb => cb.value);
+
   // Upload Image
   let imageUrl = fd.get("image_url") || null;
   const photoFile = document.getElementById("room-photo-input")?.files[0];
@@ -363,15 +364,11 @@ async function handleRoomSubmit(existingId) {
     }
   }
 
-  // Collect selected PICs
-  const picCheckboxes = form.querySelectorAll('input[name="pic_ids"]:checked');
-  const pic_ids = Array.from(picCheckboxes).map(cb => cb.value);
-
   const payload = {
     name,
     lokasi: fd.get("lokasi"),
     kapasitas: parseInt(fd.get("kapasitas") || "0"),
-    pic_ids: pic_ids,
+    pic_ids: picIds,
     image_url: imageUrl,
   };
   if (existingId) payload.id = existingId;

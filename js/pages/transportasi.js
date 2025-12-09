@@ -565,9 +565,9 @@ async function renderTransportPendingView() {
                     }</span>
                   </td>
                   <td class="p-3 text-sm">
-                    ${new Date(loan.borrow_start).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}<br>
+                    ${new Date(loan.borrow_start).toLocaleString("id-ID")}<br>
                     <span class="text-gray-500">s/d</span><br>
-                    ${new Date(loan.borrow_end).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" })}
+                    ${new Date(loan.borrow_end).toLocaleString("id-ID")}
                   </td>
                   <td class="p-3">${loan.purpose || "-"}</td>
                   <td class="p-3 text-sm">

@@ -638,7 +638,6 @@ export default async function handler(req, res) {
             full_name: profile?.full_name,
             role: profile?.role || "member",
             privileges: profile?.privileges || [],
-            is_deleted: profile?.is_deleted || false,
           };
         });
 
@@ -713,143 +712,120 @@ export default async function handler(req, res) {
         return res.status(200).json({ message: "User berhasil dihapus." });
       }
 
-      case "toggleUserStatus": {
-        if (!checkPrivilege(profile, "users")) throw new Error("Akses ditolak: Butuh privilege 'users'");
-        const { userId: toggleId, is_deleted } = payload;
-        const { error: toggleError } = await supabase
-          .from("profiles")
-          .update({ is_deleted: is_deleted })
-          .eq("id", toggleId);
-        if (toggleError) throw toggleError;
-        const statusText = is_deleted ? "dinonaktifkan" : "diaktifkan kembali";
-        return res.status(200).json({ message: `User berhasil ${statusText}.` });
-      }
-
       // ============================================================
-      // ROOM MANAGEMENT
+      // ROOM MANAGEMENT (with Multi-PIC support via room_pic table)
       // ============================================================
       case "getRooms": {
         if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
         
-        // First, fetch rooms with old schema (backwards compatible)
-        const { data: rooms, error: getRoomsError } = await supabase.from("rooms").select(`
+        // Get rooms
+        const { data: rooms, error: getRoomsError } = await supabase
+          .from("rooms")
+          .select(`
             id,
             name,
             lokasi,
             kapasitas,
-            image_url,
-            penanggung_jawab_id,
-            penanggung_jawab: profiles!penanggung_jawab_id (id, full_name)
+            image_url
           `);
         if (getRoomsError) throw getRoomsError;
-        
-        // Try to fetch room_pic data separately (may fail if table doesn't exist)
-        let roomPicData = [];
-        try {
-          const { data: picData } = await supabase.from("room_pic").select(`
-            room_id,
-            user_id,
-            profiles:user_id (id, full_name)
-          `);
-          roomPicData = picData || [];
-        } catch (e) {
-          // room_pic table doesn't exist yet, use fallback
-          console.log("room_pic table not found, using fallback");
+
+        // Get all room_pic entries with user info
+        const { data: roomPics, error: picError } = await supabase
+          .from("room_pic")
+          .select("room_id, user_id");
+        if (picError) throw picError;
+
+        // Get user details for PICs
+        const picUserIds = [...new Set((roomPics || []).map(p => p.user_id))];
+        let picUsers = [];
+        if (picUserIds.length > 0) {
+          const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+          if (!usersError && users) {
+            const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", picUserIds);
+            const profileMap = new Map((profiles || []).map(p => [p.id, p.full_name]));
+            picUsers = users
+              .filter(u => picUserIds.includes(u.id))
+              .map(u => ({ id: u.id, email: u.email, full_name: profileMap.get(u.id) || u.email }));
+          }
         }
-        
-        // Transform room data to include pics array
-        const transformedRooms = (rooms || []).map(room => {
-          const picsFromJunction = roomPicData
+        const userMap = new Map(picUsers.map(u => [u.id, u]));
+
+        // Attach PICs to rooms
+        const roomsWithPics = (rooms || []).map(room => {
+          const pics = (roomPics || [])
             .filter(rp => rp.room_id === room.id)
-            .map(rp => rp.profiles)
+            .map(rp => userMap.get(rp.user_id))
             .filter(Boolean);
-          // Fallback to old penanggung_jawab if no junction entries
-          const pics = picsFromJunction.length > 0 
-            ? picsFromJunction 
-            : (room.penanggung_jawab ? [room.penanggung_jawab] : []);
-          return {
-            ...room,
-            pics,
-            penanggung_jawab: room.penanggung_jawab
-          };
+          return { ...room, pics };
         });
-        
-        return res.status(200).json(transformedRooms);
+
+        return res.status(200).json(roomsWithPics);
       }
 
       case "createRoom": {
         if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
-        const { name, lokasi, kapasitas, pic_ids, penanggung_jawab_id, image_url } = payload;
+        const { name, lokasi, kapasitas, pic_ids, image_url } = payload;
         
-        // Insert room first
+        // Insert room
         const { data: newRoom, error: createRoomError } = await supabase
           .from("rooms")
-          .insert({ 
-            name, 
-            lokasi, 
-            kapasitas, 
-            image_url,
-            // Keep penanggung_jawab_id for backwards compatibility
-            penanggung_jawab_id: pic_ids?.length > 0 ? pic_ids[0] : penanggung_jawab_id
-          })
-          .select()
+          .insert({ name, lokasi, kapasitas, image_url })
+          .select("id")
           .single();
         if (createRoomError) throw createRoomError;
-        
-        // Insert PICs into junction table
+
+        // Insert room_pic records
         if (pic_ids && pic_ids.length > 0) {
-          const picRecords = pic_ids.map(uid => ({ room_id: newRoom.id, user_id: uid }));
-          const { error: picError } = await supabase.from("room_pic").insert(picRecords);
-          if (picError) console.warn("Failed to insert room_pic:", picError.message);
+          const picRecords = pic_ids.map(userId => ({ room_id: newRoom.id, user_id: userId }));
+          const { error: picInsertError } = await supabase.from("room_pic").insert(picRecords);
+          if (picInsertError) throw picInsertError;
         }
-        
-        return res
-          .status(201)
-          .json({ message: "Ruangan baru berhasil dibuat." });
+
+        return res.status(201).json({ message: "Ruangan baru berhasil dibuat." });
       }
 
       case "updateRoom": {
         if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
         const { id, pic_ids, ...updateRoomData } = payload;
         
-        // Update room data
+        // Update room basic info
         const { error: updateRoomError } = await supabase
           .from("rooms")
-          .update({
-            ...updateRoomData,
-            // Update penanggung_jawab_id for backwards compatibility
-            penanggung_jawab_id: pic_ids?.length > 0 ? pic_ids[0] : updateRoomData.penanggung_jawab_id
-          })
+          .update(updateRoomData)
           .eq("id", id);
         if (updateRoomError) throw updateRoomError;
-        
-        // Update PICs in junction table
+
+        // Update PICs: delete existing and insert new
         if (pic_ids !== undefined) {
-          // Delete existing entries
+          // Delete existing PICs
           await supabase.from("room_pic").delete().eq("room_id", id);
           
-          // Insert new entries
+          // Insert new PICs
           if (pic_ids && pic_ids.length > 0) {
-            const picRecords = pic_ids.map(uid => ({ room_id: id, user_id: uid }));
-            const { error: picError } = await supabase.from("room_pic").insert(picRecords);
-            if (picError) console.warn("Failed to insert room_pic:", picError.message);
+            const picRecords = pic_ids.map(userId => ({ room_id: id, user_id: userId }));
+            const { error: picInsertError } = await supabase.from("room_pic").insert(picRecords);
+            if (picInsertError) throw picInsertError;
           }
         }
-        
-        return res
-          .status(200)
-          .json({ message: "Data ruangan berhasil diperbarui." });
+
+        return res.status(200).json({ message: "Data ruangan berhasil diperbarui." });
       }
 
       case "deleteRoom": {
         if (!checkPrivilege(profile, "room")) throw new Error("Akses ditolak: Butuh privilege 'room'");
-        const { roomId: deleteRoomId } = payload;
-        // room_pic entries will be deleted via CASCADE
+        const { id: deleteRoomId } = payload;
+        
+        // Delete room_pic records first
+        await supabase.from("room_pic").delete().eq("room_id", deleteRoomId);
+        
+        // Delete room
         const { error: deleteRoomError } = await supabase
           .from("rooms")
           .delete()
           .eq("id", deleteRoomId);
         if (deleteRoomError) throw deleteRoomError;
+        
         return res.status(200).json({ message: "Ruangan berhasil dihapus." });
       }
 
