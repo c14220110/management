@@ -1494,6 +1494,21 @@ async function handleMemberBorrowSubmit(templateId, isSerialized) {
     return;
   }
   
+  // Validate: can't book past times
+  const now = new Date();
+  const startDate = new Date(borrowStart);
+  const endDate = new Date(borrowEnd);
+  
+  if (startDate < now) {
+    notifyError("Waktu mulai tidak boleh di masa lalu");
+    return;
+  }
+  
+  if (endDate <= startDate) {
+    notifyError("Waktu selesai harus setelah waktu mulai");
+    return;
+  }
+  
   // Add timezone
   const body = { 
     borrow_start: borrowStart + ":00+07:00", 
@@ -1527,9 +1542,10 @@ async function handleMemberBorrowSubmit(templateId, isSerialized) {
       throw new Error(errData.error || "Gagal mengajukan peminjaman");
     }
     
-    closeGlobalModal(); 
-    notifySuccess("Permintaan peminjaman berhasil diajukan!"); 
+    // Force close modal first, then show notification
+    closeGlobalModal(true); 
     await renderBarangMemberView();
+    notifySuccess("Permintaan peminjaman berhasil diajukan!");
   } catch (e) { 
     notifyError(e.message);
     if (confirmBtn) {
