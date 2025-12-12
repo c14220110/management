@@ -160,7 +160,7 @@ async function renderBarangManagementView() {
     document.getElementById("product-search-input")?.addEventListener("input", debounce((e) => { 
       productInventoryState.search = e.target.value; 
       renderBarangManagementView(); 
-    }, 300));
+    }, 600));
     
     document.getElementById("qr-scan-btn")?.addEventListener("click", handleQRScan);
     
@@ -401,10 +401,10 @@ async function renderBarangMemberView() {
     `;
     
     // Event listeners
-    document.getElementById("member-search")?.addEventListener("input", debounce((e) => { 
+    document.getElementById("member-search")?.addEventListener("input", debounce((e) => {
       memberInventoryState.search = e.target.value; 
       renderBarangMemberView(); 
-    }, 300));
+    }, 600));
     
     document.getElementById("member-filter-category")?.addEventListener("change", (e) => {
       memberFilterState.category = e.target.value;
@@ -1316,16 +1316,17 @@ async function openMemberBorrowModal(templateId, isSerialized) {
   
   let unitsOpts = "";
   let selectedUnitId = null;
+  let unitsData = []; // Store full unit data for photo display
   
   if (isSerialized) {
     try { 
-      const units = await fetchMemberAvailableUnits(templateId); 
-      unitsOpts = units.map(u => `<option value="${u.id}">${u.asset_code || u.serial_number || u.id}</option>`).join(""); 
-      if (!units.length) { 
+      unitsData = await fetchMemberAvailableUnits(templateId); 
+      unitsOpts = unitsData.map(u => `<option value="${u.id}" data-photo="${u.photo_url || ''}">${u.asset_code || u.serial_number || u.id}</option>`).join(""); 
+      if (!unitsData.length) { 
         notifyError("Tidak ada unit tersedia untuk dipinjam"); 
         return; 
       }
-      selectedUnitId = units[0]?.id;
+      selectedUnitId = unitsData[0]?.id;
     } catch (e) { notifyError(e.message); return; }
   }
   
@@ -1337,16 +1338,27 @@ async function openMemberBorrowModal(templateId, isSerialized) {
   const endNow = new Date(now.getTime() + 2 * 60 * 60 * 1000); // +2 hours
   const endDefault = endNow.toISOString().slice(0, 16);
   
+  // Get first unit photo for initial display
+  const initialUnitPhoto = unitsData[0]?.photo_url || item.photo_url || "";
+  
   const content = `
     <form id="member-borrow-form" class="space-y-4">
       <p class="text-gray-600">Produk: <strong>${item.name}</strong></p>
       
       ${isSerialized ? `
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Unit</label>
-          <select name="unit_id" id="borrow-unit-select" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-            ${unitsOpts}
-          </select>
+        <!-- Unit Photo Preview -->
+        <div class="flex items-center gap-4 p-3 bg-gray-50 rounded-lg">
+          <div id="borrow-unit-photo" class="w-20 h-20 rounded-lg overflow-hidden bg-gray-200 flex-shrink-0 flex items-center justify-center">
+            ${initialUnitPhoto 
+              ? `<img src="${initialUnitPhoto}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<i class=\\'fas fa-box text-gray-400 text-2xl\\'></i>'"/>` 
+              : '<i class="fas fa-box text-gray-400 text-2xl"></i>'}
+          </div>
+          <div class="flex-1">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Unit</label>
+            <select name="unit_id" id="borrow-unit-select" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+              ${unitsOpts}
+            </select>
+          </div>
         </div>
       ` : `
         <div>
@@ -1397,10 +1409,21 @@ async function openMemberBorrowModal(templateId, isSerialized) {
   setTimeout(async () => {
     await loadBorrowSchedule(isSerialized ? selectedUnitId : templateId, isSerialized);
     
-    // If serialized, reload schedule when unit changes
+    // If serialized, reload schedule and update photo when unit changes
     if (isSerialized) {
       document.getElementById("borrow-unit-select")?.addEventListener("change", async (e) => {
-        await loadBorrowSchedule(e.target.value, true);
+        const selectedId = e.target.value;
+        // Update photo
+        const selectedUnit = unitsData.find(u => u.id === selectedId);
+        const photoEl = document.getElementById("borrow-unit-photo");
+        if (photoEl) {
+          const photo = selectedUnit?.photo_url || item.photo_url || "";
+          photoEl.innerHTML = photo 
+            ? `<img src="${photo}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<i class=\\'fas fa-box text-gray-400 text-2xl\\'></i>'"/>` 
+            : '<i class="fas fa-box text-gray-400 text-2xl"></i>';
+        }
+        // Reload schedule
+        await loadBorrowSchedule(selectedId, true);
       });
     }
   }, 100);
@@ -1428,21 +1451,30 @@ async function loadBorrowSchedule(itemId, isSerialized) {
       return;
     }
     
-    previewEl.innerHTML = schedules.map(s => `
-      <div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0 text-sm">
-        <div class="flex-shrink-0 w-2 h-2 rounded-full ${s.status === 'Dipinjam' ? 'bg-orange-500' : 'bg-yellow-500'}"></div>
-        <div class="flex-1">
-          <span class="font-medium text-gray-700">
-            ${new Date(s.borrow_start).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}
-          </span>
-          <span class="text-gray-500">
-            ${new Date(s.borrow_start).toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'})} - 
-            ${new Date(s.borrow_end).toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'})}
-          </span>
+    previewEl.innerHTML = schedules.map(s => {
+      const start = new Date(s.borrow_start);
+      const end = new Date(s.borrow_end);
+      // Check if same day
+      const sameDay = start.toDateString() === end.toDateString();
+      
+      const formatDate = (d) => d.toLocaleDateString('id-ID', {day: 'numeric', month: 'short'});
+      const formatTime = (d) => d.toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'});
+      
+      // If same day: "12 Des 14:00 - 16:00", if different: "12 Des 14:00 → 13 Des 16:00"
+      const dateDisplay = sameDay 
+        ? `${formatDate(start)} ${formatTime(start)} - ${formatTime(end)}`
+        : `${formatDate(start)} ${formatTime(start)} → ${formatDate(end)} ${formatTime(end)}`;
+      
+      return `
+        <div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0 text-sm">
+          <div class="flex-shrink-0 w-2 h-2 rounded-full ${s.status === 'Dipinjam' ? 'bg-orange-500' : 'bg-yellow-500'}"></div>
+          <div class="flex-1">
+            <span class="text-gray-700">${dateDisplay}</span>
+          </div>
+          <span class="text-xs px-2 py-0.5 rounded-full ${s.status === 'Dipinjam' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}">${s.status}</span>
         </div>
-        <span class="text-xs px-2 py-0.5 rounded-full ${s.status === 'Dipinjam' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}">${s.status}</span>
-      </div>
-    `).join("");
+      `;
+    }).join("");
     
   } catch (e) {
     previewEl.innerHTML = '<p class="text-red-500 text-center py-2">Error: ' + e.message + '</p>';
@@ -1753,8 +1785,21 @@ async function openActiveLoansModal() {
 
   function renderActiveLoanRow(loan, isOverdue) {
     const photo = loan.photo_url || "https://placehold.co/60x60/f3f4f6/9ca3af?text=📦";
-    const dueDate = new Date(loan.due_date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
-    const loanDate = new Date(loan.loan_date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+    
+    // Use borrow_start/borrow_end if available, fallback to loan_date/due_date
+    const startDate = loan.borrow_start || loan.loan_date;
+    const endDate = loan.borrow_end || loan.due_date;
+    
+    // Format with both date and time
+    const formatDateTime = (dateStr) => {
+      if (!dateStr) return "-";
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("id-ID", { day: "numeric", month: "short" }) + 
+             " " + d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+    };
+    
+    const startDisplay = formatDateTime(startDate);
+    const endDisplay = formatDateTime(endDate);
     
     const statusBadge = loan.status === "Disetujui" 
       ? '<span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">Disetujui</span>'
@@ -1787,8 +1832,8 @@ async function openActiveLoansModal() {
             
             <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
               <span><i class="fas fa-user mr-1 text-gray-400"></i>${loan.borrower_name}</span>
-              <span><i class="fas fa-calendar mr-1 text-gray-400"></i>Pinjam: ${loanDate}</span>
-              <span class="${isOverdue ? 'text-red-600 font-semibold' : ''}"><i class="fas fa-clock mr-1 ${isOverdue ? 'text-red-500' : 'text-gray-400'}"></i>JT: ${dueDate}</span>
+              <span><i class="fas fa-play mr-1 text-emerald-500"></i>${startDisplay}</span>
+              <span class="${isOverdue ? 'text-red-600 font-semibold' : ''}"><i class="fas fa-stop mr-1 ${isOverdue ? 'text-red-500' : 'text-gray-400'}"></i>${endDisplay}</span>
             </div>
             
             ${overdueInfo ? `<div class="mt-2">${overdueInfo}</div>` : ''}
@@ -1961,11 +2006,10 @@ async function openAssetHistoryModal() {
               <table class="min-w-full">
                 <thead class="bg-gray-50 text-xs uppercase tracking-wider text-gray-500 border-b border-gray-200">
                   <tr>
-                    <th class="px-5 py-3 text-left font-semibold">Tanggal</th>
+                    <th class="px-5 py-3 text-left font-semibold">Mulai</th>
+                    <th class="px-5 py-3 text-left font-semibold">Selesai</th>
                     <th class="px-5 py-3 text-left font-semibold">Barang</th>
                     <th class="px-5 py-3 text-left font-semibold">Peminjam</th>
-                    <th class="px-5 py-3 text-left font-semibold">Keperluan</th>
-                    <th class="px-5 py-3 text-left font-semibold">Jatuh Tempo</th>
                     <th class="px-5 py-3 text-left font-semibold">Status</th>
                   </tr>
                 </thead>
@@ -1973,17 +2017,25 @@ async function openAssetHistoryModal() {
                   ${group.items.map(item => {
                     const itemName = item.product_units?.template?.name || item.product_templates?.name || "-";
                     const itemCode = item.product_units?.asset_code || "";
-                    const dueDate = item.due_date ? new Date(item.due_date).toLocaleDateString("id-ID") : "-";
+                    // Use borrow_start/borrow_end if available, fallback to loan_date/due_date
+                    const startDate = item.borrow_start || item.loan_date;
+                    const endDate = item.borrow_end || item.due_date;
+                    const formatDateTime = (d) => {
+                      if (!d) return "-";
+                      const dt = new Date(d);
+                      return dt.toLocaleDateString("id-ID", {day: "numeric", month: "short"}) + 
+                             " " + dt.toLocaleTimeString("id-ID", {hour: "2-digit", minute: "2-digit"});
+                    };
                     return `
                     <tr class="hover:bg-amber-50/50 transition-colors">
-                      <td class="px-5 py-3 text-sm">${new Date(item.loan_date).toLocaleDateString("id-ID")}</td>
+                      <td class="px-5 py-3 text-sm">${formatDateTime(startDate)}</td>
+                      <td class="px-5 py-3 text-sm">${formatDateTime(endDate)}</td>
                       <td class="px-5 py-3">
                         <div class="font-medium text-gray-800">${itemName}</div>
                         ${itemCode ? `<div class="text-xs text-gray-400 font-mono">${itemCode}</div>` : ""}
+                        ${item.quantity > 1 ? `<div class="text-xs text-gray-500">Qty: ${item.quantity}</div>` : ""}
                       </td>
                       <td class="px-5 py-3 text-sm">${item.profiles?.full_name || "-"}</td>
-                      <td class="px-5 py-3 text-sm text-gray-600">${item.purpose || "-"}</td>
-                      <td class="px-5 py-3 text-sm">${dueDate}</td>
                       <td class="px-5 py-3">${getStatusBadgeHTML(item.status)}</td>
                     </tr>
                   `}).join("")}

@@ -1343,6 +1343,8 @@ export default async function handler(req, res) {
             id,
             loan_date,
             due_date,
+            borrow_start,
+            borrow_end,
             return_date,
             status,
             quantity,
@@ -1357,7 +1359,7 @@ export default async function handler(req, res) {
           `)
           .in("status", ["Disetujui", "Dipinjam"])
           .is("return_date", null)
-          .order("due_date", { ascending: true });
+          .order("borrow_end", { ascending: true, nullsFirst: false });
         
         if (activeError) throw activeError;
         
@@ -1387,9 +1389,10 @@ export default async function handler(req, res) {
             photoUrl = loan.product_templates.photo_url;
           }
           
-          const dueDate = new Date(loan.due_date);
-          const isOverdue = dueDate < now;
-          const daysOverdue = isOverdue ? Math.floor((now - dueDate) / (1000 * 60 * 60 * 24)) : 0;
+          // Use borrow_end if available, fallback to due_date
+          const endDate = loan.borrow_end ? new Date(loan.borrow_end) : new Date(loan.due_date);
+          const isOverdue = endDate < now;
+          const daysOverdue = isOverdue ? Math.floor((now - endDate) / (1000 * 60 * 60 * 24)) : 0;
           
           return {
             ...loan,

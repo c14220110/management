@@ -91,6 +91,7 @@ async function handleInventory(req, res, supabase, user) {
             asset_code,
             status,
             condition,
+            photo_url,
             location:stock_locations!location_id (id, name, code)
           `)
           .eq("template_id", templateId)

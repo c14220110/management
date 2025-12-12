@@ -296,19 +296,23 @@ async function renderManagerDashboard() {
                   filteredAlerts.overdueItems.length
                     ? `
                   <div class="space-y-3">
-                    ${filteredAlerts.overdueItems
+                ${filteredAlerts.overdueItems
                       .slice(0, 5)
                       .map(
-                        (item) => `
+                        (item) => {
+                          const endDate = item.borrow_end || item.due_date;
+                          const endDisplay = endDate ? new Date(endDate).toLocaleString("id-ID", {day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"}) : "-";
+                          return `
                       <div class="flex items-start gap-3 p-3 bg-amber-50 rounded-lg">
                         <i class="fas fa-clock text-amber-500 mt-1"></i>
                         <div class="flex-1">
                           <p class="font-semibold text-gray-800">${
                             item.item_name || "Barang"
-                          }</p>
+                          }${item.item_code ? ` <span class="text-xs text-gray-400 font-mono">(${item.item_code})</span>` : ""}</p>
                           <p class="text-sm text-gray-600">Peminjam: ${
                             item.borrower_name || "-"
                           }</p>
+                          <p class="text-xs text-gray-500">Deadline: ${endDisplay}</p>
                           <p class="text-xs text-amber-600 mt-1">
                             <span class="font-bold">${
                               item.days_overdue
@@ -316,7 +320,8 @@ async function renderManagerDashboard() {
                           </p>
                         </div>
                       </div>
-                    `
+                    `;
+                        }
                       )
                       .join("")}
                     ${
