@@ -1,0 +1,293 @@
+Product Specification Document
+GKI Kutisari Management System
+1. Product Overview
+1.1 Product Name
+Sistem Informasi GKI Kutisari (GKI Kutisari Information System)
+
+1.2 Product Description
+A comprehensive web-based church management system designed for GKI Kutisari Indah (Gereja Kristen Indonesia - Indonesian Christian Church) to manage church resources, assets, rooms, transportation, and member activities efficiently.
+
+1.3 Target Users
+User Role	Description
+Management	Church administrators with full access to manage resources, users, and website content
+Members	Church congregation members with access to borrow items, reserve rooms, and request transportation
+1.4 Platform
+Type: Progressive Web Application (PWA)
+Deployment: Vercel (Serverless Functions)
+Database: Supabase (PostgreSQL)
+Frontend: HTML, TailwindCSS, Vanilla JavaScript
+2. Core Modules & Features
+2.1 Authentication System
+Success
+Management
+Member
+Failed
+Login Page
+Authenticate
+Check Role
+Admin Dashboard
+Member Dashboard
+Error Message
+Feature	Description
+Email/Password Login	Secure authentication via Supabase Auth
+Role-based Access	Different views for Management vs Members
+Session Management	JWT token-based authentication
+Logout	Clear session and redirect to login
+2.2 Dashboard Module
+2.2.1 Management Dashboard (Pusat Kontrol Operasional)
+Feature	Description
+Overview Statistics	Total assets, rooms, vehicles with quick stats
+Pending Requests	View all pending borrow/reservation requests
+Quick Approval	Approve/reject requests directly from dashboard
+Unified Calendar	Visual calendar showing all reservations and bookings
+Asset Condition Summary	Chart showing asset conditions (Baik, Rusak, Perlu Service)
+2.2.2 Member Dashboard
+Feature	Description
+My Requests	Track status of personal borrow/reservation requests
+Active Loans	View currently borrowed items
+Request History	View past requests with status
+Upcoming Reservations	View scheduled room and transport reservations
+2.3 Barang (Inventory/Asset) Module
+IMPORTANT
+
+The inventory system uses a dual-table structure: product_templates (types) and product_units (individual items)
+
+2.3.1 Management Features
+Feature	Description
+Product Templates CRUD	Create, edit, delete product types (e.g., "Projector", "Speaker")
+Product Units CRUD	Manage individual items with unique codes/QR
+Category Management	Create and manage product categories
+Location Management	Define storage locations for assets
+Image Upload	Upload product images via Supabase Storage
+QR Code Generation	Generate QR codes for each unit
+Stock Status Tracking	Monitor availability (Available, In Use, Damaged)
+Loan History	View complete loan history per item/template
+Filtering & Search	Filter by category, location, stock status
+Excel Export	Export asset data to Excel format
+2.3.2 Member Features
+Feature	Description
+Browse Assets	View available assets with images and details
+Borrow Request	Submit borrow request with date range and purpose
+QR Scan	Scan QR code to borrow specific unit
+Filter & Search	Filter by category and availability
+Request Status	Track borrow request status
+2.4 Ruangan (Room Reservation) Module
+Approve
+Reject
+Member Submits Request
+Pending Status
+Management Review
+Approved ✅
+Rejected ❌
+Room Reserved
+2.4.1 Management Features
+Feature	Description
+Room CRUD	Create, edit, delete rooms with details
+Room Details	Name, location, capacity, penanggung jawab (person in charge)
+Image Upload	Upload room photos
+Reservation Management	Approve/reject reservation requests
+Conflict Detection	Prevent double-booking (automated time validation)
+Reservation History	View all past reservations
+2.4.2 Member Features
+Feature	Description
+View Available Rooms	Browse rooms with details and photos
+Create Reservation	Request room with date, time, and purpose
+Time Slot Selection	Choose available time slots
+Reservation Status	Track reservation status
+2.5 Transportasi (Transportation) Module
+2.5.1 Management Features
+Feature	Description
+Vehicle CRUD	Create, edit, delete vehicles
+Vehicle Details	Name, plate number, capacity, status
+Image Upload	Upload vehicle photos
+Booking Management	Approve/reject transport requests
+Calendar View	Visual schedule of all vehicle bookings
+Pending Requests Tab	Dedicated view for pending requests
+Transport History	View complete booking history
+2.5.2 Member Features
+Feature	Description
+Browse Vehicles	View available vehicles with photos
+Calendar View	See vehicle availability on calendar
+Create Booking	Request vehicle with date, time, destination, purpose
+Booking Status	Track request status
+2.6 User Management Module
+NOTE
+
+Only accessible to Management users with users privilege
+
+Feature	Description
+User CRUD	Create, edit, delete user accounts
+Role Assignment	Assign Management or Member role
+Privilege System	Granular permissions for management users
+Search Users	Search by name across user lists
+Password Management	Update user passwords
+Privilege Types
+Privilege	Access
+inventory	Barang (Inventory) management
+transport	Transportasi management
+room	Ruangan management
+users	User Management
+stock_opname	Stock Opname feature
+website	Website GKI content management
+2.7 Stok Opname (Stock Take) Module
+NOTE
+
+Only accessible to Management users with stock_opname privilege
+
+Yes
+No
+Start Opname
+Scan/Manual Entry
+Record Findings
+More Items?
+Finish Opname
+Generate Report
+Feature	Description
+Start Stock Opname	Initiate new stock taking session
+QR Scanning	Scan item QR codes for quick input
+Manual Entry	Manual input for items without QR
+Condition Recording	Record item condition during count
+Variance Detection	Compare expected vs actual counts
+History View	View past opname sessions and reports
+Detailed Reports	Generate stock take reports
+2.8 Website GKI (CMS) Module
+NOTE
+
+Only accessible to Management users with website privilege
+
+Feature	Description
+Hero Section Editor	Edit homepage title, subtitle, and background video
+Video Upload	Upload hero section video (MP4/WebM, max 4MB)
+Schedule Management	Manage worship schedules displayed on website
+About Section	Edit "About Us" content and church building photo
+Pastor Profile	Update pastor information, photo, and contact
+Save Changes	Publish changes to public website
+3. Technical Specifications
+3.1 Frontend Architecture
+Component	Technology
+Framework	Vanilla JavaScript (No framework)
+Styling	TailwindCSS via CDN
+UI Components	Custom components with modals
+Calendar	FullCalendar 6.1.11
+QR Code	html5-qrcode, qrcodejs
+Export	SheetJS (xlsx)
+Icons	Font Awesome 6
+3.2 Backend Architecture
+Component	Technology
+Runtime	Vercel Serverless Functions (Node.js)
+Database	Supabase (PostgreSQL)
+Authentication	Supabase Auth (JWT)
+Storage	Supabase Storage
+Email	Custom email utility
+3.3 API Structure
+Endpoint	Purpose
+/api/auth/login	Authentication
+/api/dashboard	Dashboard data operations
+/api/management	All management operations
+/api/member	Member operations
+/api/schedule	Schedule data
+/api/website-content	CMS operations
+/api/website-hero-video	Video upload
+/api/get-reservations	Public reservation data
+4. User Flows
+4.1 Member Borrowing Flow
+Admin
+System
+Member
+Admin
+System
+Member
+Browse Available Items
+Select Item & Submit Request
+Validate Availability
+Notify New Request
+Review & Approve/Reject
+Notify Decision
+Pick Up Item
+Return Item
+4.2 Room Reservation Flow
+Admin
+System
+Member
+Admin
+System
+Member
+alt
+[No Conflict]
+[Conflict Exists]
+View Room List
+Fill Reservation Form
+Check Time Conflicts
+Notify New Reservation
+Approve/Reject
+Confirmation Email
+Show Error - Time Unavailable
+5. Security Features
+Feature	Implementation
+JWT Authentication	Token-based session management
+Role-based Access Control	Management vs Member permissions
+Privilege System	Granular access for management users
+Row Level Security	Supabase RLS policies
+API Authorization	Token verification on all endpoints
+Input Validation	Server-side validation on all inputs
+6. Notifications
+Trigger	Recipients	Method
+New borrow/reservation request	Management users	Email
+Request approved/rejected	Requesting member	Email
+Reminder before due date	Member with active loan	Email
+7. Data Models
+7.1 Users
+
+id
+, email, full_name, role, privileges[], created_at
+7.2 Product Templates
+
+id
+, 
+
+name
+, category_id, location_id, description, image_url, commission_id
+7.3 Product Units
+
+id
+, template_id, code, condition, status, qr_code
+7.4 Rooms
+
+id
+, 
+
+name
+, lokasi, kapasitas, penanggung_jawab, image_url
+7.5 Transportations
+
+id
+, 
+
+name
+, plate_number, capacity, status, image_url
+7.6 Reservations/Loans
+
+id
+, type, user_id, item_id, start_date, end_date, status, purpose
+8. Non-Functional Requirements
+Requirement	Specification
+Availability	99.9% uptime via Vercel
+Responsiveness	Mobile-first responsive design
+Performance	Page load < 3 seconds
+Browser Support	Chrome, Firefox, Safari, Edge (latest versions)
+PWA Support	Installable as mobile/desktop app
+Language	Indonesian (Bahasa Indonesia)
+9. Future Enhancements (Roadmap)
+Priority	Feature
+High	Push notifications
+High	WhatsApp integration
+Medium	Reporting dashboard with charts
+Medium	Bulk import/export
+Low	Multi-church support
+Low	AI-powered recommendations
+Document Information
+Field	Value
+Version	1.0
+Last Updated	December 10, 2025
+Author	Auto-generated from codebase analysis
+Project Path	/Users/sam/Desktop/magank/GKI/management-main 2

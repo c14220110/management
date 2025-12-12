@@ -327,19 +327,71 @@ async function handleInventory(req, res, supabase, user) {
 // ROOMS HANDLER
 // ============================================================
 async function handleRooms(req, res, supabase, user) {
+  const serviceClient = getServiceClient();
+  
   switch (req.method) {
     case "GET":
-      const { data, error } = await supabase
-        .from("rooms")
-        .select("name, lokasi, kapasitas, image_url")
-        .order("name", { ascending: true });
-      if (error) return res.status(500).json({ error: error.message });
-      return res.status(200).json(data);
+      try {
+        // Get rooms with basic info
+        const { data: rooms, error } = await supabase
+          .from("rooms")
+          .select("id, name, lokasi, kapasitas, image_url")
+          .order("name", { ascending: true });
+        if (error) return res.status(500).json({ error: error.message });
+
+        // Get all room_pic entries
+        let roomPics = [];
+        const { data: rpData, error: rpError } = await serviceClient
+          .from("room_pic")
+          .select("room_id, user_id");
+        if (rpError) {
+          console.log("room_pic query error:", rpError.message);
+        } else {
+          roomPics = rpData || [];
+        }
+
+        // Get user details for PICs
+        const picUserIds = [...new Set(roomPics.map(p => p.user_id))];
+        let picUsers = [];
+        if (picUserIds.length > 0) {
+          const { data: profiles } = await serviceClient.from("profiles").select("id, full_name").in("id", picUserIds);
+          picUsers = (profiles || []).map(p => ({ id: p.id, full_name: p.full_name }));
+        }
+        const userMap = new Map(picUsers.map(u => [u.id, u]));
+
+        // Attach PICs to rooms
+        const roomsWithPics = (rooms || []).map(room => {
+          const pics = roomPics
+            .filter(rp => rp.room_id === room.id)
+            .map(rp => userMap.get(rp.user_id))
+            .filter(Boolean);
+          return { ...room, pics };
+        });
+
+        return res.status(200).json(roomsWithPics);
+      } catch (err) {
+        console.error("handleRooms GET error:", err);
+        return res.status(500).json({ error: "Gagal memuat data ruangan: " + err.message });
+      }
 
     case "POST":
       const { event_name, room_name, start_time, end_time } = req.body;
       if (!event_name || !room_name || !start_time || !end_time)
         return res.status(400).json({ error: "Semua field harus diisi." });
+
+      // Check for time conflict with existing reservations
+      const { data: conflicts } = await supabase
+        .from("room_reservations")
+        .select("id, event_name, start_time, end_time")
+        .eq("room_name", room_name)
+        .in("status", ["Menunggu Persetujuan", "Disetujui"])
+        .or(`and(start_time.lt.${end_time},end_time.gt.${start_time})`);
+
+      if (conflicts && conflicts.length > 0) {
+        return res.status(409).json({
+          error: `Waktu yang dipilih bertabrakan dengan reservasi lain (${conflicts[0].event_name}). Silakan pilih waktu lain.`,
+        });
+      }
 
       const { data: profile } = await supabase
         .from("profiles")
@@ -360,7 +412,7 @@ async function handleRooms(req, res, supabase, user) {
         return res.status(500).json({ error: insertError.message });
 
       // Send Notification to room-specific PICs only
-      const serviceClient = getServiceClient();
+      // serviceClient already declared at function level
       
       // Get room ID from room name
       const { data: roomData } = await serviceClient
@@ -425,17 +477,66 @@ async function handleRooms(req, res, supabase, user) {
 // TRANSPORTS HANDLER
 // ============================================================
 async function handleTransports(req, res, supabase, user) {
+  const serviceClient = getServiceClient();
+  
   switch (req.method) {
     case "GET":
-      const { data, error } = await supabase
-        .from("transportations")
-        .select(`
-          *,
-          person_in_charge:profiles!person_in_charge_id (id, full_name)
-        `)
-        .order("vehicle_name", { ascending: true });
-      if (error) return res.status(500).json({ error: error.message });
-      return res.status(200).json(data);
+      try {
+        // Get transportations
+        const { data: transports, error } = await supabase
+          .from("transportations")
+          .select(`
+            id,
+            vehicle_name,
+            plate_number,
+            vehicle_year,
+            odometer_km,
+            capacity,
+            driver_name,
+            driver_whatsapp,
+            notes,
+            image_url
+          `)
+          .order("vehicle_name", { ascending: true });
+        if (error) return res.status(500).json({ error: error.message });
+
+        // Get all transport_pic entries (with error handling for table not existing)
+        let transportPics = [];
+        try {
+          const { data: tpData, error: tpError } = await serviceClient
+            .from("transport_pic")
+            .select("transport_id, user_id");
+          if (!tpError) {
+            transportPics = tpData || [];
+          }
+        } catch (e) {
+          // Table might not exist yet, continue without PICs
+          console.log("transport_pic query error:", e.message);
+        }
+
+        // Get user details for PICs
+        const picUserIds = [...new Set(transportPics.map(p => p.user_id))];
+        let picUsers = [];
+        if (picUserIds.length > 0) {
+          const { data: profiles } = await serviceClient.from("profiles").select("id, full_name").in("id", picUserIds);
+          picUsers = (profiles || []).map(p => ({ id: p.id, full_name: p.full_name }));
+        }
+        const userMap = new Map(picUsers.map(u => [u.id, u]));
+
+        // Attach PICs to transports
+        const transportsWithPics = (transports || []).map(transport => {
+          const pics = transportPics
+            .filter(tp => tp.transport_id === transport.id)
+            .map(tp => userMap.get(tp.user_id))
+            .filter(Boolean);
+          return { ...transport, pics };
+        });
+
+        return res.status(200).json(transportsWithPics);
+      } catch (err) {
+        console.error("handleTransports GET error:", err);
+        return res.status(500).json({ error: "Gagal memuat data transportasi: " + err.message });
+      }
 
     case "POST":
       const {
@@ -486,8 +587,8 @@ async function handleTransports(req, res, supabase, user) {
         return res.status(500).json({ error: insertError.message });
       }
 
-      // Send Notification
-      // Send Notification
+      // Send Notification to transport-specific PICs only
+      const serviceClient = getServiceClient();
       const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
       const borrowerName = profile?.full_name || user.email;
       
@@ -498,22 +599,43 @@ async function handleTransports(req, res, supabase, user) {
       const durationHours = Math.round(durationMs / (1000 * 60 * 60));
       const durationStr = durationHours > 24 ? `${Math.round(durationHours/24)} Hari` : `${durationHours} Jam`;
 
-      const transportEmails = await getManagementEmails('transport');
-      await sendEmail({
-        to: transportEmails,
-        subject: `Permintaan Peminjaman Transportasi: ${vehicleName}`,
-        html: `
-          <h3>Permintaan Peminjaman Transportasi Baru</h3>
-          <p><strong>Peminjam:</strong> ${borrowerName}</p>
-          <p><strong>Kendaraan:</strong> ${vehicleName}</p>
-          <p><strong>Tujuan:</strong> ${destination || '-'}</p>
-          <p><strong>Keperluan:</strong> ${purpose || '-'}</p>
-          <p><strong>Waktu Mulai:</strong> ${new Date(borrow_start).toLocaleString('id-ID')}</p>
-          <p><strong>Waktu Selesai:</strong> ${new Date(borrow_end).toLocaleString('id-ID')}</p>
-          <p><strong>Durasi:</strong> ${durationStr}</p>
-          <p>Mohon cek dashboard untuk persetujuan: <a href="https://gki-management.vercel.app/#dashboard">Dashboard</a></p>
-        `
-      });
+      // Get PICs for this specific transport
+      let transportEmails = [];
+      const { data: emailTransportPics } = await serviceClient
+        .from("transport_pic")
+        .select("user_id")
+        .eq("transport_id", transport_id);
+      
+      if (emailTransportPics && emailTransportPics.length > 0) {
+        const picUserIds = emailTransportPics.map(p => p.user_id);
+        
+        // Get emails for these users
+        const { data: { users } } = await serviceClient.auth.admin.listUsers({ perPage: 1000 });
+        if (users) {
+          transportEmails = users
+            .filter(u => picUserIds.includes(u.id))
+            .map(u => u.email)
+            .filter(Boolean);
+        }
+      }
+
+      if (transportEmails.length > 0) {
+        await sendEmail({
+          to: transportEmails,
+          subject: `Permintaan Peminjaman Transportasi: ${vehicleName}`,
+          html: `
+            <h3>Permintaan Peminjaman Transportasi Baru</h3>
+            <p><strong>Peminjam:</strong> ${borrowerName}</p>
+            <p><strong>Kendaraan:</strong> ${vehicleName}</p>
+            <p><strong>Tujuan:</strong> ${destination || '-'}</p>
+            <p><strong>Keperluan:</strong> ${purpose || '-'}</p>
+            <p><strong>Waktu Mulai:</strong> ${new Date(borrow_start).toLocaleString('id-ID')}</p>
+            <p><strong>Waktu Selesai:</strong> ${new Date(borrow_end).toLocaleString('id-ID')}</p>
+            <p><strong>Durasi:</strong> ${durationStr}</p>
+            <p>Mohon cek dashboard untuk persetujuan: <a href="https://gki-management.vercel.app/#dashboard">Dashboard</a></p>
+          `
+        });
+      }
 
       return res.status(201).json({
         message: "Permintaan peminjaman transportasi berhasil diajukan.",

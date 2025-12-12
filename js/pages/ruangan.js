@@ -193,9 +193,14 @@ function getRoomCardsHTML(rooms, isManagement) {
               <i class="fas fa-users text-blue-500"></i>
               <span>${room.kapasitas || 0} Orang</span>
             </div>
-            <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
-              <i class="fas fa-user-tie text-emerald-500"></i>
-              <span class="truncate" title="${(room.pics || []).map(p => p.full_name || p.email).join(', ') || '-'}">${(room.pics || []).length > 0 ? (room.pics.length > 2 ? room.pics.slice(0, 2).map(p => p.full_name || p.email).join(', ') + ' +' + (room.pics.length - 2) : room.pics.map(p => p.full_name || p.email).join(', ')) : '-'}</span>
+            <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg overflow-hidden" title="${(room.pics || []).map(p => p.full_name || p.email).join(', ') || 'Belum ada PIC'}">
+              <i class="fas fa-user-tie text-emerald-500 flex-shrink-0"></i>
+              <span class="truncate">${
+                (room.pics || []).length === 0 ? '-' :
+                (room.pics || []).length === 1 ? room.pics[0].full_name || room.pics[0].email :
+                (room.pics || []).length <= 2 ? room.pics.map(p => (p.full_name || p.email).split(' ')[0]).join(', ') :
+                room.pics.slice(0, 1).map(p => (p.full_name || p.email).split(' ')[0]).join('') + ' +' + (room.pics.length - 1)
+              }</span>
             </div>
           </div>
           
@@ -424,17 +429,20 @@ function openReservationModal(roomName) {
       const payload = {
         event_name: fd.get("event_name"),
         room_name: fd.get("room_name"),
-        start_time: fd.get("start_time"),
-        end_time: fd.get("end_time"),
+        start_time: fd.get("start_time") + ":00+07:00",
+        end_time: fd.get("end_time") + ":00+07:00",
       };
       
-      try {
-        const token = localStorage.getItem("authToken");
-        const res = await fetch("/api/member?resource=rooms", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
-        if (!res.ok) throw new Error((await res.json()).error);
-        closeGlobalModal();
-        notifySuccess("Reservasi berhasil diajukan!");
-      } catch (e) { notifyError(e.message); }
+      const token = localStorage.getItem("authToken");
+      const res = await fetch("/api/member?resource=rooms", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
+      
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Gagal mengajukan reservasi");
+      }
+      
+      closeGlobalModal(true); // Force close
+      notifySuccess("Reservasi berhasil diajukan!");
     }
   });
 }

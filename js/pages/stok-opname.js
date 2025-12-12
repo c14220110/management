@@ -402,29 +402,59 @@ function handleOpnameScan() {
     if (!document.getElementById("opname-qr-reader")) return;
     const scanner = new Html5QrcodeScanner("opname-qr-reader", { fps: 10, qrbox: 250 });
     
+    // Store scanner reference for cleanup
+    window._opnameScanner = scanner;
+    
     scanner.render(async (decodedText) => {
-      // Handle Scan
+      // Stop scanner first to prevent repeated scans
+      try { scanner.clear(); } catch(e){}
+      
+      // Close the scan modal
+      closeGlobalModal();
+      
+      // Process the scanned item (may open another modal)
       try {
-        scanner.pause();
         await processScannedItem(decodedText);
-        scanner.resume();
       } catch (e) {
         console.error(e);
         notifyError("Gagal memproses QR: " + e.message);
-        scanner.resume();
       }
     });
 
-    // Cleanup
-    const cleanup = () => { try { scanner.clear(); } catch(e){} };
+    // Cleanup on modal close
+    const cleanup = () => { 
+      try { scanner.clear(); } catch(e){} 
+      window._opnameScanner = null;
+    };
     document.getElementById("global-modal-close")?.addEventListener("click", cleanup);
     document.getElementById("global-modal-confirm")?.addEventListener("click", cleanup);
   }, 200);
 }
 
 async function processScannedItem(code) {
-  // 1. Find Unit
   const token = localStorage.getItem("authToken");
+  
+  // Check if it's a product template QR (non-serialized format: PRODUCT:uuid)
+  if (code.startsWith("PRODUCT:")) {
+    const templateId = code.replace("PRODUCT:", "");
+    const tmpl = opnameState.templates.find(t => t.id === templateId);
+    
+    if (!tmpl) {
+      notifyError("Produk tidak ditemukan");
+      return;
+    }
+    
+    if (tmpl.is_serialized) {
+      notifyError("Produk ini serialized - gunakan QR unit individual");
+      return;
+    }
+    
+    // For non-serialized, prompt for quantity
+    openQuickQtyModal(tmpl);
+    return;
+  }
+  
+  // Otherwise, it's a unit code (serialized)
   const findRes = await fetch("/api/management", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -436,7 +466,7 @@ async function processScannedItem(code) {
   
   if (!unit) { notifyError("QR Code tidak valid / Barang tidak ditemukan"); return; }
 
-  // 2. Submit to Opname
+  // Submit to Opname
   const submitRes = await fetch("/api/management", {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -460,6 +490,62 @@ async function processScannedItem(code) {
   loadOpnameData().then(() => {
     const container = document.getElementById("stok-opname-content-area");
     if (container) renderActiveOpname(container);
+  });
+}
+
+// Quick quantity input modal for non-serialized items scanned via QR
+function openQuickQtyModal(template) {
+  const content = `
+    <div class="text-center mb-4">
+      <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
+        <i class="fas fa-box text-2xl"></i>
+      </div>
+      <h3 class="font-bold text-gray-800 text-lg">${template.name}</h3>
+      <p class="text-sm text-gray-500">${template.category?.name || 'Lainnya'}</p>
+    </div>
+    <form id="quick-qty-form" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Fisik</label>
+        <input type="number" name="qty" value="1" min="1" autofocus class="w-full px-4 py-3 text-xl text-center border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500"/>
+      </div>
+    </form>
+  `;
+
+  openGlobalModal({
+    title: "Input Jumlah",
+    contentHTML: content,
+    confirmText: "Simpan",
+    onConfirm: async () => {
+      const form = document.getElementById("quick-qty-form");
+      const qty = parseInt(new FormData(form).get("qty") || "1");
+      
+      try {
+        const token = localStorage.getItem("authToken");
+        const res = await fetch("/api/management", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ 
+            action: "submitOpnameItem", 
+            payload: { 
+              opnameId: opnameState.active.id,
+              templateId: template.id,
+              unitId: null,
+              qty,
+              isScan: true
+            } 
+          })
+        });
+
+        if (!res.ok) throw new Error("Gagal menyimpan data");
+        
+        closeGlobalModal();
+        notifySuccess(`Berhasil: ${template.name} x${qty}`);
+        await loadOpnameData();
+        renderActiveOpname(document.getElementById("stok-opname-content-area"));
+      } catch (e) {
+        notifyError(e.message);
+      }
+    }
   });
 }
 
@@ -632,6 +718,21 @@ async function openOpnameDetail(opnameId) {
   if (!res.ok) { notifyError("Gagal mengambil detail"); return; }
   const { opname, items } = await res.json();
 
+  // Fetch templates to get total system items count
+  const tmplRes = await fetch("/api/management", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ action: "getProductTemplates" })
+  });
+  let totalSystemItems = 0;
+  if (tmplRes.ok) {
+    const templates = await tmplRes.json();
+    templates.forEach(t => {
+      const stock = t.is_serialized ? (t.stock?.total || 0) : (t.quantity_on_hand || 0);
+      totalSystemItems += stock;
+    });
+  }
+
   // State for filtering
   let filterCategory = "all";
   let filterChecker = "all";
@@ -640,6 +741,9 @@ async function openOpnameDetail(opnameId) {
   // Get unique categories and checkers
   const categories = [...new Set(items.map(i => i.template?.category?.name || "Lainnya"))].sort();
   const checkers = [...new Set(items.map(i => i.checker?.full_name).filter(Boolean))].sort();
+  
+  // Calculate total items that were checked (sum of actual_qty)
+  const totalCheckedQty = items.reduce((sum, i) => sum + (i.actual_qty || 0), 0);
   
   // Calculate summary statistics
   function calcStats(data) {
@@ -670,6 +774,7 @@ async function openOpnameDetail(opnameId) {
   function renderContent() {
     const filtered = filterItems();
     const stats = calcStats(filtered);
+    const progressPct = totalSystemItems > 0 ? Math.round((totalCheckedQty / totalSystemItems) * 100) : 0;
 
     const categoryPills = categories.map(c => {
       const count = items.filter(i => (i.template?.category?.name || "Lainnya") === c).length;
@@ -682,22 +787,26 @@ async function openOpnameDetail(opnameId) {
     return `
       <div class="space-y-4">
         <!-- Summary Cards -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div class="bg-blue-50 rounded-xl p-3 text-center">
-            <p class="text-2xl font-bold text-blue-600">${stats.total}</p>
-            <p class="text-xs text-blue-500">Item Dicek</p>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div class="bg-blue-50 rounded-xl p-4 text-center">
+            <p class="text-3xl font-bold text-blue-600">${totalCheckedQty}<span class="text-lg text-blue-400">/${totalSystemItems}</span></p>
+            <p class="text-sm text-blue-500">Item Dicek</p>
           </div>
-          <div class="bg-green-50 rounded-xl p-3 text-center">
-            <p class="text-2xl font-bold text-green-600">${stats.accuracy}%</p>
-            <p class="text-xs text-green-500">Akurasi</p>
+          <div class="bg-purple-50 rounded-xl p-4 text-center">
+            <p class="text-3xl font-bold text-purple-600">${progressPct}%</p>
+            <p class="text-sm text-purple-500">Progress</p>
           </div>
-          <div class="bg-red-50 rounded-xl p-3 text-center">
-            <p class="text-2xl font-bold text-red-600">${stats.discrepancy}</p>
-            <p class="text-xs text-red-500">Tidak Sesuai</p>
+          <div class="bg-green-50 rounded-xl p-4 text-center">
+            <p class="text-3xl font-bold text-green-600">${stats.accuracy}%</p>
+            <p class="text-sm text-green-500">Akurasi</p>
           </div>
-          <div class="bg-amber-50 rounded-xl p-3 text-center">
-            <p class="text-2xl font-bold text-amber-600">${stats.totalDiff}</p>
-            <p class="text-xs text-amber-500">Selisih Qty</p>
+          <div class="bg-red-50 rounded-xl p-4 text-center">
+            <p class="text-3xl font-bold text-red-600">${stats.discrepancy}</p>
+            <p class="text-sm text-red-500">Tidak Sesuai</p>
+          </div>
+          <div class="bg-amber-50 rounded-xl p-4 text-center">
+            <p class="text-3xl font-bold text-amber-600">${stats.totalDiff}</p>
+            <p class="text-sm text-amber-500">Selisih Qty</p>
           </div>
         </div>
 
@@ -729,7 +838,7 @@ async function openOpnameDetail(opnameId) {
         </div>
 
         <!-- Table -->
-        <div class="overflow-x-auto max-h-[45vh] border rounded-lg">
+        <div class="overflow-x-auto border rounded-lg" style="max-height: calc(100vh - 400px);">
           <table class="min-w-full text-sm">
             <thead class="bg-gray-50 sticky top-0">
               <tr>
@@ -774,50 +883,42 @@ async function openOpnameDetail(opnameId) {
     `;
   }
 
-  // Open modal
-  openGlobalModal({
-    title: `Detail: ${opname.title}`,
-    contentHTML: renderContent(),
-    confirmText: "Tutup",
-    onConfirm: () => closeGlobalModal()
+  // Open fullscreen modal instead of small modal
+  openFullscreenModal({
+    title: `Detail Stok Opname: ${opname.title}`,
+    contentHTML: renderContent()
   });
 
   // Bind event listeners after render
   function bindEvents() {
+    const contentContainer = document.getElementById("fullscreen-modal-content");
+    if (!contentContainer) return;
+
     // Category pills
-    document.querySelectorAll(".opname-cat-pill").forEach(btn => {
+    contentContainer.querySelectorAll(".opname-cat-pill").forEach(btn => {
       btn.addEventListener("click", () => {
         filterCategory = btn.dataset.cat;
-        document.querySelector("#global-modal .bg-white > div")?.replaceChildren();
-        const newContent = document.createElement('div');
-        newContent.innerHTML = renderContent();
-        document.querySelector("#global-modal .bg-white > div")?.appendChild(newContent.firstElementChild);
+        contentContainer.innerHTML = renderContent();
         bindEvents();
       });
     });
 
     // Search
-    document.getElementById("opname-detail-search")?.addEventListener("input", (e) => {
+    contentContainer.querySelector("#opname-detail-search")?.addEventListener("input", (e) => {
       searchQuery = e.target.value;
-      document.querySelector("#global-modal .bg-white > div")?.replaceChildren();
-      const newContent = document.createElement('div');
-      newContent.innerHTML = renderContent();
-      document.querySelector("#global-modal .bg-white > div")?.appendChild(newContent.firstElementChild);
+      contentContainer.innerHTML = renderContent();
       bindEvents();
     });
 
     // Checker filter
-    document.getElementById("opname-detail-checker")?.addEventListener("change", (e) => {
+    contentContainer.querySelector("#opname-detail-checker")?.addEventListener("change", (e) => {
       filterChecker = e.target.value;
-      document.querySelector("#global-modal .bg-white > div")?.replaceChildren();
-      const newContent = document.createElement('div');
-      newContent.innerHTML = renderContent();
-      document.querySelector("#global-modal .bg-white > div")?.appendChild(newContent.firstElementChild);
+      contentContainer.innerHTML = renderContent();
       bindEvents();
     });
 
     // Export CSV
-    document.getElementById("opname-export-csv")?.addEventListener("click", () => {
+    contentContainer.querySelector("#opname-export-csv")?.addEventListener("click", () => {
       const filtered = filterItems();
       const columns = [
         { label: "Produk", getValue: i => i.template?.name || "-" },
@@ -834,7 +935,7 @@ async function openOpnameDetail(opnameId) {
     });
 
     // Export Excel
-    document.getElementById("opname-export-excel")?.addEventListener("click", () => {
+    contentContainer.querySelector("#opname-export-excel")?.addEventListener("click", () => {
       const filtered = filterItems();
       const columns = [
         { label: "Produk", getValue: i => i.template?.name || "-" },

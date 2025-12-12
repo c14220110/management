@@ -235,7 +235,7 @@ window.closeGlobalActionMenu = closeGlobalActionMenu;
 // ============================================================
 // Global Modal Helpers
 // ============================================================
-let globalModalState = { onConfirm: null };
+let globalModalState = { onConfirm: null, isProcessing: false };
 
 function openGlobalModal({ title, contentHTML, confirmText = "Simpan", cancelText = "Batal", onConfirm }) {
   closeGlobalModal();
@@ -252,7 +252,7 @@ function openGlobalModal({ title, contentHTML, confirmText = "Simpan", cancelTex
         </div>
         <div class="flex justify-end gap-3 p-4 border-t bg-gray-50">
           <button id="global-modal-cancel" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 font-medium">${cancelText}</button>
-          <button id="global-modal-confirm" class="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 font-medium shadow-md">${confirmText}</button>
+          <button id="global-modal-confirm" class="px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 font-medium shadow-md disabled:opacity-50 disabled:cursor-not-allowed">${confirmText}</button>
         </div>
       </div>
     </div>
@@ -260,25 +260,55 @@ function openGlobalModal({ title, contentHTML, confirmText = "Simpan", cancelTex
   
   document.body.insertAdjacentHTML("beforeend", modalHTML);
   globalModalState.onConfirm = onConfirm;
+  globalModalState.isProcessing = false;
   
   document.getElementById("global-modal-close").onclick = closeGlobalModal;
   document.getElementById("global-modal-cancel").onclick = closeGlobalModal;
   document.getElementById("global-modal-confirm").onclick = async () => {
+    // Prevent double-click
+    if (globalModalState.isProcessing) return;
+    
     if (globalModalState.onConfirm) {
-      await globalModalState.onConfirm();
+      const confirmBtn = document.getElementById("global-modal-confirm");
+      const originalText = confirmBtn.innerHTML;
+      
+      try {
+        globalModalState.isProcessing = true;
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memproses...';
+        
+        await globalModalState.onConfirm();
+      } catch (error) {
+        // Show error to user
+        if (typeof notifyError === 'function') {
+          notifyError(error.message || "Terjadi kesalahan");
+        } else {
+          alert(error.message || "Terjadi kesalahan");
+        }
+      } finally {
+        globalModalState.isProcessing = false;
+        // Only restore if modal still exists (wasn't closed by onConfirm)
+        const btn = document.getElementById("global-modal-confirm");
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        }
+      }
     }
   };
   
   // Close on overlay click
   document.getElementById("global-modal-overlay").onclick = (e) => {
-    if (e.target.id === "global-modal-overlay") closeGlobalModal();
+    if (e.target.id === "global-modal-overlay" && !globalModalState.isProcessing) closeGlobalModal();
   };
 }
 
-function closeGlobalModal() {
+function closeGlobalModal(force = false) {
+  if (globalModalState.isProcessing && !force) return; // Prevent user from closing while processing, but allow programmatic close
   const overlay = document.getElementById("global-modal-overlay");
   if (overlay) overlay.remove();
   globalModalState.onConfirm = null;
+  globalModalState.isProcessing = false;
 }
 
 // ============================================================

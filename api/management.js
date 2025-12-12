@@ -638,6 +638,7 @@ export default async function handler(req, res) {
             full_name: profile?.full_name,
             role: profile?.role || "member",
             privileges: profile?.privileges || [],
+            is_active: profile?.is_active !== false, // Default to true if not set
           };
         });
 
@@ -710,6 +711,23 @@ export default async function handler(req, res) {
         );
         if (deleteError) throw deleteError;
         return res.status(200).json({ message: "User berhasil dihapus." });
+      }
+
+      case "toggleUserStatus": {
+        if (!checkPrivilege(profile, "users")) throw new Error("Akses ditolak: Butuh privilege 'users'");
+        const { userId, isActive } = payload;
+        
+        if (!userId) throw new Error("userId wajib diisi.");
+        
+        const { error: updateError } = await supabase
+          .from("profiles")
+          .update({ is_active: isActive })
+          .eq("id", userId);
+        
+        if (updateError) throw updateError;
+        
+        const statusText = isActive ? "diaktifkan" : "dinonaktifkan";
+        return res.status(200).json({ message: `User berhasil ${statusText}.` });
       }
 
       // ============================================================
@@ -834,17 +852,58 @@ export default async function handler(req, res) {
       // ============================================================
       case "getTransportations": {
         if (!checkPrivilege(profile, "transport")) throw new Error("Akses ditolak: Butuh privilege 'transport'");
+        
+        // Get transportations
         const { data: transports, error: getTransError } = await supabase
           .from("transportations")
-          .select(
-            `
-            *,
-            person_in_charge:profiles!person_in_charge_id (id, full_name)
-          `
-          )
+          .select(`
+            id,
+            vehicle_name,
+            plate_number,
+            vehicle_year,
+            odometer_km,
+            capacity,
+            driver_name,
+            driver_whatsapp,
+            last_service_at,
+            next_service_at,
+            notes,
+            image_url
+          `)
           .order("vehicle_name", { ascending: true });
         if (getTransError) throw getTransError;
-        return res.status(200).json(transports);
+
+        // Get all transport_pic entries with user info
+        const { data: transportPics, error: picError } = await supabase
+          .from("transport_pic")
+          .select("transport_id, user_id");
+        if (picError) throw picError;
+
+        // Get user details for PICs
+        const picUserIds = [...new Set((transportPics || []).map(p => p.user_id))];
+        let picUsers = [];
+        if (picUserIds.length > 0) {
+          const { data: { users }, error: usersError } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+          if (!usersError && users) {
+            const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", picUserIds);
+            const profileMap = new Map((profiles || []).map(p => [p.id, p.full_name]));
+            picUsers = users
+              .filter(u => picUserIds.includes(u.id))
+              .map(u => ({ id: u.id, email: u.email, full_name: profileMap.get(u.id) || u.email }));
+          }
+        }
+        const userMap = new Map(picUsers.map(u => [u.id, u]));
+
+        // Attach PICs to transports
+        const transportsWithPics = (transports || []).map(transport => {
+          const pics = (transportPics || [])
+            .filter(tp => tp.transport_id === transport.id)
+            .map(tp => userMap.get(tp.user_id))
+            .filter(Boolean);
+          return { ...transport, pics };
+        });
+
+        return res.status(200).json(transportsWithPics);
       }
 
       case "createTransportation": {
@@ -855,7 +914,7 @@ export default async function handler(req, res) {
           vehicle_year,
           odometer_km,
           capacity,
-          person_in_charge_id,
+          pic_ids,
           driver_name,
           driver_whatsapp,
           last_service_at,
@@ -864,7 +923,8 @@ export default async function handler(req, res) {
           image_url,
         } = payload;
 
-        const { error: createTransError } = await supabase
+        // Insert transport
+        const { data: newTransport, error: createTransError } = await supabase
           .from("transportations")
           .insert({
             vehicle_name,
@@ -872,15 +932,24 @@ export default async function handler(req, res) {
             vehicle_year: vehicle_year || new Date().getFullYear(),
             odometer_km: odometer_km || 0,
             capacity: capacity || 1,
-            person_in_charge_id,
             driver_name: driver_name || null,
             driver_whatsapp: driver_whatsapp || null,
             last_service_at: last_service_at || null,
             next_service_at: next_service_at || null,
             notes: notes || null,
             image_url: image_url || null,
-          });
+          })
+          .select("id")
+          .single();
         if (createTransError) throw createTransError;
+
+        // Insert transport_pic records
+        if (pic_ids && pic_ids.length > 0) {
+          const picRecords = pic_ids.map(userId => ({ transport_id: newTransport.id, user_id: userId }));
+          const { error: picInsertError } = await supabase.from("transport_pic").insert(picRecords);
+          if (picInsertError) throw picInsertError;
+        }
+
         return res
           .status(201)
           .json({ message: "Transportasi baru berhasil ditambahkan." });
@@ -888,12 +957,28 @@ export default async function handler(req, res) {
 
       case "updateTransportation": {
         if (!checkPrivilege(profile, "transport")) throw new Error("Akses ditolak: Butuh privilege 'transport'");
-        const { transportId, ...updateTransData } = payload;
+        const { transportId, pic_ids, ...updateTransData } = payload;
+        
+        // Update transport basic info
         const { error: updateTransError } = await supabase
           .from("transportations")
           .update(updateTransData)
           .eq("id", transportId);
         if (updateTransError) throw updateTransError;
+
+        // Update PICs: delete existing and insert new
+        if (pic_ids !== undefined) {
+          // Delete existing PICs
+          await supabase.from("transport_pic").delete().eq("transport_id", transportId);
+          
+          // Insert new PICs
+          if (pic_ids && pic_ids.length > 0) {
+            const picRecords = pic_ids.map(userId => ({ transport_id: transportId, user_id: userId }));
+            const { error: picInsertError } = await supabase.from("transport_pic").insert(picRecords);
+            if (picInsertError) throw picInsertError;
+          }
+        }
+
         return res
           .status(200)
           .json({ message: "Data transportasi berhasil diperbarui." });
@@ -902,11 +987,17 @@ export default async function handler(req, res) {
       case "deleteTransportation": {
         if (!checkPrivilege(profile, "transport")) throw new Error("Akses ditolak: Butuh privilege 'transport'");
         const { transportId: deleteTransId } = payload;
+        
+        // Delete transport_pic records first (ON DELETE CASCADE should handle this, but explicitly delete for safety)
+        await supabase.from("transport_pic").delete().eq("transport_id", deleteTransId);
+        
+        // Delete transport
         const { error: deleteTransError } = await supabase
           .from("transportations")
           .delete()
           .eq("id", deleteTransId);
         if (deleteTransError) throw deleteTransError;
+        
         return res
           .status(200)
           .json({ message: "Transportasi berhasil dihapus." });
@@ -1305,6 +1396,23 @@ export default async function handler(req, res) {
       return res
         .status(409)
         .json({ error: "Email ini sudah terpakai oleh pengguna lain." });
+    }
+
+    // Handle password-related errors
+    if (error.message && error.message.includes("Password")) {
+      return res.status(400).json({
+        error: error.message,
+      });
+    }
+
+    // Handle Auth Admin API errors more specifically
+    if (error.message) {
+      const lowerMsg = error.message.toLowerCase();
+      if (lowerMsg.includes("password") || lowerMsg.includes("should be at least")) {
+        return res.status(400).json({
+          error: "Password harus minimal 6 karakter.",
+        });
+      }
     }
 
     return res.status(500).json({

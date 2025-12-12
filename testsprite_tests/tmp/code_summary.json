@@ -1,0 +1,67 @@
+{
+  "tech_stack": [
+    "HTML5",
+    "CSS3",
+    "JavaScript (ES6+)",
+    "Supabase (Database & Auth)",
+    "Vercel Serverless Functions",
+    "Font Awesome Icons"
+  ],
+  "features": [
+    {
+      "name": "Authentication",
+      "description": "Login system with email and password authentication for Management and Member roles using Supabase Auth",
+      "files": ["index.html", "js/auth.js", "api/auth/login.js"]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Main dashboard showing statistics and overview for both management and member users with charts and summaries",
+      "files": ["js/pages/dashboard.js", "api/dashboard.js"]
+    },
+    {
+      "name": "Barang (Asset) Management",
+      "description": "Complete asset/inventory management system with CRUD operations, loan requests, return handling, and history tracking",
+      "files": ["js/pages/barang.js", "api/management.js"]
+    },
+    {
+      "name": "Ruangan (Room) Management",
+      "description": "Room reservation system allowing members to book rooms with time conflict validation and management approval workflow",
+      "files": ["js/pages/ruangan.js", "api/schedule.js", "api/get-reservations.js"]
+    },
+    {
+      "name": "Transportasi (Transportation) Management", 
+      "description": "Vehicle booking and management system with driver assignment, image upload, and request approval workflow",
+      "files": ["js/pages/transportasi.js", "api/management.js"]
+    },
+    {
+      "name": "User Management",
+      "description": "Admin feature to manage member and management users with search, add, edit, and delete functionality",
+      "files": ["js/pages/user-management.js", "api/member.js"]
+    },
+    {
+      "name": "Stok Opname",
+      "description": "Inventory audit feature for assets with quantity verification and discrepancy reporting",
+      "files": ["js/pages/stok-opname.js", "api/management.js"]
+    },
+    {
+      "name": "Website Content Management",
+      "description": "CMS for managing public website content including hero sections, announcements, and hero videos",
+      "files": ["js/pages/website-gki.js", "api/website-content.js", "api/website-hero-video.js"]
+    },
+    {
+      "name": "Router & Navigation",
+      "description": "Client-side routing system with hash-based navigation and role-based menu visibility",
+      "files": ["js/router.js", "js/main.js"]
+    },
+    {
+      "name": "API Client",
+      "description": "Centralized API configuration with authentication token handling and base URL management",
+      "files": ["js/api.js", "api/utils/auth.js"]
+    },
+    {
+      "name": "Page Loader",
+      "description": "Loading state management with animated loader component for async data fetching",
+      "files": ["js/loader.js"]
+    }
+  ]
+}

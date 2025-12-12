@@ -1,0 +1,18 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000",
+  "loginUser": "managementgkikutisari@gmail.com",
+  "loginPassword": "123",
+  "executionArgs": {
+    "projectName": "management-main 2",
+    "projectPath": "/Users/sam/Desktop/magank/GKI/management-main 2",
+    "testIds": [],
+    "additionalInstruction": "",
+    "envs": {
+      "API_KEY": "sk-user-Kq3a1SaAbnzYutOKqNef3--8ft7jiaOI_4LQe16RkuJIpUzinAQfyrArHmYH4I5hzfh2Iy9AJURYiIQ7cdmeWELNzuWArc9AdQ2YyVJ-j_4vi7yhz34OicoElUKzsBhWE_s"
+    }
+  },
+  "proxy": "http://16604d25-c5ae-4af6-8bb1-0e2b48c68a00:eCSxzCgrY5H0M61yl77vtRtcMVrG2FE1@tun.testsprite.com:8080"
+}

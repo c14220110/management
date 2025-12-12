@@ -23,15 +23,22 @@ export default async function handler(req, res) {
       throw new Error(loginError.message || "Email atau password salah.");
     }
 
-    // PERUBAHAN DI SINI: Ambil role, full_name, dan privileges
+    // PERUBAHAN DI SINI: Ambil role, full_name, privileges, dan is_active
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
-      .select("role, full_name, privileges") // <-- Minta privileges juga
+      .select("role, full_name, privileges, is_active")
       .eq("id", sessionData.user.id)
       .single();
 
     if (profileError && profileError.code !== "PGRST116") {
       throw new Error("Gagal mengambil data profil pengguna.");
+    }
+
+    // Check if user is deactivated
+    if (profileData && profileData.is_active === false) {
+      // Sign out the user since we already logged them in
+      await supabase.auth.signOut();
+      throw new Error("Akun Anda telah dinonaktifkan. Silakan hubungi administrator.");
     }
 
     // Gabungkan data ke dalam user object untuk dikirim ke frontend

@@ -279,10 +279,19 @@ function bindTemplateCardActions(root) {
       const templateId = btn.dataset.templateId;
       const template = productInventoryState.templates.find(t => t.id === templateId);
       if (!template) return;
+      
+      // QR code text for this product (format: PRODUCT:id)
+      const qrCodeText = `PRODUCT:${templateId}`;
+      const productName = template.name || "Produk";
+      
       const items = [
         { label: "Lihat Detail", icon: "fas fa-eye", className: "text-gray-700", onClick: () => renderTemplateDetailView(templateId) },
         { label: "Edit", icon: "fas fa-edit", className: "text-amber-600", onClick: () => openProductTemplateModal(template) },
-        ...(template.is_serialized ? [{ label: "Tambah Unit", icon: "fas fa-plus-circle", className: "text-green-600", onClick: () => openProductUnitModal({ templateId }) }] : [{ label: "Adjust Stok", icon: "fas fa-boxes", className: "text-blue-600", onClick: () => openAdjustStockModal(template) }]),
+        ...(template.is_serialized 
+          ? [{ label: "Tambah Unit", icon: "fas fa-plus-circle", className: "text-green-600", onClick: () => openProductUnitModal({ templateId }) }] 
+          : [{ label: "Adjust Stok", icon: "fas fa-boxes", className: "text-blue-600", onClick: () => openAdjustStockModal(template) }]),
+        { label: "Preview QR", icon: "fas fa-qrcode", className: "text-purple-600", onClick: () => previewQRCode(productName, qrCodeText) },
+        { label: "Download QR", icon: "fas fa-download", className: "text-indigo-600", onClick: () => downloadQRCode(productName, qrCodeText) },
         { label: "Hapus", icon: "fas fa-trash", className: "text-red-600", onClick: () => confirmDeleteTemplate(templateId) },
       ];
       openGlobalActionMenu({ triggerElement: btn, items });
@@ -1292,7 +1301,18 @@ function handleQRScan() {
       try { scanner.clear(); } catch(e){}
       closeGlobalModal();
       
-      // Try to find unit by code
+      // Check if it's a product template QR (format: PRODUCT:uuid)
+      if (decodedText.startsWith("PRODUCT:")) {
+        const templateId = decodedText.replace("PRODUCT:", "");
+        const template = productInventoryState.templates.find(t => t.id === templateId);
+        if (template) {
+          notifySuccess(`Produk ditemukan: ${template.name}`);
+          await renderTemplateDetailView(templateId);
+          return;
+        }
+      }
+      
+      // Try to find unit by code (serialized items)
       try {
         const token = localStorage.getItem("authToken");
         const res = await fetch("/api/management", {

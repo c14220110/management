@@ -1,0 +1,779 @@
+[
+  {
+    "id": "TC001",
+    "title": "Successful login for Management user with correct credentials",
+    "description": "Verify that a Management user can log in successfully with valid email and password, and is directed to the Management dashboard with appropriate role-based access.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page"
+      },
+      {
+        "type": "action",
+        "description": "Input valid Management user email and password"
+      },
+      {
+        "type": "action",
+        "description": "Click the login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm login is successful and user is redirected to Management dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the dashboard displays Management role-specific data and UI components"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Successful login for Member user with correct credentials",
+    "description": "Verify that a Member user can log in successfully with valid email and password, and is directed to the Member dashboard with appropriate role-based access.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page"
+      },
+      {
+        "type": "action",
+        "description": "Input valid Member user email and password"
+      },
+      {
+        "type": "action",
+        "description": "Click the login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm login is successful and user is redirected to Member dashboard"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the dashboard displays Member role-specific data and UI components"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Login failure with incorrect password",
+    "description": "Verify the system prevents login with incorrect password and displays an appropriate error message.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page"
+      },
+      {
+        "type": "action",
+        "description": "Input valid email with incorrect password"
+      },
+      {
+        "type": "action",
+        "description": "Click the login button"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm login is denied and error message related to invalid credentials is shown"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Role-based access control enforcement on dashboard",
+    "description": "Verify that Management users cannot access Member-only features and vice versa through UI navigation or direct URL access.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Management user"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to access Member-specific dashboard pages via URL and menu"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm access is denied or redirected appropriately"
+      },
+      {
+        "type": "action",
+        "description": "Logout and login as Member user"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to access Management-only dashboard pages via URL and menu"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm access is denied or redirected appropriately"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "Logout functionality",
+    "description": "Verify that the user can successfully logout from the system and is redirected to the login page with session cleared.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login with valid credentials"
+      },
+      {
+        "type": "action",
+        "description": "Click the logout button or link"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm user session is invalidated"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify redirection to login page"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to navigate back to dashboard via browser"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm access is denied without login"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Dashboard loads accurate statistics and requests for Management user",
+    "description": "Verify Management dashboard shows correct and updated statistics, loan requests, asset statuses, transportation, and room reservation information.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Management user"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm dashboard displays accurate statistics about assets, loans, reservations, transportation"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify loan requests list reflects all pending, approved, and rejected requests"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify calendar and overview data is synchronized and up-to-date"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Dashboard loads accurate statistics and requests for Member user",
+    "description": "Verify Member dashboard shows accurate personal loan history, reservation statuses and transport booking summaries.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Member user"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm dashboard displays personal loan and booking summaries"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify calendar shows member's relevant events and bookings"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "CRUD operations on Asset Product Templates",
+    "description": "Verify Management can create, read, update, and delete product templates successfully, with validation and persistence.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Management user"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Asset Product Template management page"
+      },
+      {
+        "type": "action",
+        "description": "Create new product template with valid data and upload images"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm creation success and new template appears in list"
+      },
+      {
+        "type": "action",
+        "description": "Edit the template changing fields and images"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm update persistence and UI reflects changes"
+      },
+      {
+        "type": "action",
+        "description": "Delete the created product template"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm deletion success and template is removed from list"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "CRUD operations on individual Asset Units and QR code generation",
+    "description": "Verify Management can add physical units under product templates, generate and scan QR codes, and delete units.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Management user"
+      },
+      {
+        "type": "action",
+        "description": "Create or select existing product template"
+      },
+      {
+        "type": "action",
+        "description": "Add new asset units with images and details"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm asset units saved and displayed with QR codes"
+      },
+      {
+        "type": "action",
+        "description": "Scan QR code using stock opname feature to verify unit detection"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm scanned unit data is accurate"
+      },
+      {
+        "type": "action",
+        "description": "Delete an asset unit and verify removal"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "Member asset borrowing request flow - success path",
+    "description": "Verify a Member can successfully submit a borrow request for available asset units and receive approval notification.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Member user"
+      },
+      {
+        "type": "action",
+        "description": "Browse asset catalog and select available units"
+      },
+      {
+        "type": "action",
+        "description": "Submit borrow request with valid dates"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm request submission success message shown"
+      },
+      {
+        "type": "action",
+        "description": "Login as Management and approve the borrow request"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm Member receives approval notification"
+      },
+      {
+        "type": "action",
+        "description": "Member marks items as picked up and later returned"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify loan history updated accordingly"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Member asset borrowing request flow - rejection path",
+    "description": "Verify borrowing request rejects if asset is unavailable or Management denies, and notification/error displayed to Member.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Member user"
+      },
+      {
+        "type": "action",
+        "description": "Attempt borrow request for asset units already loaned out or unavailable"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm system prevents duplicate or conflicting requests"
+      },
+      {
+        "type": "action",
+        "description": "Submit request; Management rejects request"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm Member receives rejection notification"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify Member dashboard reflects rejection status"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Room reservation creation with conflict detection",
+    "description": "Verify Members can submit room reservation requests and system detects time slot conflicts preventing double bookings.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Member user"
+      },
+      {
+        "type": "action",
+        "description": "View available rooms and select a room"
+      },
+      {
+        "type": "action",
+        "description": "Submit reservation request for a specific time slot"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm request submission success for free slot"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to submit overlapping reservation request for the same room and time slot"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm system rejects reservation due to conflict with an error message"
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "Room reservation approval and notification",
+    "description": "Verify Management can approve or reject room reservation requests and Members get notified accordingly.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Management user"
+      },
+      {
+        "type": "action",
+        "description": "Review pending room reservation requests"
+      },
+      {
+        "type": "action",
+        "description": "Approve a valid reservation request"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm approval status updated and notification sent to Member"
+      },
+      {
+        "type": "action",
+        "description": "Reject invalid or conflicting reservation request"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm rejection status updated and notification sent to Member"
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Transportation booking creation and conflict validation",
+    "description": "Verify Members can create transportation booking requests with required details and system checks for vehicle availability before accepting.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Member user"
+      },
+      {
+        "type": "action",
+        "description": "Fill transportation booking form with vehicle, date, time and destination"
+      },
+      {
+        "type": "action",
+        "description": "Submit booking request"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm request submission success if vehicle is free"
+      },
+      {
+        "type": "action",
+        "description": "Attempt booking overlapping with existing booking for the same vehicle"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm system rejects request due to unavailability"
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "Transportation booking approval and notification",
+    "description": "Verify Management can assign drivers, approve or reject transportation booking requests and Members receive status updates.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Management user"
+      },
+      {
+        "type": "action",
+        "description": "Review pending transportation requests"
+      },
+      {
+        "type": "action",
+        "description": "Assign driver and approve request"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm approval status and driver assignment saved"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm Member receives approval notification"
+      },
+      {
+        "type": "action",
+        "description": "Reject request for any valid reason"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm rejection status and notification sent to Member"
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "User Management CRUD by Management users",
+    "description": "Verify that Management users can add, edit, delete users, assign roles and permissions, and search users effectively.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Management user"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to User Management module"
+      },
+      {
+        "type": "action",
+        "description": "Create a new user with valid role and privileges"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm user creation success and user visible in the list"
+      },
+      {
+        "type": "action",
+        "description": "Edit user details, roles and privileges"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm updates saved and reflected"
+      },
+      {
+        "type": "action",
+        "description": "Delete user and confirm removal"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify user no longer present"
+      },
+      {
+        "type": "action",
+        "description": "Perform user search with keywords"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm search results correctly filtered"
+      }
+    ]
+  },
+  {
+    "id": "TC017",
+    "title": "Password update functionality for users",
+    "description": "Verify that Management users can update their own and other user passwords securely, with validation and confirmation.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Management user"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to password update section for self and for another user"
+      },
+      {
+        "type": "action",
+        "description": "Update password using valid and invalid formats"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm strong password validation works"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm password update success and user can login with new password"
+      }
+    ]
+  },
+  {
+    "id": "TC018",
+    "title": "Stock Opname inventory audit with QR scanning and reporting",
+    "description": "Verify Management can conduct stock opname by scanning QR codes, manually entering items, recording conditions, detecting discrepancies, and generating reports.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Management user"
+      },
+      {
+        "type": "action",
+        "description": "Initiate new stock opname session"
+      },
+      {
+        "type": "action",
+        "description": "Scan multiple asset unit QR codes successfully"
+      },
+      {
+        "type": "action",
+        "description": "Manually enter asset codes and record item conditions"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm system detects and flags discrepancies with expected data"
+      },
+      {
+        "type": "action",
+        "description": "Finalize stock opname session"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm discrepancy report is generated and saved"
+      }
+    ]
+  },
+  {
+    "id": "TC019",
+    "title": "Website Content Management - updating hero section and publishing",
+    "description": "Verify Management can edit hero text, upload hero video, update schedules and pastor profiles, and publish changes to the public site successfully.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Management user"
+      },
+      {
+        "type": "action",
+        "description": "Navigate to Website Content Management module"
+      },
+      {
+        "type": "action",
+        "description": "Edit hero section text and upload a valid hero video"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm changes are saved and validated (media type and size)"
+      },
+      {
+        "type": "action",
+        "description": "Update worship schedules and pastor profile details"
+      },
+      {
+        "type": "action",
+        "description": "Publish updates to the public website"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm public website reflects all changes after publishing"
+      }
+    ]
+  },
+  {
+    "id": "TC020",
+    "title": "API error handling for invalid input data on create asset",
+    "description": "Verify API returns appropriate error codes and messages when invalid or missing fields are submitted during asset creation.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send asset creation request with missing mandatory fields"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm API responds with validation error code and descriptive message"
+      },
+      {
+        "type": "action",
+        "description": "Send asset creation request with invalid data format for fields"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm API responds with appropriate error details"
+      }
+    ]
+  },
+  {
+    "id": "TC021",
+    "title": "Page loader animation displays during asynchronous data fetching",
+    "description": "Verify that loader animation is shown on pages (dashboard, assets, rooms, transportation) while data is being fetched asynchronously and hides after load completion.",
+    "category": "ui",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to each major page with data fetch: Dashboard, Assets, Rooms, Transportation"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm loading animation is visible during data loading"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm loading animation disappears after data loads successfully"
+      }
+    ]
+  },
+  {
+    "id": "TC022",
+    "title": "Client-side routing enforces role-based menu visibility",
+    "description": "Verify that menu options and navigation links shown to the user correspond correctly to their assigned roles, and unauthorized links are hidden.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Management user"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm all Management menus visible and Member-only menus hidden"
+      },
+      {
+        "type": "action",
+        "description": "Logout and login as Member user"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm only Member menus are visible and Management menus hidden"
+      }
+    ]
+  },
+  {
+    "id": "TC023",
+    "title": "Notification sent when requests status change",
+    "description": "Verify that users receive notifications when asset loans, room reservations, or transportation bookings are approved or rejected.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Member submits borrow, room reservation, and transportation booking requests"
+      },
+      {
+        "type": "action",
+        "description": "Management approves or rejects each request type"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm Member receives correct status update notifications for each request"
+      }
+    ]
+  },
+  {
+    "id": "TC024",
+    "title": "Security enforcement: JWT authentication and role privilege checks",
+    "description": "Verify all API endpoints enforce JWT token authentication and role-based access control, rejecting unauthorized requests.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send API requests with invalid or expired JWT tokens"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm API rejects requests with 401 Unauthorized or relevant error code"
+      },
+      {
+        "type": "action",
+        "description": "Send API requests for Management-only resources using Member user token"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm API enforces role privilege and rejects unauthorized access"
+      }
+    ]
+  },
+  {
+    "id": "TC025",
+    "title": "Handling corrupted or invalid hero video uploads in CMS",
+    "description": "Verify that uploading corrupted or unsupported formats of hero videos in Website CMS results in proper validation error and does not save invalid files.",
+    "category": "error handling",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Login as Management user"
+      },
+      {
+        "type": "action",
+        "description": "Attempt to upload unsupported video file or corrupted media to hero section"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm system displays appropriate validation error"
+      },
+      {
+        "type": "assertion",
+        "description": "Confirm invalid file is not saved or published"
+      }
+    ]
+  }
+]

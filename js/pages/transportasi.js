@@ -144,8 +144,8 @@ async function renderTransportDetailView(transportId) {
                 : ""
             }
             ${
-              transport.person_in_charge
-                ? `<p><i class="fas fa-user-tie w-6"></i> PIC: ${transport.person_in_charge.full_name}</p>`
+              (transport.pics || []).length > 0
+                ? `<p><i class="fas fa-user-tie w-6"></i> PIC: ${transport.pics.map(p => p.full_name).join(', ')}</p>`
                 : ""
             }
             ${
@@ -281,13 +281,22 @@ async function initTransportCalendar(transportId) {
 
 async function handleTransportBorrowSubmit(e) {
   e.preventDefault();
+  
+  // Get submit button and prevent double-click
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  if (submitBtn.disabled) return;
+  
+  const originalText = submitBtn.innerHTML;
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Memproses...';
+  
   showLoader();
 
   try {
     const payload = {
       transport_id: document.getElementById("transport-borrow-id").value,
-      borrow_start: document.getElementById("transport-borrow-start").value,
-      borrow_end: document.getElementById("transport-borrow-end").value,
+      borrow_start: document.getElementById("transport-borrow-start").value + ":00+07:00",
+      borrow_end: document.getElementById("transport-borrow-end").value + ":00+07:00",
       purpose: document.getElementById("transport-borrow-purpose").value,
       origin: document.getElementById("transport-borrow-origin").value,
       destination: document.getElementById("transport-borrow-destination")
@@ -306,6 +315,8 @@ async function handleTransportBorrowSubmit(e) {
     alert("Gagal mengajukan peminjaman: " + error.message);
   } finally {
     hideLoader();
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = originalText;
   }
 }
 
@@ -319,8 +330,15 @@ async function renderTransportManagementView() {
   const container = document.getElementById("transportasi-content-area");
 
   try {
-    managementUserListForTransport = await api.post("/api/management", {
+    const allUsers = await api.post("/api/management", {
       action: "getUsers",
+    });
+    // Filter to only show management users with transport privilege
+    managementUserListForTransport = allUsers.filter(u => {
+      if (u.role !== "management") return false;
+      // If no privileges defined, assume full access
+      if (!u.privileges) return true;
+      return Array.isArray(u.privileges) && u.privileges.includes("transport");
     });
   } catch (e) {
     managementUserListForTransport = [];
@@ -358,64 +376,114 @@ async function renderTransportCrudView() {
     });
 
     content.innerHTML = `
-      <div class="flex justify-end mb-4 gap-3">
-        <button onclick="openTransportHistoryModal()" class="bg-white border border-gray-200 text-gray-600 font-bold py-2 px-4 rounded-md hover:bg-gray-50 flex items-center gap-2">
-          <i class="fas fa-history"></i> Lihat Riwayat
-        </button>
-        <button onclick="openTransportModal('create')" class="bg-[#d97706] text-white font-bold py-2 px-4 rounded-md hover:bg-[#b45309]">
-          <i class="fas fa-plus mr-2"></i>Tambah Kendaraan
-        </button>
-      </div>
-      
-      <div class="bg-white rounded-lg shadow-md overflow-x-auto">
-        <table class="min-w-full">
-          <thead class="bg-gray-100">
-            <tr>
-              <th class="text-left p-3">Kendaraan</th>
-              <th class="text-left p-3">Plat</th>
-              <th class="text-left p-3">Tahun</th>
-              <th class="text-left p-3">Kapasitas</th>
-              <th class="text-left p-3">PIC</th>
-              <th class="text-left p-3">Sopir</th>
-              <th class="text-left p-3">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${
-              !transports || transports.length === 0
-                ? `<tr><td colspan="7" class="p-4 text-center text-gray-500">Belum ada data kendaraan.</td></tr>`
-                : transports
-                    .map(
-                      (t) => `
-                <tr class="border-b hover:bg-gray-50">
-                  <td class="p-3 font-medium">${t.vehicle_name}</td>
-                  <td class="p-3">${t.plate_number}</td>
-                  <td class="p-3">${t.vehicle_year}</td>
-                  <td class="p-3">${t.capacity} orang</td>
-                  <td class="p-3">${t.person_in_charge?.full_name || "-"}</td>
-                  <td class="p-3">${t.driver_name || "-"}</td>
-                  <td class="p-3 whitespace-nowrap text-center">
-                    <button type="button"
-                      class="transport-action-btn action-menu-btn inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-3 py-2 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none"
-                      data-transport='${encodeURIComponent(JSON.stringify(t))}'>
-                      <i class="fas fa-ellipsis-v"></i>
-                    </button>
-                  </td>
-                </tr>
-              `
-                    )
-                    .join("")
-            }
-          </tbody>
-        </table>
+      <div class="space-y-6">
+        <!-- Header & Actions -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h2 class="text-xl font-semibold text-gray-800">Daftar Kendaraan</h2>
+          <div class="flex gap-3 self-start sm:self-auto flex-wrap">
+            <button id="transport-history-btn" class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 flex items-center gap-2 shadow-sm">
+              <i class="fas fa-history"></i> Lihat Riwayat
+            </button>
+            <button id="transport-add-btn" class="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-xl hover:from-amber-600 hover:to-orange-600 shadow-lg shadow-amber-500/30 flex items-center gap-2 transition-all">
+              <i class="fas fa-plus"></i> Tambah Kendaraan
+            </button>
+            <button id="transport-refresh-btn" class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 flex items-center gap-2 shadow-sm">
+              <i class="fas fa-sync"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Transport Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          ${getTransportCardsHTML(transports || [])}
+        </div>
       </div>
     `;
-    initializeTransportActionMenus(content);
+
+    // Event listeners
+    document.getElementById("transport-add-btn")?.addEventListener("click", () => openTransportModal("create"));
+    document.getElementById("transport-refresh-btn")?.addEventListener("click", () => renderTransportCrudView());
+    document.getElementById("transport-history-btn")?.addEventListener("click", () => openTransportHistoryModal());
+
+    bindTransportCardActions(content);
   } catch (error) {
     content.innerHTML = `<p class="text-red-500">Gagal memuat data: ${error.message}</p>`;
   } finally {
     hideLoader();
   }
+}
+
+function getTransportCardsHTML(transports) {
+  if (!transports.length) {
+    return `<div class="col-span-full text-center py-12 text-gray-500"><i class="fas fa-shuttle-van text-4xl mb-3 text-gray-300"></i><p>Tidak ada kendaraan ditemukan</p></div>`;
+  }
+
+  return transports.map(t => {
+    const photo = t.image_url || "https://placehold.co/400x300/f3f4f6/9ca3af?text=Kendaraan";
+    const picsDisplay = (t.pics || []).length === 0 ? '-' :
+      (t.pics || []).length === 1 ? t.pics[0].full_name || t.pics[0].email :
+      (t.pics || []).length <= 2 ? t.pics.map(p => (p.full_name || p.email).split(' ')[0]).join(', ') :
+      t.pics.slice(0, 1).map(p => (p.full_name || p.email).split(' ')[0]).join('') + ' +' + (t.pics.length - 1);
+    const picsTitle = (t.pics || []).map(p => p.full_name || p.email).join(', ') || 'Belum ada PIC';
+    
+    return `
+      <div class="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 group border border-gray-100 flex flex-col">
+        <div class="relative h-48 overflow-hidden bg-gray-100">
+          <img src="${photo}" alt="${t.vehicle_name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" onerror="this.src='https://placehold.co/400x300/f3f4f6/9ca3af?text=Kendaraan'"/>
+          <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/60 to-transparent p-4">
+            <h3 class="text-white font-bold text-lg shadow-sm">${t.vehicle_name}</h3>
+            <p class="text-white/90 text-sm"><i class="fas fa-id-card mr-1"></i> ${t.plate_number}</p>
+          </div>
+          <div class="absolute top-2 right-2">
+            <button class="transport-action-btn w-8 h-8 bg-white/90 backdrop-blur rounded-lg shadow flex items-center justify-center text-gray-600 hover:bg-white" data-transport='${encodeURIComponent(JSON.stringify(t))}'>
+              <i class="fas fa-ellipsis-v"></i>
+            </button>
+          </div>
+        </div>
+        <div class="p-4 flex-1 flex flex-col gap-3">
+          <div class="grid grid-cols-2 gap-2 text-sm text-gray-600">
+            <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
+              <i class="fas fa-users text-blue-500"></i>
+              <span>${t.capacity || 0} Orang</span>
+            </div>
+            <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
+              <i class="fas fa-calendar text-emerald-500"></i>
+              <span>${t.vehicle_year || '-'}</span>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-sm text-gray-600">
+            <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
+              <i class="fas fa-user-tie text-amber-500"></i>
+              <span class="truncate" title="${picsTitle}">${picsDisplay}</span>
+            </div>
+            <div class="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
+              <i class="fas fa-id-badge text-purple-500"></i>
+              <span class="truncate">${t.driver_name || '-'}</span>
+            </div>
+          </div>
+          ${t.notes ? `<div class="text-xs text-gray-500 bg-yellow-50 p-2 rounded-lg"><i class="fas fa-sticky-note mr-1"></i>${t.notes}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function bindTransportCardActions(container) {
+  container.querySelectorAll(".transport-action-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const encodedTransport = btn.dataset.transport;
+      if (!encodedTransport) return;
+      const transportData = JSON.parse(decodeURIComponent(encodedTransport));
+      
+      const items = [
+        { label: "Edit", icon: "fas fa-edit", className: "text-amber-600", onClick: () => openTransportModal("edit", transportData) },
+        { label: "Lihat Jadwal", icon: "fas fa-calendar-alt", className: "text-gray-700", onClick: () => renderTransportScheduleManagementView(transportData) },
+        { label: "Hapus", icon: "fas fa-trash", className: "text-red-600", onClick: () => deleteTransportation(transportData.id) },
+      ];
+      openGlobalActionMenu({ triggerElement: btn, items });
+    });
+  });
 }
 
 function initializeTransportActionMenus(rootElement = document) {
@@ -488,7 +556,9 @@ async function renderTransportScheduleManagementView(transportData) {
               transportData.capacity || "-"
             } orang</p>
             <p><i class="fas fa-user-tie mr-2"></i>PIC: ${
-              transportData.person_in_charge?.full_name || "-"
+              (transportData.pics || []).length > 0 
+                ? transportData.pics.map(p => p.full_name || p.email).join(', ') 
+                : "-"
             }</p>
             <p><i class="fas fa-id-badge mr-2"></i>Sopir: ${
               transportData.driver_name || "-"
@@ -653,9 +723,10 @@ function openTransportModal(mode, data = {}) {
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Penanggung Jawab (PIC) *</label>
-              <select id="transport-modal-pic" required class="w-full p-2 border border-gray-300 rounded-md">
-                <option value="">Pilih PIC...</option>
-              </select>
+              <p class="text-xs text-gray-500 mb-2">Pilih satu atau lebih PIC yang akan menerima notifikasi peminjaman</p>
+              <div id="transport-modal-pic-container" class="max-h-32 overflow-y-auto border border-gray-300 rounded-md p-2 space-y-1 bg-gray-50">
+                <!-- PIC checkboxes will be populated dynamically -->
+              </div>
             </div>
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">Nama Sopir</label>
@@ -761,14 +832,23 @@ function openTransportModal(mode, data = {}) {
     }
   }
 
-  // Populate PIC dropdown
-  const picSelect = document.getElementById("transport-modal-pic");
-  picSelect.innerHTML = `<option value="">Pilih PIC...</option>`;
-  managementUserListForTransport.forEach((u) => {
-    picSelect.innerHTML += `<option value="${u.id}">${
-      u.full_name || u.email
-    }</option>`;
-  });
+  // Populate PIC checkboxes
+  const picContainer = document.getElementById("transport-modal-pic-container");
+  const existingPicIds = (data.pics || []).map(p => p.id);
+  
+  if (managementUserListForTransport.length === 0) {
+    picContainer.innerHTML = `<p class="text-gray-400 text-sm p-2">Tidak ada user management dengan privilege transportasi</p>`;
+  } else {
+    picContainer.innerHTML = managementUserListForTransport.map(u => `
+      <label class="flex items-center gap-2 p-1 rounded hover:bg-gray-100 cursor-pointer">
+        <input type="checkbox" name="transport_pic_ids" value="${u.id}" 
+          ${existingPicIds.includes(u.id) ? "checked" : ""}
+          class="rounded text-amber-600 focus:ring-amber-500"/>
+        <span class="text-sm">${u.full_name || u.email}</span>
+        <span class="text-xs text-gray-400">(${u.email})</span>
+      </label>
+    `).join("");
+  }
 
   // Fill form fields
   document.getElementById("transport-modal-title").textContent =
@@ -784,8 +864,6 @@ function openTransportModal(mode, data = {}) {
     data.odometer_km || 0;
   document.getElementById("transport-modal-capacity").value =
     data.capacity || 7;
-  document.getElementById("transport-modal-pic").value =
-    data.person_in_charge_id || "";
   document.getElementById("transport-modal-driver").value =
     data.driver_name || "";
   document.getElementById("transport-modal-driver-wa").value =
@@ -909,6 +987,10 @@ async function handleTransportFormSubmit(e) {
       }
     }
 
+    // Collect all checked PIC IDs
+    const picCheckboxes = document.querySelectorAll("input[name='transport_pic_ids']:checked");
+    const picIds = Array.from(picCheckboxes).map(cb => cb.value);
+
     const payload = {
       vehicle_name: document.getElementById("transport-modal-name").value,
       plate_number: document.getElementById("transport-modal-plate").value,
@@ -925,8 +1007,7 @@ async function handleTransportFormSubmit(e) {
         document.getElementById("transport-modal-capacity").value,
         10
       ),
-      person_in_charge_id:
-        document.getElementById("transport-modal-pic").value || null,
+      pic_ids: picIds,
       driver_name:
         document.getElementById("transport-modal-driver").value || null,
       driver_whatsapp:

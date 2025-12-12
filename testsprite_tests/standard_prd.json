@@ -1,0 +1,153 @@
+{
+  "meta": {
+    "project": "Sistem Informasi GKI Kutisari",
+    "date": "2025-12-10",
+    "prepared_by": "Auto-generated from codebase analysis"
+  },
+  "product_overview": "Sistem Informasi GKI Kutisari is a comprehensive web-based church management system designed specifically for GKI Kutisari Indah to efficiently manage church resources, assets, rooms, transportation, and member activities through a Progressive Web Application platform.",
+  "core_goals": [
+    "Provide secure authentication for Management and Member users with role-based access control.",
+    "Offer a detailed and interactive dashboard tailored to both Management and Members for quick insight and management of requests and resources.",
+    "Implement a complete inventory/asset management system with product templates, individual units, and loan handling.",
+    "Facilitate room reservations with conflict detection and approval workflows for efficient space management.",
+    "Manage transportation bookings with vehicle details, driver assignment, and approval processes.",
+    "Allow Management users to manage all user accounts, roles, and privileges with a granular permission system.",
+    "Support stock opname (inventory audit) with QR scanning and discrepancy reports for accurate asset tracking.",
+    "Enable Management to update public website content including hero sections, schedules, and pastor profiles via CMS."
+  ],
+  "key_features": [
+    "Authentication System with email/password login, role-based views, session management and logout.",
+    "Dashboard module: Separate dashboards for Management and Members featuring statistics, requests, loan history, and calendar views.",
+    "Barang (Asset) Management: Full CRUD for product templates and units, QR code generation, filtering, image uploads, loan requests, and Excel export.",
+    "Ruangan (Room) Management: Room creation and editing, photo upload, reservation requests with time conflict validation, approval workflow, and history tracking.",
+    "Transportasi (Transportation) Management: Vehicle CRUD, image upload, calendar bookings, driver assignment, request approval, and history viewing.",
+    "User Management: Restrictable to Management role with user CRUD, role assignment, privilege management, search and password updates.",
+    "Stok Opname: Inventory audit tool with QR code scanning, manual entry, condition recording, variance detection, reporting and history.",
+    "Website GKI CMS: Edit hero sections, upload videos, manage worship schedules, update about and pastor profiles, with content publishing to public site.",
+    "Centralized API client managing authentication tokens, base URLs and error handling.",
+    "Client-side routing with hash-based navigation supporting role-based menu visibility.",
+    "Page loader animations indicating asynchronous data fetch states."
+  ],
+  "user_flow_summary": [
+    "Member Borrowing Flow: Members browse assets, submit borrow requests, system validates availability, management approves or rejects, notifications sent, member picks up and returns items.",
+    "Room Reservation Flow: Members view rooms, submit reservation with time slot, system checks conflicts, management approves or rejects, notifications sent, confirmation or errors displayed.",
+    "Transportation Booking Flow: Members request vehicle bookings with time and destination details, system checks availability, management reviews request, sends approval or rejection notifications.",
+    "User Management Flow: Management users add/edit/delete users, assign roles and privileges, search users, and update passwords.",
+    "Stock Opname Flow: Management initiates stock opname, scans or manually inputs items, records conditions, system detects discrepancies, session is finalized, and reports are generated.",
+    "Website Content Update Flow: Management edits hero text and uploads hero video, manages schedules and pastor profile, and publishes changes to public website."
+  ],
+  "validation_criteria": [
+    "Authentication must enforce secure login with correct role-based access controls and proper session handling.",
+    "Dashboards load accurate and up-to-date statistics, requests, and calendar data respective to the user role.",
+    "CRUD operations for inventory, room, transportation, and users perform correctly with data persisting as expected.",
+    "Reservation and borrowing requests should prevent scheduling conflicts and show proper status updates.",
+    "Stock opname reports reflect correct counts and display discrepancies between expected and actual inventory.",
+    "Website content updates should be properly saved, validated for media types/sizes, and publicly reflected after publishing.",
+    "API endpoints return appropriate success or error codes with input validation on all data.",
+    "UI components including loaders and navigation respond correctly to user actions across supported browsers.",
+    "Notifications are sent accurately when triggered by request status changes or reminders.",
+    "Security policies including JWT authentication, role privilege checks and RLS policies are enforced consistently on all API and client layers."
+  ],
+  "code_summary": {
+    "tech_stack": [
+      "HTML5",
+      "CSS3",
+      "JavaScript (ES6+)",
+      "Supabase (Database & Auth)",
+      "Vercel Serverless Functions",
+      "Font Awesome Icons"
+    ],
+    "features": [
+      {
+        "name": "Authentication",
+        "description": "Login system with email and password authentication for Management and Member roles using Supabase Auth",
+        "files": [
+          "index.html",
+          "js/auth.js",
+          "api/auth/login.js"
+        ]
+      },
+      {
+        "name": "Dashboard",
+        "description": "Main dashboard showing statistics and overview for both management and member users with charts and summaries",
+        "files": [
+          "js/pages/dashboard.js",
+          "api/dashboard.js"
+        ]
+      },
+      {
+        "name": "Barang (Asset) Management",
+        "description": "Complete asset/inventory management system with CRUD operations, loan requests, return handling, and history tracking",
+        "files": [
+          "js/pages/barang.js",
+          "api/management.js"
+        ]
+      },
+      {
+        "name": "Ruangan (Room) Management",
+        "description": "Room reservation system allowing members to book rooms with time conflict validation and management approval workflow",
+        "files": [
+          "js/pages/ruangan.js",
+          "api/schedule.js",
+          "api/get-reservations.js"
+        ]
+      },
+      {
+        "name": "Transportasi (Transportation) Management",
+        "description": "Vehicle booking and management system with driver assignment, image upload, and request approval workflow",
+        "files": [
+          "js/pages/transportasi.js",
+          "api/management.js"
+        ]
+      },
+      {
+        "name": "User Management",
+        "description": "Admin feature to manage member and management users with search, add, edit, and delete functionality",
+        "files": [
+          "js/pages/user-management.js",
+          "api/member.js"
+        ]
+      },
+      {
+        "name": "Stok Opname",
+        "description": "Inventory audit feature for assets with quantity verification and discrepancy reporting",
+        "files": [
+          "js/pages/stok-opname.js",
+          "api/management.js"
+        ]
+      },
+      {
+        "name": "Website Content Management",
+        "description": "CMS for managing public website content including hero sections, announcements, and hero videos",
+        "files": [
+          "js/pages/website-gki.js",
+          "api/website-content.js",
+          "api/website-hero-video.js"
+        ]
+      },
+      {
+        "name": "Router & Navigation",
+        "description": "Client-side routing system with hash-based navigation and role-based menu visibility",
+        "files": [
+          "js/router.js",
+          "js/main.js"
+        ]
+      },
+      {
+        "name": "API Client",
+        "description": "Centralized API configuration with authentication token handling and base URL management",
+        "files": [
+          "js/api.js",
+          "api/utils/auth.js"
+        ]
+      },
+      {
+        "name": "Page Loader",
+        "description": "Loading state management with animated loader component for async data fetching",
+        "files": [
+          "js/loader.js"
+        ]
+      }
+    ]
+  }
+}
