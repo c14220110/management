@@ -1062,6 +1062,24 @@ function openProductUnitModal(opts = {}) {
   const locOpts = productInventoryState.locations.map(l => `<option value="${l.id}" ${existing?.location?.id === l.id ? "selected" : ""}>${l.name}</option>`).join("");
   const content = `
     <form id="product-unit-form" class="space-y-4">
+      <!-- Photo Upload Section -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Foto Unit</label>
+        <div class="flex items-center gap-4">
+          <div id="unit-photo-preview" class="w-20 h-20 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-300">
+            ${existing?.photo_url ? `<img src="${existing.photo_url}" class="w-full h-full object-cover"/>` : '<i class="fas fa-camera text-gray-400 text-xl"></i>'}
+          </div>
+          <div class="flex-1">
+            <input type="file" name="unit_photo_file" id="unit-photo-file-input" accept="image/*" class="hidden"/>
+            <input type="hidden" name="photo_url" value="${existing?.photo_url || ""}"/>
+            <button type="button" id="upload-unit-photo-btn" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm">
+              <i class="fas fa-upload mr-2"></i> Pilih Foto
+            </button>
+            <p class="text-xs text-gray-500 mt-1">Max 2MB. Opsional.</p>
+          </div>
+        </div>
+      </div>
+      
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Kode Aset</label>
@@ -1093,12 +1111,40 @@ function openProductUnitModal(opts = {}) {
       const code = "GKI-" + Date.now().toString().slice(-6);
       document.getElementById("unit-asset-code").value = code;
     });
+    
+    // Photo upload handlers
+    document.getElementById("upload-unit-photo-btn")?.addEventListener("click", () => document.getElementById("unit-photo-file-input")?.click());
+    document.getElementById("unit-photo-file-input")?.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (file.size > 2 * 1024 * 1024) { notifyError("Ukuran file melebihi 2MB"); return; }
+      const preview = document.getElementById("unit-photo-preview");
+      const reader = new FileReader();
+      reader.onload = (ev) => { preview.innerHTML = `<img src="${ev.target.result}" class="w-full h-full object-cover"/>`; };
+      reader.readAsDataURL(file);
+    });
   }, 100);
 }
 
 async function handleProductUnitSubmit(templateId, existingId) {
   const form = document.getElementById("product-unit-form");
   const fd = new FormData(form);
+  
+  // Handle photo upload first
+  let photoUrl = fd.get("photo_url") || null;
+  const photoFile = document.getElementById("unit-photo-file-input")?.files[0];
+  if (photoFile) {
+    try {
+      const confirmBtn = document.getElementById("global-modal-confirm");
+      if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Uploading...'; }
+      photoUrl = await uploadProductImage(photoFile);
+    } catch (e) { 
+      notifyError("Gagal upload foto: " + e.message); 
+      resetConfirmButton();
+      return; 
+    }
+  }
+  
   const payload = { 
     template_id: templateId, 
     asset_code: fd.get("asset_code") || null, 
@@ -1107,7 +1153,8 @@ async function handleProductUnitSubmit(templateId, existingId) {
     condition: fd.get("condition") || null, 
     purchase_date: fd.get("purchase_date") || null, 
     purchase_price: fd.get("purchase_price") || null,
-    notes: fd.get("notes") || null
+    notes: fd.get("notes") || null,
+    photo_url: photoUrl
   };
   if (existingId) payload.unitId = existingId;
   try {
@@ -1154,6 +1201,13 @@ function getUnitsTableHTML(units, templateId) {
   
   const rows = units.map(u => `
     <tr class="border-b hover:bg-gray-50 transition-colors">
+      <td class="p-3">
+        <div class="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+          ${u.photo_url 
+            ? `<img src="${u.photo_url}" alt="${u.asset_code || 'Unit'}" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='<i class=\\'fas fa-box text-gray-400\\'></i>'"/>` 
+            : '<i class="fas fa-box text-gray-400"></i>'}
+        </div>
+      </td>
       <td class="p-3 font-mono text-sm font-medium text-gray-700">${u.asset_code || "-"}</td>
       <td class="p-3 text-sm text-gray-600">${u.serial_number || "-"}</td>
       <td class="p-3"><span class="text-xs px-2.5 py-1 rounded-full font-medium ${statusColors[u.status] || "bg-gray-100"}">${u.status}</span></td>
@@ -1173,6 +1227,7 @@ function getUnitsTableHTML(units, templateId) {
       <table class="min-w-full text-sm">
         <thead class="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-200">
           <tr>
+            <th class="p-3 text-left" style="width: 60px;">Foto</th>
             <th class="p-3 text-left">Kode Aset</th>
             <th class="p-3 text-left">Serial Number</th>
             <th class="p-3 text-left">Status</th>

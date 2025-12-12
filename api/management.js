@@ -179,6 +179,7 @@ export default async function handler(req, res) {
             vendor_name,
             book_value,
             notes,
+            photo_url,
             location:stock_locations!location_id (id, name, code, type),
             template_id
           `
@@ -336,6 +337,7 @@ export default async function handler(req, res) {
           salvage_value,
           useful_life_months,
           notes,
+          photo_url,
         } = payload || {};
 
         if (!template_id) throw new Error("template_id wajib diisi.");
@@ -367,6 +369,7 @@ export default async function handler(req, res) {
               ? null
               : Number(useful_life_months),
           notes: notes || null,
+          photo_url: photo_url || null,
         };
 
         const { data, error } = await supabase
@@ -397,6 +400,7 @@ export default async function handler(req, res) {
           "purchase_price",
           "vendor_name",
           "notes",
+          "photo_url",
         ].forEach((k) => {
           if (fields[k] !== undefined) updatePayload[k] = fields[k];
         });
