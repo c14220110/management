@@ -304,10 +304,10 @@ async function renderManagerDashboard() {
                         <i class="fas fa-clock text-amber-500 mt-1"></i>
                         <div class="flex-1">
                           <p class="font-semibold text-gray-800">${
-                            item.assets?.asset_name || "Barang"
+                            item.item_name || "Barang"
                           }</p>
                           <p class="text-sm text-gray-600">Peminjam: ${
-                            item.profiles?.full_name || "-"
+                            item.borrower_name || "-"
                           }</p>
                           <p class="text-xs text-amber-600 mt-1">
                             <span class="font-bold">${

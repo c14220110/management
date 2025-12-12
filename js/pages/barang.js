@@ -1555,12 +1555,6 @@ async function openActiveLoansModal() {
           
           <!-- Actions -->
           <div class="flex flex-col gap-2 flex-shrink-0">
-            ${loan.status === "Disetujui" ? `
-              <button class="loan-action-btn px-3 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 flex items-center gap-1.5 font-medium shadow-sm" 
-                data-loan-id="${loan.id}" data-new-status="Dipinjam">
-                <i class="fas fa-box-open"></i> Tandai Dipinjam
-              </button>
-            ` : ''}
             <button class="loan-action-btn px-3 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 flex items-center gap-1.5 font-medium shadow-sm" 
               data-loan-id="${loan.id}" data-new-status="Dikembalikan">
               <i class="fas fa-undo"></i> Kembalikan

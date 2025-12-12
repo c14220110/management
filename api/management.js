@@ -566,8 +566,13 @@ export default async function handler(req, res) {
       // ASSET LOANS MANAGEMENT
       // ============================================================
       case "updateLoanStatus": {
-        if (!checkPrivilege(profile, "transport")) throw new Error("Akses ditolak: Butuh privilege 'transport'");
-        const { loanId, newStatus } = payload;
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
+        let { loanId, newStatus } = payload;
+        
+        // Auto-convert 'Disetujui' to 'Dipinjam' - management approval = item borrowed
+        if (newStatus === "Disetujui") {
+          newStatus = "Dipinjam";
+        }
         
         // Get loan info
         const { data: loan, error: loanError } = await supabase
@@ -592,7 +597,7 @@ export default async function handler(req, res) {
         // Update unit status for serialized items
         if (loan.asset_unit_id) {
           let unitStatus = "available";
-          if (newStatus === "Disetujui" || newStatus === "Dipinjam") {
+          if (newStatus === "Dipinjam") {
             unitStatus = "borrowed";
           }
           await supabase
