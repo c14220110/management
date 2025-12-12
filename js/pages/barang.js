@@ -696,11 +696,15 @@ function openProductTemplateModal(existing = null) {
         </div>
       </div>
       
-      ${!isEdit || existing?.is_serialized === false ? `
-      <div class="grid grid-cols-2 gap-4">
-        <div><label class="block text-sm font-medium text-gray-700 mb-1">Stok Awal</label><input type="number" name="quantity_on_hand" value="${existing?.quantity_on_hand || 0}" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg"/></div>
-        <div><label class="block text-sm font-medium text-gray-700 mb-1">Min. Stok</label><input type="number" name="min_quantity" value="${existing?.min_quantity || 0}" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg"/></div>
-      </div>` : ""}
+      
+      <!-- Stock section - ONLY for Non-Serialized items -->
+      <div id="stock-section" class="${existing?.is_serialized !== false ? 'hidden' : ''}">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Stok Awal</label>
+          <input type="number" name="quantity_on_hand" value="${existing?.quantity_on_hand || 0}" min="0" class="w-full px-3 py-2 border border-gray-300 rounded-lg"/>
+          <p class="text-xs text-gray-500 mt-1">Jumlah awal barang yang tersedia</p>
+        </div>
+      </div>
       
       <!-- Image Upload -->
       <div>
@@ -735,6 +739,19 @@ function openProductTemplateModal(existing = null) {
     document.getElementById("photo-file-input")?.addEventListener("change", handlePhotoPreview);
     document.getElementById("add-category-btn")?.addEventListener("click", openAddCategoryModal);
     document.getElementById("add-location-btn")?.addEventListener("click", openAddLocationModal);
+    
+    // Toggle stock section based on serialized type (only for new products)
+    const typeSelect = document.querySelector('select[name="is_serialized"]');
+    const stockSection = document.getElementById("stock-section");
+    if (typeSelect && stockSection && !isEdit) {
+      typeSelect.addEventListener("change", (e) => {
+        if (e.target.value === "false") {
+          stockSection.classList.remove("hidden");
+        } else {
+          stockSection.classList.add("hidden");
+        }
+      });
+    }
   }, 100);
 }
 
@@ -793,7 +810,6 @@ async function handleProductTemplateSubmit(existingId) {
   // Only update stock for non-serialized items if we are creating or if it's explicitly non-serialized
   if (payload.is_serialized === false) {
     payload.quantity_on_hand = parseInt(fd.get("quantity_on_hand") || "0", 10);
-    payload.min_quantity = parseInt(fd.get("min_quantity") || "0", 10);
   }
   if (existingId) payload.id = existingId;
 
