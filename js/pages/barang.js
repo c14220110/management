@@ -67,6 +67,9 @@ async function renderBarangManagementView() {
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 class="text-2xl font-bold text-gray-800">Manajemen Inventaris</h1>
           <div class="flex gap-3 self-start sm:self-auto flex-wrap">
+            <button id="product-active-loans-btn" class="px-4 py-2.5 bg-orange-500 text-white rounded-xl hover:bg-orange-600 flex items-center gap-2 shadow-sm font-medium">
+              <i class="fas fa-hand-holding"></i> Peminjaman Aktif
+            </button>
             <button id="product-history-btn" class="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 flex items-center gap-2 shadow-sm">
               <i class="fas fa-history"></i> Lihat Riwayat
             </button>
@@ -164,6 +167,7 @@ async function renderBarangManagementView() {
     document.getElementById("product-add-btn")?.addEventListener("click", () => openProductTemplateModal());
     document.getElementById("product-refresh-btn")?.addEventListener("click", () => renderBarangManagementView());
     document.getElementById("product-history-btn")?.addEventListener("click", () => openAssetHistoryModal());
+    document.getElementById("product-active-loans-btn")?.addEventListener("click", () => openActiveLoansModal());
     
     document.getElementById("mgmt-filter-category")?.addEventListener("change", (e) => {
       managementFilterState.category = e.target.value;
@@ -1369,6 +1373,206 @@ function printQRCode(title, code) {
   
   win.document.write('</body></html>');
   win.document.close();
+}
+
+// ============================================================
+// ACTIVE LOANS MODAL - VIEW & MANAGE BORROWED ITEMS
+// ============================================================
+async function openActiveLoansModal() {
+  const content = `
+    <div class="h-full flex flex-col">
+      <!-- Header Info -->
+      <div class="bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl p-4 mb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+            <i class="fas fa-hand-holding text-2xl"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-lg">Peminjaman Aktif</h3>
+            <p class="text-sm opacity-90">Kelola barang yang sedang dipinjam</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Data Container -->
+      <div id="active-loans-container" class="flex-1 overflow-y-auto bg-white rounded-xl border border-gray-200">
+        <div class="flex items-center justify-center py-16 text-gray-400">
+          <i class="fas fa-spinner fa-spin text-2xl mr-3"></i> Memuat data...
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="flex justify-between items-center pt-4 border-t border-gray-200 mt-4">
+        <div id="active-loans-total" class="text-sm text-gray-600 font-medium"></div>
+        <button onclick="closeFullscreenModal()" class="px-6 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium">
+          <i class="fas fa-times mr-2"></i> Tutup
+        </button>
+      </div>
+    </div>
+  `;
+
+  openFullscreenModal({
+    title: "Peminjaman Aktif",
+    contentHTML: content
+  });
+
+  async function loadActiveLoans() {
+    const container = document.getElementById("active-loans-container");
+    const totalEl = document.getElementById("active-loans-total");
+    
+    container.innerHTML = `<div class="flex items-center justify-center py-16 text-gray-400"><i class="fas fa-spinner fa-spin text-2xl mr-3"></i> Memuat data...</div>`;
+    
+    try {
+      const loans = await api.post("/api/management", { action: "getActiveLoans" });
+
+      if (!loans || loans.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-16 text-gray-400">
+            <i class="fas fa-check-circle text-5xl mb-4 text-green-400"></i>
+            <p class="text-lg font-medium text-gray-600">Tidak ada peminjaman aktif</p>
+            <p class="text-sm">Semua barang sudah dikembalikan</p>
+          </div>`;
+        totalEl.textContent = "";
+        return;
+      }
+
+      // Group by overdue status
+      const overdueLoans = loans.filter(l => l.is_overdue);
+      const activeLoans = loans.filter(l => !l.is_overdue);
+
+      let html = "";
+      
+      // Overdue section first
+      if (overdueLoans.length > 0) {
+        html += `
+          <div class="mb-6">
+            <div class="bg-red-100 px-5 py-3 font-bold text-red-700 sticky top-0 border-b border-red-200 flex items-center gap-2">
+              <i class="fas fa-exclamation-triangle"></i>
+              TERLAMBAT DIKEMBALIKAN
+              <span class="bg-red-500 text-white px-2 py-0.5 rounded-full text-sm font-medium">${overdueLoans.length}</span>
+            </div>
+            <div class="divide-y divide-gray-100">
+              ${overdueLoans.map(loan => renderActiveLoanRow(loan, true)).join("")}
+            </div>
+          </div>`;
+      }
+      
+      // Active loans section
+      if (activeLoans.length > 0) {
+        html += `
+          <div class="mb-6">
+            <div class="bg-blue-100 px-5 py-3 font-bold text-blue-700 sticky top-0 border-b border-blue-200 flex items-center gap-2">
+              <i class="fas fa-clock"></i>
+              SEDANG DIPINJAM
+              <span class="bg-blue-500 text-white px-2 py-0.5 rounded-full text-sm font-medium">${activeLoans.length}</span>
+            </div>
+            <div class="divide-y divide-gray-100">
+              ${activeLoans.map(loan => renderActiveLoanRow(loan, false)).join("")}
+            </div>
+          </div>`;
+      }
+
+      container.innerHTML = html;
+      totalEl.innerHTML = `<span class="text-orange-600 font-bold">${loans.length}</span> peminjaman aktif`;
+
+      // Bind action buttons
+      container.querySelectorAll(".loan-action-btn").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+          const loanId = btn.dataset.loanId;
+          const newStatus = btn.dataset.newStatus;
+          
+          if (!confirm(`Ubah status peminjaman menjadi "${newStatus}"?`)) return;
+          
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+          
+          try {
+            await api.post("/api/management", {
+              action: "updateLoanStatus",
+              payload: { loanId, newStatus }
+            });
+            notifySuccess(`Status berhasil diubah menjadi ${newStatus}`);
+            loadActiveLoans(); // Refresh list
+          } catch (error) {
+            notifyError("Gagal mengubah status: " + error.message);
+            loadActiveLoans(); // Refresh to restore button state
+          }
+        });
+      });
+
+    } catch (error) {
+      container.innerHTML = `
+        <div class="text-center py-16 text-red-500">
+          <i class="fas fa-exclamation-triangle text-5xl mb-4"></i>
+          <p class="text-lg font-medium">Gagal memuat data</p>
+          <p class="text-sm text-gray-500 mt-2">${error.message}</p>
+        </div>`;
+    }
+  }
+
+  function renderActiveLoanRow(loan, isOverdue) {
+    const photo = loan.photo_url || "https://placehold.co/60x60/f3f4f6/9ca3af?text=📦";
+    const dueDate = new Date(loan.due_date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+    const loanDate = new Date(loan.loan_date).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+    
+    const statusBadge = loan.status === "Disetujui" 
+      ? '<span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">Disetujui</span>'
+      : '<span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">Dipinjam</span>';
+    
+    const overdueInfo = isOverdue 
+      ? `<span class="text-red-600 font-bold text-sm"><i class="fas fa-exclamation-circle mr-1"></i>Terlambat ${loan.days_overdue} hari</span>`
+      : '';
+    
+    const qtyInfo = loan.quantity > 1 ? `<span class="text-gray-500 text-sm">Qty: ${loan.quantity}</span>` : '';
+
+    return `
+      <div class="p-4 hover:bg-gray-50 transition-colors ${isOverdue ? 'bg-red-50/50' : ''}">
+        <div class="flex items-start gap-4">
+          <!-- Photo -->
+          <div class="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+            <img src="${photo}" alt="${loan.item_name}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/60x60/f3f4f6/9ca3af?text=📦'"/>
+          </div>
+          
+          <!-- Info -->
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <h4 class="font-bold text-gray-900">${loan.item_name}</h4>
+                ${loan.item_code ? `<p class="text-xs text-gray-400 font-mono">${loan.item_code}</p>` : ''}
+                ${qtyInfo}
+              </div>
+              ${statusBadge}
+            </div>
+            
+            <div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600">
+              <span><i class="fas fa-user mr-1 text-gray-400"></i>${loan.borrower_name}</span>
+              <span><i class="fas fa-calendar mr-1 text-gray-400"></i>Pinjam: ${loanDate}</span>
+              <span class="${isOverdue ? 'text-red-600 font-semibold' : ''}"><i class="fas fa-clock mr-1 ${isOverdue ? 'text-red-500' : 'text-gray-400'}"></i>JT: ${dueDate}</span>
+            </div>
+            
+            ${overdueInfo ? `<div class="mt-2">${overdueInfo}</div>` : ''}
+          </div>
+          
+          <!-- Actions -->
+          <div class="flex flex-col gap-2 flex-shrink-0">
+            ${loan.status === "Disetujui" ? `
+              <button class="loan-action-btn px-3 py-2 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 flex items-center gap-1.5 font-medium shadow-sm" 
+                data-loan-id="${loan.id}" data-new-status="Dipinjam">
+                <i class="fas fa-box-open"></i> Tandai Dipinjam
+              </button>
+            ` : ''}
+            <button class="loan-action-btn px-3 py-2 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 flex items-center gap-1.5 font-medium shadow-sm" 
+              data-loan-id="${loan.id}" data-new-status="Dikembalikan">
+              <i class="fas fa-undo"></i> Kembalikan
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Initial load
+  setTimeout(loadActiveLoans, 100);
 }
 
 // ============================================================

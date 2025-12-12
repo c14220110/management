@@ -1322,6 +1322,80 @@ export default async function handler(req, res) {
         return res.status(200).json(tData);
       }
 
+      case "getActiveLoans": {
+        if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
+        
+        const now = new Date();
+        
+        // Fetch loans with status 'Disetujui' or 'Dipinjam' and not returned
+        const { data: activeLoans, error: activeError } = await supabase
+          .from("asset_loans")
+          .select(`
+            id,
+            loan_date,
+            due_date,
+            return_date,
+            status,
+            quantity,
+            user_id,
+            asset_unit_id,
+            product_template_id,
+            product_units:asset_unit_id (
+              id, asset_code, serial_number,
+              template:product_templates!template_id (id, name, photo_url)
+            ),
+            product_templates:product_template_id (id, name, photo_url)
+          `)
+          .in("status", ["Disetujui", "Dipinjam"])
+          .is("return_date", null)
+          .order("due_date", { ascending: true });
+        
+        if (activeError) throw activeError;
+        
+        // Fetch user profiles for borrower names
+        const userIds = [...new Set((activeLoans || []).map(l => l.user_id).filter(Boolean))];
+        let profileMap = new Map();
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", userIds);
+          (profiles || []).forEach(p => profileMap.set(p.id, p.full_name));
+        }
+        
+        // Process loans with item info, borrower name, and overdue flag
+        const result = (activeLoans || []).map(loan => {
+          let itemName = "Barang";
+          let itemCode = "";
+          let photoUrl = null;
+          
+          if (loan.product_units) {
+            itemName = loan.product_units.template?.name || "Barang";
+            itemCode = loan.product_units.asset_code || loan.product_units.serial_number || "";
+            photoUrl = loan.product_units.template?.photo_url;
+          } else if (loan.product_templates) {
+            itemName = loan.product_templates.name || "Barang";
+            photoUrl = loan.product_templates.photo_url;
+          }
+          
+          const dueDate = new Date(loan.due_date);
+          const isOverdue = dueDate < now;
+          const daysOverdue = isOverdue ? Math.floor((now - dueDate) / (1000 * 60 * 60 * 24)) : 0;
+          
+          return {
+            ...loan,
+            item_name: itemName,
+            item_code: itemCode,
+            photo_url: photoUrl,
+            borrower_name: profileMap.get(loan.user_id) || "Unknown",
+            is_overdue: isOverdue,
+            days_overdue: daysOverdue,
+          };
+        });
+        
+        return res.status(200).json(result);
+      }
+
       case "getAssetLoanHistory": {
         if (!checkPrivilege(profile, "inventory")) throw new Error("Akses ditolak: Butuh privilege 'inventory'");
         const { months: aMonths = 6, status: aStatus = null, startDate: aStart = null, endDate: aEnd = null } = payload || {};
