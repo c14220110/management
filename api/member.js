@@ -166,17 +166,24 @@ async function handleInventory(req, res, supabase, user) {
     }
 
     case "POST": {
-      // Create loan request
+      // Create loan request with specific time slots (like room/transport)
       const { 
         unit_id,           // For serialized items: specific unit
         template_id,       // For non-serialized items: template
         quantity,          // For non-serialized items: how many
-        loan_date, 
-        due_date 
+        borrow_start,      // Start timestamp (datetime)
+        borrow_end         // End timestamp (datetime)
       } = req.body;
 
-      if (!loan_date || !due_date) {
-        return res.status(400).json({ error: "Tanggal pinjam dan tanggal kembali harus diisi." });
+      if (!borrow_start || !borrow_end) {
+        return res.status(400).json({ error: "Waktu mulai dan selesai harus diisi." });
+      }
+
+      // Validate time range
+      const startTime = new Date(borrow_start);
+      const endTime = new Date(borrow_end);
+      if (endTime <= startTime) {
+        return res.status(400).json({ error: "Waktu selesai harus setelah waktu mulai." });
       }
 
       // Serialized loan (by unit)
@@ -184,34 +191,36 @@ async function handleInventory(req, res, supabase, user) {
         // Check unit availability
         const { data: unit, error: unitError } = await supabase
           .from("product_units")
-          .select("id, status, template_id")
+          .select("id, status, template_id, asset_code, serial_number, template:product_templates!template_id(name)")
           .eq("id", unit_id)
           .single();
         
         if (unitError || !unit) {
           return res.status(404).json({ error: "Unit tidak ditemukan." });
         }
-        if (unit.status !== "available") {
-          return res.status(409).json({ error: "Unit sedang tidak tersedia." });
-        }
 
-        // Check for time conflict
+        // Check for time overlap conflict (similar to transport/room)
         const { data: conflicts } = await supabase
           .from("asset_loans")
-          .select("id")
+          .select("id, borrow_start, borrow_end")
           .eq("asset_unit_id", unit_id)
           .in("status", ["Menunggu Persetujuan", "Disetujui", "Dipinjam"])
-          .is("return_date", null);
+          .is("return_date", null)
+          .or(`and(borrow_start.lte.${borrow_end},borrow_end.gte.${borrow_start})`);
 
         if (conflicts && conflicts.length > 0) {
-          return res.status(409).json({ error: "Unit ini sudah ada peminjaman aktif." });
+          return res.status(409).json({ 
+            error: "Sudah ada peminjaman pada rentang waktu tersebut. Silakan pilih waktu lain." 
+          });
         }
 
         const { error: insertError } = await supabase.from("asset_loans").insert({
           asset_unit_id: unit_id,
           user_id: user.id,
-          loan_date,
-          due_date,
+          borrow_start,
+          borrow_end,
+          loan_date: startTime.toISOString().split('T')[0], // Keep for backwards compat
+          due_date: endTime.toISOString().split('T')[0],    // Keep for backwards compat
           quantity: 1,
           status: "Menunggu Persetujuan",
         });
@@ -219,14 +228,11 @@ async function handleInventory(req, res, supabase, user) {
         if (insertError) return res.status(500).json({ error: insertError.message });
 
         // Send Notification
-        // Send Notification
         const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
         const borrowerName = profile?.full_name || user.email;
-        const itemName = unit.template?.name || "Unit Barang"; // Need to fetch template name if not available in unit object
-        // Actually unit object above selects template_id, not joined template.
-        // I should fetch template name or just say "Unit ID: ..."
-        // Better: Fetch unit with template name.
-        
+        const itemName = unit.template?.name || "Unit Barang";
+        const itemCode = unit.asset_code || unit.serial_number || unit_id;
+
         const emails = await getManagementEmails('inventory');
         await sendEmail({
           to: emails,
@@ -234,9 +240,9 @@ async function handleInventory(req, res, supabase, user) {
           html: `
             <h3>Permintaan Peminjaman Baru</h3>
             <p><strong>Peminjam:</strong> ${borrowerName}</p>
-            <p><strong>Barang:</strong> Unit ID ${unit_id}</p>
-            <p><strong>Tanggal Pinjam:</strong> ${new Date(loan_date).toLocaleDateString('id-ID')}</p>
-            <p><strong>Tanggal Kembali:</strong> ${new Date(due_date).toLocaleDateString('id-ID')}</p>
+            <p><strong>Barang:</strong> ${itemName} (${itemCode})</p>
+            <p><strong>Waktu Mulai:</strong> ${startTime.toLocaleString('id-ID')}</p>
+            <p><strong>Waktu Selesai:</strong> ${endTime.toLocaleString('id-ID')}</p>
             <p>Mohon cek dashboard untuk persetujuan: <a href="https://gki-management.vercel.app/#dashboard">Dashboard</a></p>
           `
         });
@@ -249,7 +255,7 @@ async function handleInventory(req, res, supabase, user) {
         // Check template and availability
         const { data: template, error: tmplError } = await supabase
           .from("product_templates")
-          .select("id, is_serialized, quantity_on_hand")
+          .select("id, name, is_serialized, quantity_on_hand")
           .eq("id", template_id)
           .single();
 
@@ -260,28 +266,32 @@ async function handleInventory(req, res, supabase, user) {
           return res.status(400).json({ error: "Produk ini serialized, pilih unit spesifik." });
         }
 
-        // Calculate available quantity
-        const { data: activeLoans } = await supabase
+        // Calculate available quantity at the requested time range
+        // Get all loans that overlap with the requested time
+        const { data: overlappingLoans } = await supabase
           .from("asset_loans")
-          .select("quantity")
+          .select("quantity, borrow_start, borrow_end")
           .eq("product_template_id", template_id)
-          .in("status", ["Disetujui", "Dipinjam"])
-          .is("return_date", null);
+          .in("status", ["Menunggu Persetujuan", "Disetujui", "Dipinjam"])
+          .is("return_date", null)
+          .or(`and(borrow_start.lte.${borrow_end},borrow_end.gte.${borrow_start})`);
 
-        const borrowedQty = (activeLoans || []).reduce((sum, l) => sum + (l.quantity || 0), 0);
+        const borrowedQty = (overlappingLoans || []).reduce((sum, l) => sum + (l.quantity || 0), 0);
         const availableQty = (template.quantity_on_hand || 0) - borrowedQty;
 
         if (quantity > availableQty) {
           return res.status(409).json({ 
-            error: `Stok tidak cukup. Tersedia: ${availableQty}, diminta: ${quantity}` 
+            error: `Stok tidak cukup pada waktu tersebut. Tersedia: ${availableQty}, diminta: ${quantity}` 
           });
         }
 
         const { error: insertError } = await supabase.from("asset_loans").insert({
           product_template_id: template_id,
           user_id: user.id,
-          loan_date,
-          due_date,
+          borrow_start,
+          borrow_end,
+          loan_date: startTime.toISOString().split('T')[0], // Keep for backwards compat
+          due_date: endTime.toISOString().split('T')[0],    // Keep for backwards compat
           quantity: quantity,
           status: "Menunggu Persetujuan",
         });
@@ -289,24 +299,19 @@ async function handleInventory(req, res, supabase, user) {
         if (insertError) return res.status(500).json({ error: insertError.message });
 
         // Send Notification
-        // Send Notification
         const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", user.id).single();
         const borrowerName = profile?.full_name || user.email;
-        const itemName = template.name || "Barang"; // template object above selects name? No, selects id, is_serialized, quantity_on_hand.
-        // Need to fetch name.
-        const { data: tmplDetails } = await supabase.from("product_templates").select("name").eq("id", template_id).single();
-        const realItemName = tmplDetails?.name || "Barang";
 
         const emails = await getManagementEmails('inventory');
         await sendEmail({
           to: emails,
-          subject: `Permintaan Peminjaman Barang: ${realItemName}`,
+          subject: `Permintaan Peminjaman Barang: ${template.name}`,
           html: `
             <h3>Permintaan Peminjaman Baru</h3>
             <p><strong>Peminjam:</strong> ${borrowerName}</p>
-            <p><strong>Barang:</strong> ${realItemName} (Jumlah: ${quantity})</p>
-            <p><strong>Tanggal Pinjam:</strong> ${new Date(loan_date).toLocaleDateString('id-ID')}</p>
-            <p><strong>Tanggal Kembali:</strong> ${new Date(due_date).toLocaleDateString('id-ID')}</p>
+            <p><strong>Barang:</strong> ${template.name} (Jumlah: ${quantity})</p>
+            <p><strong>Waktu Mulai:</strong> ${startTime.toLocaleString('id-ID')}</p>
+            <p><strong>Waktu Selesai:</strong> ${endTime.toLocaleString('id-ID')}</p>
             <p>Mohon cek dashboard untuk persetujuan: <a href="https://gki-management.vercel.app/#dashboard">Dashboard</a></p>
           `
         });

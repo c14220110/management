@@ -45,33 +45,71 @@ export default async function handler(req, res) {
     }
   }
 
-  const { type, id, name } = req.query;
+  const { type, id, name, resource, itemId, isSerialized } = req.query;
 
-  if (!type) {
+  // Support both query styles: type/id (old) and resource/itemId (new)
+  const resolvedType = type || resource;
+  const resolvedId = id || itemId;
+
+  if (!resolvedType) {
     return res
       .status(400)
-      .json({ error: "Parameter 'type' dibutuhkan (asset, room, transport)." });
+      .json({ error: "Parameter 'type' atau 'resource' dibutuhkan." });
   }
 
   try {
     let data, error;
 
-    switch (type) {
+    switch (resolvedType) {
       case "asset":
-        if (!id) return res.status(400).json({ error: "ID aset dibutuhkan." });
+        if (!resolvedId) return res.status(400).json({ error: "ID aset dibutuhkan." });
         {
           const assetClient =
             isManagementUser && managementClient ? managementClient : supabase;
           ({ data, error } = await assetClient
             .from("asset_loans")
-            .select("loan_date, due_date, status, user_id")
-            .eq("asset_id", id)
+            .select("loan_date, due_date, borrow_start, borrow_end, status, user_id")
+            .eq("asset_id", resolvedId)
             .in("status", ["Disetujui", "Dipinjam"])); // Hanya yang pasti
           if (!error && data?.length) {
             data = await attachProfilesToLoans(
               data,
               isManagementUser && managementClient ? managementClient : supabase
             );
+          }
+        }
+        break;
+
+      // New handler for member borrow modal schedule preview
+      case "assets":
+        if (!resolvedId) return res.status(400).json({ error: "ID item dibutuhkan." });
+        {
+          const assetClient =
+            isManagementUser && managementClient ? managementClient : supabase;
+          
+          // Query based on whether we're looking at a serialized unit or non-serialized template
+          let query = assetClient
+            .from("asset_loans")
+            .select("id, borrow_start, borrow_end, status, user_id")
+            .in("status", ["Menunggu Persetujuan", "Disetujui", "Dipinjam"])
+            .is("return_date", null)
+            .not("borrow_start", "is", null)
+            .order("borrow_start", { ascending: true });
+          
+          if (isSerialized === "true") {
+            // Serialized: filter by asset_unit_id
+            query = query.eq("asset_unit_id", resolvedId);
+          } else {
+            // Non-serialized: filter by product_template_id
+            query = query.eq("product_template_id", resolvedId);
+          }
+          
+          ({ data, error } = await query);
+          
+          // Only return future schedules (next 30 days)
+          if (!error && data) {
+            const now = new Date();
+            data = data.filter(d => new Date(d.borrow_end) > now);
           }
         }
         break;
@@ -87,7 +125,7 @@ export default async function handler(req, res) {
         break;
 
       case "transport":
-        if (!id)
+        if (!resolvedId)
           return res.status(400).json({ error: "ID transportasi dibutuhkan." });
         // Transport schedule shows pending too (as per original code)
         ({ data, error } = await supabase
@@ -95,7 +133,7 @@ export default async function handler(req, res) {
           .select(
             "id, borrow_start, borrow_end, status, profiles!borrower_id(full_name)"
           )
-          .eq("transport_id", id)
+          .eq("transport_id", resolvedId)
           .in("status", ["Menunggu Persetujuan", "Disetujui"])
           .order("borrow_start", { ascending: true }));
         break;

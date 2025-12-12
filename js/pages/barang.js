@@ -1313,28 +1313,198 @@ async function confirmDeleteTemplate(templateId) {
 async function openMemberBorrowModal(templateId, isSerialized) {
   const item = memberInventoryState.items.find(i => i.id === templateId);
   if (!item) return;
+  
   let unitsOpts = "";
+  let selectedUnitId = null;
+  
   if (isSerialized) {
-    try { const units = await fetchMemberAvailableUnits(templateId); unitsOpts = units.map(u => `<option value="${u.id}">${u.asset_code || u.serial_number || u.id}</option>`).join(""); if (!units.length) { notifyError("Tidak ada unit tersedia untuk dipinjam"); return; } } catch (e) { notifyError(e.message); return; }
+    try { 
+      const units = await fetchMemberAvailableUnits(templateId); 
+      unitsOpts = units.map(u => `<option value="${u.id}">${u.asset_code || u.serial_number || u.id}</option>`).join(""); 
+      if (!units.length) { 
+        notifyError("Tidak ada unit tersedia untuk dipinjam"); 
+        return; 
+      }
+      selectedUnitId = units[0]?.id;
+    } catch (e) { notifyError(e.message); return; }
   }
-  const today = new Date().toISOString().split("T")[0];
-  const nextWeek = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
-  const content = `<form id="member-borrow-form" class="space-y-4"><p class="text-gray-600">Produk: <strong>${item.name}</strong></p>${isSerialized ? `<div><label class="block text-sm font-medium text-gray-700 mb-1">Pilih Unit</label><select name="unit_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">${unitsOpts}</select></div>` : `<div><label class="block text-sm font-medium text-gray-700 mb-1">Jumlah (max: ${item.stock?.available || 0})</label><input type="number" name="quantity" min="1" max="${item.stock?.available || 1}" value="1" required class="w-full px-3 py-2 border border-gray-300 rounded-lg"/></div>`}<div class="grid grid-cols-2 gap-4"><div><label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Pinjam</label><input type="date" name="loan_date" value="${today}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg"/></div><div><label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Kembali</label><input type="date" name="due_date" value="${nextWeek}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg"/></div></div></form>`;
-  openGlobalModal({ title: "Ajukan Peminjaman", contentHTML: content, confirmText: "Ajukan", onConfirm: () => handleMemberBorrowSubmit(templateId, isSerialized) });
+  
+  // Get current datetime (rounded to next hour)
+  const now = new Date();
+  now.setMinutes(0, 0, 0);
+  now.setHours(now.getHours() + 1);
+  const startDefault = now.toISOString().slice(0, 16);
+  const endNow = new Date(now.getTime() + 2 * 60 * 60 * 1000); // +2 hours
+  const endDefault = endNow.toISOString().slice(0, 16);
+  
+  const content = `
+    <form id="member-borrow-form" class="space-y-4">
+      <p class="text-gray-600">Produk: <strong>${item.name}</strong></p>
+      
+      ${isSerialized ? `
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Unit</label>
+          <select name="unit_id" id="borrow-unit-select" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+            ${unitsOpts}
+          </select>
+        </div>
+      ` : `
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah (max: ${item.stock?.available || 0})</label>
+          <input type="number" name="quantity" min="1" max="${item.stock?.available || 1}" value="1" required class="w-full px-3 py-2 border border-gray-300 rounded-lg"/>
+        </div>
+      `}
+      
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            <i class="fas fa-clock text-emerald-500 mr-1"></i> Waktu Mulai
+          </label>
+          <input type="datetime-local" name="borrow_start" id="borrow-start-input" value="${startDefault}" required 
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"/>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            <i class="fas fa-clock text-red-500 mr-1"></i> Waktu Selesai
+          </label>
+          <input type="datetime-local" name="borrow_end" id="borrow-end-input" value="${endDefault}" required 
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500"/>
+        </div>
+      </div>
+      
+      <!-- Existing Schedule Preview -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">
+          <i class="fas fa-calendar-alt text-blue-500 mr-1"></i> Jadwal Peminjaman yang Ada
+        </label>
+        <div id="borrow-schedule-preview" class="bg-gray-50 rounded-lg p-3 max-h-40 overflow-y-auto border border-gray-200">
+          <div class="text-center text-gray-400 py-2">
+            <i class="fas fa-spinner fa-spin mr-2"></i> Memuat jadwal...
+          </div>
+        </div>
+      </div>
+    </form>
+  `;
+  
+  openGlobalModal({ 
+    title: "Ajukan Peminjaman", 
+    contentHTML: content, 
+    confirmText: "Ajukan", 
+    onConfirm: () => handleMemberBorrowSubmit(templateId, isSerialized) 
+  });
+  
+  // Load schedule after modal opens
+  setTimeout(async () => {
+    await loadBorrowSchedule(isSerialized ? selectedUnitId : templateId, isSerialized);
+    
+    // If serialized, reload schedule when unit changes
+    if (isSerialized) {
+      document.getElementById("borrow-unit-select")?.addEventListener("change", async (e) => {
+        await loadBorrowSchedule(e.target.value, true);
+      });
+    }
+  }, 100);
+}
+
+async function loadBorrowSchedule(itemId, isSerialized) {
+  const previewEl = document.getElementById("borrow-schedule-preview");
+  if (!previewEl) return;
+  
+  try {
+    const token = localStorage.getItem("authToken");
+    const res = await fetch(`/api/schedule?resource=assets&itemId=${itemId}&isSerialized=${isSerialized}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!res.ok) {
+      previewEl.innerHTML = '<p class="text-gray-400 text-center py-2">Gagal memuat jadwal</p>';
+      return;
+    }
+    
+    const schedules = await res.json();
+    
+    if (!schedules || schedules.length === 0) {
+      previewEl.innerHTML = '<p class="text-emerald-600 text-center py-2"><i class="fas fa-check-circle mr-1"></i> Tidak ada jadwal - tersedia kapanpun!</p>';
+      return;
+    }
+    
+    previewEl.innerHTML = schedules.map(s => `
+      <div class="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0 text-sm">
+        <div class="flex-shrink-0 w-2 h-2 rounded-full ${s.status === 'Dipinjam' ? 'bg-orange-500' : 'bg-yellow-500'}"></div>
+        <div class="flex-1">
+          <span class="font-medium text-gray-700">
+            ${new Date(s.borrow_start).toLocaleDateString('id-ID', {day: 'numeric', month: 'short'})}
+          </span>
+          <span class="text-gray-500">
+            ${new Date(s.borrow_start).toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'})} - 
+            ${new Date(s.borrow_end).toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'})}
+          </span>
+        </div>
+        <span class="text-xs px-2 py-0.5 rounded-full ${s.status === 'Dipinjam' ? 'bg-orange-100 text-orange-700' : 'bg-yellow-100 text-yellow-700'}">${s.status}</span>
+      </div>
+    `).join("");
+    
+  } catch (e) {
+    previewEl.innerHTML = '<p class="text-red-500 text-center py-2">Error: ' + e.message + '</p>';
+  }
 }
 
 async function handleMemberBorrowSubmit(templateId, isSerialized) {
   const form = document.getElementById("member-borrow-form");
   const fd = new FormData(form);
-  const body = { loan_date: fd.get("loan_date"), due_date: fd.get("due_date") };
-  if (isSerialized) body.unit_id = fd.get("unit_id");
-  else { body.template_id = templateId; body.quantity = parseInt(fd.get("quantity"), 10); }
+  
+  // Build payload with borrow_start and borrow_end (timestamps)
+  const borrowStart = fd.get("borrow_start");
+  const borrowEnd = fd.get("borrow_end");
+  
+  if (!borrowStart || !borrowEnd) {
+    notifyError("Waktu mulai dan selesai harus diisi");
+    return;
+  }
+  
+  // Add timezone
+  const body = { 
+    borrow_start: borrowStart + ":00+07:00", 
+    borrow_end: borrowEnd + ":00+07:00" 
+  };
+  
+  if (isSerialized) {
+    body.unit_id = fd.get("unit_id");
+  } else { 
+    body.template_id = templateId; 
+    body.quantity = parseInt(fd.get("quantity"), 10); 
+  }
+  
+  // Disable button during submission
+  const confirmBtn = document.getElementById("global-modal-confirm");
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Mengajukan...';
+  }
+  
   try {
     const token = localStorage.getItem("authToken");
-    const res = await fetch("/api/member?resource=inventory", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
-    if (!res.ok) throw new Error((await res.json()).error);
-    closeGlobalModal(); notifySuccess("Permintaan peminjaman berhasil!"); await renderBarangMemberView();
-  } catch (e) { notifyError(e.message); }
+    const res = await fetch("/api/member?resource=inventory", { 
+      method: "POST", 
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, 
+      body: JSON.stringify(body) 
+    });
+    
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.error || "Gagal mengajukan peminjaman");
+    }
+    
+    closeGlobalModal(); 
+    notifySuccess("Permintaan peminjaman berhasil diajukan!"); 
+    await renderBarangMemberView();
+  } catch (e) { 
+    notifyError(e.message);
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = 'Ajukan';
+    }
+  }
 }
 
 window.loadBarangPage = loadBarangPage;
